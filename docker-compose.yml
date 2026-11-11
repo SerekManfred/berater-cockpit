@@ -1,7 +1,7 @@
 name: berater-cockpit
 
 services:
-  web:
+  cockpit-web:
     build: { context: ., dockerfile: web/Dockerfile }
     container_name: cockpit-web          # unter diesem Namen erreicht der zentrale Caddy das Cockpit
     restart: unless-stopped
@@ -9,16 +9,16 @@ services:
       COCKPIT_USER: ${COCKPIT_USER}
       COCKPIT_PASS_HASH: ${COCKPIT_PASS_HASH}
     networks: [default, cockpit-proxy]   # kein eigener Port nach außen; Zugriff nur über den zentralen Caddy
-    depends_on: [api]
+    depends_on: [cockpit-api]
 
-  api:
+  cockpit-api:
     build: { context: ./backend }
     restart: unless-stopped
     environment:
-      DATABASE_URL: postgresql://cockpit:${DB_PASSWORD}@db:5432/cockpit
-    depends_on: [db]
+      DATABASE_URL: postgresql://cockpit:${DB_PASSWORD}@cockpit-db:5432/cockpit
+    depends_on: [cockpit-db]
 
-  db:   # wird ab Phase 1 genutzt (Projekte, Konditionen-Versionen, Protokolle)
+  cockpit-db:   # wird ab Phase 1 genutzt (Projekte, Konditionen-Versionen, Protokolle)
     image: postgres:16-alpine
     restart: unless-stopped
     environment:
@@ -37,7 +37,7 @@ services:
     volumes:
       - ./web/Caddyfile.tls:/etc/caddy/Caddyfile:ro
       - caddy-daten:/data
-    depends_on: [web]
+    depends_on: [cockpit-web]
 
 networks:
   cockpit-proxy:

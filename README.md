@@ -59,6 +59,12 @@ docker exec schulung-caddy-1 caddy validate --config /etc/caddy/Caddyfile
 docker exec schulung-caddy-1 caddy reload --config /etc/caddy/Caddyfile
 ```
 
+**Dienstnamen nur mit Präfix `cockpit-`.** Alle Dienste in `docker-compose.yml` heißen `cockpit-…` (`cockpit-web`,
+`cockpit-api`, `cockpit-db`). Docker trägt den Dienstnamen in jedem Netz, an dem ein Container hängt, als DNS-Namen ein –
+auch in `cockpit-proxy`. Ein allgemeiner Name wie `web` hat dort schon einmal den gleichnamigen Dienst der Schulung
+überdeckt (502). Neue Dienste daher immer mit `cockpit-` benennen und nach Änderungen prüfen:
+`docker network inspect cockpit-proxy` darf nur Namen mit `cockpit-` (und `schulung-caddy-1`) zeigen.
+
 Kontrolle: `https://schulung.mybase-test.de` und `https://ir-planer.mybase-test.de` laufen weiter,
 `https://cockpit.mybase-test.de` fragt nach dem Passwort.
 

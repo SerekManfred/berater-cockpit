@@ -1,4 +1,4 @@
 # Variante B: eigener TLS-Proxy (nur wenn auf dem Server noch kein Reverse Proxy läuft)
 cockpit.mybase-test.de {
-	reverse_proxy web:80
+	reverse_proxy cockpit-web:80
 }
