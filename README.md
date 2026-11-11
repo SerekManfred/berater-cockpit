@@ -17,7 +17,9 @@ cd /home/dev/berater-cockpit
 cp .env.example .env
 docker run --rm caddy:2-alpine caddy hash-password --plaintext 'IhrSicheresPasswort'
 nano .env      # Hash eintragen (jedes $ als $$), DB_PASSWORD setzen
+openssl rand -hex 32   # Ergebnis als SECRET_KEY in die .env (Sitzungen + 2FA-Verschlüsselung)
 ```
+`SECRET_KEY` nicht nachträglich ändern: Sonst sind alle Sitzungen beendet und jeder muss die Authenticator-App neu einrichten.
 
 ## 4. Netz anlegen und starten
 ```bash
@@ -72,17 +74,37 @@ Kontrolle: `https://schulung.mybase-test.de` und `https://ir-planer.mybase-test.
 `docker exec schulung-caddy-1 caddy reload --config /etc/caddy/Caddyfile`, danach
 `docker network disconnect cockpit-proxy schulung-caddy-1`.
 
-## 6. Testen
+## 6. Erstes Admin-Konto anlegen
+Die Tabellen legt die API beim Start selbst an (Alembic-Migrationen). Danach einmalig:
+```bash
+docker compose exec cockpit-api python -m app.cli admin-anlegen
+```
+Abgefragt werden E-Mail-Adresse, Name und Passwort (mindestens 12 Zeichen, verdeckte Eingabe, zweimal).
+Dann `https://cockpit.mybase-test.de` öffnen: erst Basic Auth (gemeinsamer Zugang), dann Anmeldung mit dem
+Admin-Konto. Beim ersten Login den QR-Code mit einer Authenticator-App scannen und den Code eingeben.
+Alle weiteren Konten legt der Admin unter „Benutzer“ an; das Startpasswort wird einmalig angezeigt
+und muss beim ersten Login geändert werden.
+
+**Admin ausgesperrt?** (z. B. Handy verloren) Ein zweites Admin-Konto setzt die 2FA zurück. Gibt es keins,
+mit `admin-anlegen` ein neues Admin-Konto anlegen und damit das alte zurücksetzen.
+
+Rollen: **Admin** (alles, Benutzerverwaltung, Protokoll) · **Berater** (Projekte, Berichte, Berechnungen) ·
+**Verwaltung** (Projekte anlegen, Uploads; keine Berechnung, keine Konditionen-Pflege). Kombinierbar; geprüft wird im Backend.
+
+## 7. Testen
 „Fördervergleich EM/EH“ → „Referenzfall MFH-Umnutzung (6 WE) laden“ → „Berechnen“.
 Erwartet: Zuschüsse gesamt **163.600 € / 169.155 € / 144.355 € / 173.065 €**.
 
 ## Lokal entwickeln
 ```bash
-cd backend && pip install -r requirements.txt && python -m pytest -q && uvicorn app.main:app --reload
+cd backend && pip install -r requirements.txt && python -m pytest -q   # Tests nutzen eine eigene SQLite-Datei
+# API lokal: DATABASE_URL und SECRET_KEY setzen, dann:  alembic upgrade head && uvicorn app.main:app --reload
 cd frontend && npm install && npm run dev      # http://localhost:5173
 ```
 
 ## Aktualisieren
 ```bash
-cd /home/dev/berater-cockpit && git pull && docker compose up -d --build
+cd /home/dev/berater-cockpit && git pull && docker compose build --no-cache cockpit-api && docker compose up -d --build
 ```
+`--no-cache` für die API, damit pytest beim Bauen wirklich läuft. Neue Tabellen oder Spalten nur über eine neue
+Alembic-Migration in `backend/alembic/versions/` – nie von Hand in der Datenbank.

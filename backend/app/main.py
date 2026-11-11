@@ -1,14 +1,28 @@
 """Berater-Cockpit – API (Phase 0/1)."""
 import json
+from contextlib import asynccontextmanager
 from pathlib import Path
 
-from fastapi import FastAPI, HTTPException
+from fastapi import Depends, FastAPI, HTTPException
 from pydantic import BaseModel, Field
 
+from app import auth, benutzer_api
+from app.auth import aktueller_benutzer, rolle
 from app.rechenkern.foerdervergleich import Eingaben, Massnahme, vergleich
+from app.sicherheit import schluessel_pruefen
 
 KOND_DIR = Path(__file__).parent / "konditionen"
-app = FastAPI(title="Berater-Cockpit API", version="0.1.0", root_path="/api")
+
+
+@asynccontextmanager
+async def lebenszyklus(app):
+    schluessel_pruefen()  # ohne SECRET_KEY startet die API nicht
+    yield
+
+
+app = FastAPI(title="Berater-Cockpit API", version="0.2.0", root_path="/api", lifespan=lebenszyklus)
+app.include_router(auth.router)
+app.include_router(benutzer_api.router)
 
 
 def lade_konditionen(version: int | None = None) -> dict:
@@ -49,12 +63,12 @@ def health():
     return {"status": "ok"}
 
 
-@app.get("/konditionen")
+@app.get("/konditionen", dependencies=[Depends(aktueller_benutzer)])
 def konditionen():
     return lade_konditionen()
 
 
-@app.get("/module")
+@app.get("/module", dependencies=[Depends(aktueller_benutzer)])
 def module():
     return [
         {"id": "foerderung-em-eh", "titel": "Fördervergleich EM/EH", "ci": "Serek", "status": "aktiv"},
@@ -64,7 +78,7 @@ def module():
     ]
 
 
-@app.post("/module/foerderung-em-eh/berechnen")
+@app.post("/module/foerderung-em-eh/berechnen", dependencies=[Depends(rolle("berater"))])
 def berechnen(daten: FoerdervergleichIn):
     kond = lade_konditionen(daten.konditionen_version)
     if daten.eh_stufe not in kond["beg_wg"]["tilgungszuschuss"]:

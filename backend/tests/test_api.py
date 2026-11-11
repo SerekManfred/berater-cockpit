@@ -1,8 +1,13 @@
+from types import SimpleNamespace
+
 from fastapi.testclient import TestClient
 
+from app.auth import aktueller_benutzer
 from app.main import app
 
-client = TestClient(app)
+client = TestClient(app, base_url="https://testserver")
+# Die Rechen-Tests laufen als angemeldeter Berater; Anmeldung selbst prüft test_anmeldung.py.
+BERATER = SimpleNamespace(id=0, rollen=["berater"], muss_passwort_aendern=False)
 
 REFERENZFALL = {
     "we_nach_sanierung": 6, "we_neu": 4, "kfw266": True, "umbaukosten_neue_we": 420000,
@@ -17,6 +22,14 @@ REFERENZFALL = {
         {"name": "Brauchwasser-WP", "kosten": 27000, "em_kategorie": "nicht_foerderfaehig"},
     ],
 }
+
+
+def setup_module():
+    app.dependency_overrides[aktueller_benutzer] = lambda: BERATER
+
+
+def teardown_module():
+    app.dependency_overrides.pop(aktueller_benutzer, None)
 
 
 def test_health():

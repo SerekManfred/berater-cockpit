@@ -1,4 +1,7 @@
-import React, { useEffect, useState } from "react";
+import React, { useCallback, useEffect, useState } from "react";
+import { ABGEMELDET, api, hatRolle, rollenText } from "./api.js";
+import { Anmeldung, PasswortFormular, PasswortPflicht, ZweiFaktor, ZweiFaktorEinrichten } from "./Anmeldung.jsx";
+import { Benutzerverwaltung, Protokoll } from "./Benutzer.jsx";
 
 const eur = n => (n ?? 0).toLocaleString("de-DE", { maximumFractionDigits: 0 }) + " €";
 const pct = n => ((n ?? 0) * 100).toLocaleString("de-DE", { minimumFractionDigits: 1, maximumFractionDigits: 1 }) + " %";
@@ -25,39 +28,76 @@ const LEER = { ...BEISPIEL_REFERENZFALL, we_nach_sanierung: 1, we_neu: 0, umbauk
   massnahmen: [{ name: "", kosten: 0, em_kategorie: "daemmung", eh_foerderfaehig: true }] };
 
 export default function App() {
+  const [ich, setIch] = useState(undefined); // undefined = lädt, null = nicht angemeldet
+  const [hinweis, setHinweis] = useState("");
+  const laden = useCallback(() => api("/auth/ich").then(setIch).catch(() => setIch(null)), []);
+  const abmelden = useCallback(async (text = "") => {
+    try { await api("/auth/abmelden", { method: "POST" }); } catch { /* ohnehin abgemeldet */ }
+    setHinweis(typeof text === "string" ? text : ""); setIch(null);
+  }, []);
+  useEffect(() => {
+    laden();
+    const weg = () => { setHinweis("Die Sitzung ist abgelaufen. Bitte neu anmelden."); setIch(null); };
+    window.addEventListener(ABGEMELDET, weg);
+    return () => window.removeEventListener(ABGEMELDET, weg);
+  }, [laden]);
+  const weiter = () => { setHinweis(""); laden(); };
+
+  if (ich === undefined) return <p style={{ padding: 24 }}>Lade …</p>;
+  if (!ich) return <Anmeldung key={hinweis} hinweis={hinweis} onWeiter={weiter} />;
+  if (ich.stufe === "2fa_einrichten") return <ZweiFaktorEinrichten onWeiter={weiter} onAbbrechen={abmelden} />;
+  if (ich.stufe === "2fa") return <ZweiFaktor onWeiter={weiter} onAbbrechen={abmelden} />;
+  if (ich.stufe === "passwort_aendern") return <PasswortPflicht onWeiter={weiter} onAbbrechen={abmelden} />;
+  return <Cockpit ich={ich.benutzer} onAbmelden={() => abmelden()} />;
+}
+
+function Cockpit({ ich, onAbmelden }) {
   const [ansicht, setAnsicht] = useState("start");
-  const nav = [["start", "Start"], ["foerderung", "Fördervergleich EM/EH"], ["konditionen", "Förderkonditionen"]];
+  const nav = [
+    ["start", "Start", true],
+    ["foerderung", "Fördervergleich EM/EH", hatRolle(ich, "berater")],
+    ["konditionen", "Förderkonditionen", true],
+    ["benutzer", "Benutzer", hatRolle(ich)],
+    ["protokoll", "Protokoll", hatRolle(ich)],
+  ].filter(([, , sichtbar]) => sichtbar);
   return (
     <>
       <header>
         <img src="/logo.jpg" alt="Energieberatung Manfred Serek GmbH" />
         <div className="titel">Berater-Cockpit</div>
-        <div className="klein" style={{ marginLeft: "auto" }}>Testsystem · Phase 1</div>
+        <div className="kopf-rechts">
+          <span className="klein"><strong>{ich.name}</strong> · {rollenText(ich.rollen)}</span>
+          <button className="btn2" onClick={() => setAnsicht("passwort")}>Passwort ändern</button>
+          <button className="btn2" onClick={onAbmelden}>Abmelden</button>
+        </div>
       </header>
       <div className="layout">
         <nav aria-label="Hauptnavigation">
-          {nav.map(([id, t]) => <button key={id} className={ansicht === id ? "aktiv" : ""} onClick={() => setAnsicht(id)}>{t}</button>)}
+          {nav.map(([id, t]) => <button key={id} className={ansicht === id ? "aktiv" : ""} aria-current={ansicht === id ? "page" : undefined} onClick={() => setAnsicht(id)}>{t}</button>)}
         </nav>
         <main>
-          {ansicht === "start" && <Start onOpen={setAnsicht} />}
+          {ansicht === "start" && <Start onOpen={setAnsicht} darfRechnen={hatRolle(ich, "berater")} />}
           {ansicht === "foerderung" && <Foerdervergleich />}
           {ansicht === "konditionen" && <Konditionen />}
+          {ansicht === "benutzer" && <Benutzerverwaltung ich={ich} />}
+          {ansicht === "protokoll" && <Protokoll />}
+          {ansicht === "passwort" && <><h1>Passwort ändern</h1><section className="karte" style={{ maxWidth: 520 }}><PasswortFormular /></section></>}
         </main>
       </div>
     </>
   );
 }
 
-function Start({ onOpen }) {
+function Start({ onOpen, darfRechnen }) {
   const [module, setModule] = useState([]);
-  useEffect(() => { fetch("/api/module").then(r => r.json()).then(setModule).catch(() => setModule([])); }, []);
+  useEffect(() => { api("/module").then(setModule).catch(() => setModule([])); }, []);
   return (
     <>
       <h1>Neuer Bericht</h1>
       <p className="hinweis">Berichtsart wählen. Weitere Module werden nach und nach freigeschaltet.</p>
       <div className="kacheln">
         {module.map(m => (
-          <button key={m.id} className="kachel" disabled={m.status !== "aktiv"} onClick={() => onOpen("foerderung")}>
+          <button key={m.id} className="kachel" disabled={m.status !== "aktiv" || !darfRechnen} onClick={() => onOpen("foerderung")}>
             <span className="s">CI {m.ci} · {m.status === "aktiv" ? "verfügbar" : "in Vorbereitung"}</span>
             <span className="t">{m.titel}</span>
           </button>
@@ -81,9 +121,7 @@ function Foerdervergleich() {
   async function berechnen() {
     setFehler(""); setErg(null);
     try {
-      const r = await fetch("/api/module/foerderung-em-eh/berechnen", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(d) });
-      if (!r.ok) throw new Error((await r.json()).detail?.toString() || r.statusText);
-      setErg(await r.json());
+      setErg(await api("/module/foerderung-em-eh/berechnen", { method: "POST", body: d }));
     } catch (e) { setFehler("Berechnung nicht möglich: " + e.message); }
   }
 
@@ -188,7 +226,7 @@ function Ergebnis({ erg }) {
 
 function Konditionen() {
   const [k, setK] = useState(null);
-  useEffect(() => { fetch("/api/konditionen").then(r => r.json()).then(setK).catch(() => setK(null)); }, []);
+  useEffect(() => { api("/konditionen").then(setK).catch(() => setK(null)); }, []);
   if (!k) return <p>Lade Konditionen …</p>;
   const prog = [["beg_em", "BEG EM Hülle/Anlagentechnik"], ["isfp_beratung", "BAFA Energieberatung (iSFP)"], ["beg_wg", "BEG WG / KfW 261"], ["kfw_266", "KfW 266"]];
   return (

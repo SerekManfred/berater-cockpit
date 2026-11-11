@@ -17,7 +17,10 @@ Ausführliches Fachkonzept: `docs/Konzept_Berater-Cockpit.docx` (falls abgelegt)
 - `frontend/` – React (Vite), CI-Farben in `src/styles.css`
 - `backend/` – FastAPI (Python 3.12). Rechenkerne unter `app/rechenkern/`, Konditionen unter `app/konditionen/`
 - `web/` – Caddy: liefert die Oberfläche aus, leitet `/api/*` an das Backend
-- `db` – PostgreSQL 16 (ab Phase 1 für Projekte, Konditionen-Versionen, Protokolle)
+- `cockpit-db` – PostgreSQL 16 (Benutzer, Sitzungen, Protokoll; ab Phase 1 Projekte, Konditionen-Versionen).
+  Schema nur über Alembic-Migrationen (`backend/alembic/versions/`), keine Tabellen ohne Migration. Tests laufen gegen SQLite.
+- Anmeldung: `app/auth.py` (Sitzung, 2FA, Rollenprüfung per `Depends(rolle(...))` an jeder Route), `app/benutzer_api.py`
+  (nur Admin). Neue Routen immer mit `aktueller_benutzer` oder `rolle(...)` schützen.
 - Später: Redis + Worker für lange Jobs (KI, Word-Erzeugung), Node-Container für die Word-Generatoren
 - Betrieb mit Docker Compose. Test: `cockpit.mybase-test.de` (Hostinger-VServer, Ordner `/home/dev/berater-cockpit`). TLS und Weiterleitung macht der zentrale Caddy der Schulungsplattform (`/opt/schulung`) über das Netz `cockpit-proxy` an `cockpit-web:80`. Änderungen unter `/opt/schulung` nur mit ausdrücklicher Freigabe; freigegeben (11.11.2026) sind nur der Site-Block `cockpit.mybase-test.de` im Caddyfile und der Anschluss von `schulung-caddy-1` an das Netz `cockpit-proxy` – immer per `docker network connect`, Anhängen, `caddy validate` und `caddy reload`, nie `docker compose up` oder Neustart des Caddy (siehe README Schritt 5). Produktion später: HostEurope.
 
@@ -39,8 +42,9 @@ Jede Berichtsart ist ein Modul mit Beschreibung unter `modules/<id>/module.yaml`
 Fachregeln, Rechenkern, Generator. Die Oberfläche soll Masken aus dieser Beschreibung erzeugen. Neue Berichtsart = neues Modul, kein Umbau.
 
 ## Phasenplan
-- **Phase 0 (jetzt):** Grundgerüst läuft auf `cockpit.mybase-test.de` mit Basic Auth. Danach: eigene Anmeldung (Admin legt Konten an,
-  Rollen Admin/Berater/Verwaltung, kombinierbar, 2. Faktor), Projektakte, Datei-Upload.
+- **Phase 0 (jetzt):** Grundgerüst läuft auf `cockpit.mybase-test.de` mit Basic Auth. Eigene Anmeldung ist umgesetzt (Teilauftrag 1:
+  Konten nur durch Admin, Rollen admin/berater/verwaltung kombinierbar, TOTP-Pflicht, serverseitige Sitzung, Protokoll);
+  Basic Auth bleibt zusätzlich aktiv, bis sie nach erfolgreichem Test in Teilauftrag 3 entfernt wird. Danach: Projektakte, Datei-Upload.
 - **Phase 1:** Konditionen in PostgreSQL mit Versionen und Vier-Augen-Freigabe; Modul Fördervergleich komplett inkl. Word-Ausgabe im CI
   (Gliederung wie Skill `foerderung-em-eh`, Kapitel 9 „Fördervergleich auf einen Blick“ ist Pflicht).
 - **Phase 2:** INIT und MEH mit KI (Checklisten-Erkennung, Fotozuordnung) – vorhandene Generatoren `generate_report.js` aus den Skills einbinden.

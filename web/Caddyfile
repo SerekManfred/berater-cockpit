@@ -2,10 +2,15 @@
 # TLS übernimmt der Reverse Proxy des Servers (siehe README, Variante A oder B).
 {
 	auto_https off
+	servers {
+		# Vorgeschalteter zentraler Caddy (Docker-Netz): echte Client-IP für das Anmelde-Protokoll übernehmen
+		trusted_proxies static private_ranges
+	}
 }
 
 :80 {
-	# Zugangsschutz für das Testsystem, bis die eigene Anmeldung (Phase 0) fertig ist
+	# Gemeinsamer Zugangsschutz des Testsystems – bleibt zusätzlich zur eigenen Anmeldung,
+	# bis diese getestet ist (Entfernen in Teilauftrag 3)
 	basic_auth {
 		{$COCKPIT_USER} {$COCKPIT_PASS_HASH}
 	}

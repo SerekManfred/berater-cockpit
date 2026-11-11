@@ -3,7 +3,8 @@ WORKDIR /srv
 COPY requirements.txt .
 RUN pip install --no-cache-dir -r requirements.txt
 COPY . .
-# Tests laufen beim Bauen: ein fehlerhafter Rechenkern wird gar nicht erst ausgeliefert
-RUN python -m pytest -q
+# Tests laufen beim Bauen (gegen eine Wegwerf-SQLite-Datenbank): Fehler werden gar nicht erst ausgeliefert
+RUN python -m pytest -q -p no:cacheprovider && rm -rf /tmp/cockpit-test-*
 USER nobody
-CMD ["uvicorn", "app.main:app", "--host", "0.0.0.0", "--port", "8000"]
+# Beim Start zuerst die Migrationen, dann die API
+CMD ["sh", "-c", "alembic upgrade head && exec uvicorn app.main:app --host 0.0.0.0 --port 8000"]

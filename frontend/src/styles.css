@@ -42,3 +42,32 @@ td.beste { background: var(--gold-l); }
 .info { background: var(--gold-l); border-radius: 8px; padding: 12px 14px; font-size: 13px; margin-top: 12px; }
 td input, td select { min-height: 38px; padding: 6px 10px; }
 .klein { font-size: 12px; color: var(--grau); }
+
+/* Anmeldung */
+.anmelde-seite { min-height: 100vh; display: flex; align-items: flex-start; justify-content: center; padding: 48px 16px; background: var(--grau-l); }
+.anmelde-karte { width: 100%; max-width: 440px; background: #fff; border: 1px solid var(--rand); border-top: 4px solid var(--gold); border-radius: 12px; padding: 28px; flex: none; }
+.anmelde-logo { height: 64px; max-width: 100%; display: block; margin-bottom: 10px; }
+.anmelde-karte .titel { font-size: 15px; font-weight: bold; color: var(--anth); margin-bottom: 18px; }
+.anmelde-karte h1 { font-size: 22px; margin-bottom: 14px; }
+.formular { display: flex; flex-direction: column; gap: 14px; margin-bottom: 14px; }
+.formular label { font-size: 13px; }
+.formular .fehler, .formular .aktionen { margin-top: 0; }
+.schritte { font-size: 14px; padding-left: 20px; margin: 0 0 14px; line-height: 1.5; }
+.qr { display: block; width: 220px; height: 220px; margin: 0 auto 10px; background: #fff; }
+.geheimnis { font-size: 15px; letter-spacing: 1px; word-break: break-all; }
+details summary { cursor: pointer; min-height: 44px; display: flex; align-items: center; }
+.erfolg { background: var(--gruen-l); color: var(--gruen); border-radius: 8px; padding: 12px 14px; font-size: 14px; }
+.btn:disabled, .btn2:disabled { opacity: .55; cursor: default; }
+
+/* Kopfzeile und Benutzerverwaltung */
+.kopf-rechts { margin-left: auto; display: flex; align-items: center; gap: 10px; flex-wrap: wrap; }
+fieldset.rollen { border: 0; padding: 0; margin: 14px 0 0; display: flex; flex-wrap: wrap; gap: 6px 22px; }
+fieldset.rollen legend { font-size: 12px; font-weight: bold; color: var(--anth); margin-bottom: 4px; padding: 0; }
+fieldset.rollen label { flex-direction: row; align-items: center; min-height: 44px; font-weight: normal; font-size: 14px; color: var(--text); cursor: pointer; }
+fieldset.rollen input { width: 22px; min-height: 22px; }
+.startpw { background: var(--gold-l); border: 1px solid var(--gold); border-radius: 12px; padding: 16px 18px; margin-bottom: 18px; font-size: 14px; }
+.startpw code { display: block; font-size: 22px; letter-spacing: 2px; margin: 10px 0; user-select: all; }
+.startpw p { margin: 0 0 12px; }
+tr.gewaehlt td { background: var(--gold-l); }
+td.details { font-size: 12px; color: var(--grau); max-width: 420px; word-break: break-word; }
+.sr { position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0 0 0 0); white-space: nowrap; }

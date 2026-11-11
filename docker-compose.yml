@@ -16,9 +16,11 @@ services:
     restart: unless-stopped
     environment:
       DATABASE_URL: postgresql://cockpit:${DB_PASSWORD}@cockpit-db:5432/cockpit
-    depends_on: [cockpit-db]
+      SECRET_KEY: ${SECRET_KEY:?SECRET_KEY fehlt in der .env}   # Sitzungen und Verschlüsselung des 2FA-Geheimnisses
+    depends_on:
+      cockpit-db: { condition: service_healthy }   # Migrationen laufen beim Start der API
 
-  cockpit-db:   # wird ab Phase 1 genutzt (Projekte, Konditionen-Versionen, Protokolle)
+  cockpit-db:   # Benutzer, Sitzungen, Protokoll; ab Phase 1 auch Projekte und Konditionen-Versionen
     image: postgres:16-alpine
     restart: unless-stopped
     environment:
@@ -27,6 +29,11 @@ services:
       POSTGRES_PASSWORD: ${DB_PASSWORD}
     volumes:
       - db-daten:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U cockpit -d cockpit"]
+      interval: 5s
+      timeout: 3s
+      retries: 20
 
   # Nur Variante B: Server hat noch keinen Reverse Proxy -> dieser Caddy holt das TLS-Zertifikat
   proxy:
