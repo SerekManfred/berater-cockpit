@@ -37,7 +37,7 @@ export function Anmeldung({ onWeiter, hinweis = "" }) {
         <Fehler text={fehler} />
         <button className="btn" type="submit" disabled={laeuft}>{laeuft ? "Prüfe …" : "Weiter"}</button>
       </form>
-      <p className="klein">Konten legt die Verwaltung an. Passwort vergessen? Bitte an einen Admin wenden.</p>
+      <p className="klein">Konten legt ein Administrator an. Passwort vergessen? Bitte an einen Administrator wenden.</p>
     </Karte>
   );
 }

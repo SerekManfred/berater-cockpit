@@ -123,14 +123,19 @@ def _gesperrt(b: Benutzer) -> bool:
     return b.gesperrt_bis is not None and b.gesperrt_bis > jetzt()
 
 
-def _anmeldung_abschliessen(db: Session, request: Request, response: Response, s: Sitzung, b: Benutzer):
-    """Zweiter Faktor bestätigt: Zähler zurücksetzen, Sitzung mit neuem Token weiterführen."""
+def _anmeldung_abschliessen(db: Session, request: Request, response: Response, s: Sitzung | None, b: Benutzer,
+                            ohne_zweiten_faktor: bool = False):
+    """Zweiter Faktor bestätigt (oder abgeschaltet): Zähler zurücksetzen, Sitzung mit neuem Token weiterführen."""
     b.fehlversuche = 0
     b.gesperrt_bis = None
     b.letzter_login = jetzt()
-    db.delete(s)
+    if s is not None:
+        db.delete(s)
     _sitzung_anlegen(db, request, response, b, zweiter_faktor_ok=True)
-    protokollieren(db, request, "login", b.id)
+    if ohne_zweiten_faktor:
+        protokollieren(db, request, "login", b.id, zweiter_faktor="abgeschaltet")
+    else:
+        protokollieren(db, request, "login", b.id)
     db.commit()
 
 
@@ -183,6 +188,10 @@ def anmelden(daten: AnmeldungIn, request: Request, response: Response, db: Sessi
         protokollieren(db, request, "login_abgelehnt", b.id, grund="konto_deaktiviert")
         db.commit()
         raise HTTPException(403, "Das Konto ist deaktiviert. Bitte an die Verwaltung wenden.")
+    if not config.ZWEI_FAKTOR_PFLICHT:
+        # Entwicklungsmodus: keine 2FA-Einrichtung und keine Code-Abfrage, Anmeldung sofort abschließen
+        _anmeldung_abschliessen(db, request, response, None, b, ohne_zweiten_faktor=True)
+        return {"stufe": "passwort_aendern" if b.muss_passwort_aendern else "angemeldet"}
     s = _sitzung_anlegen(db, request, response, b, zweiter_faktor_ok=False)
     db.commit()
     return {"stufe": _stufe(s, b)}

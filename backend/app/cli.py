@@ -39,7 +39,10 @@ def admin_anlegen() -> int:
         db.flush()
         protokollieren(db, None, "benutzer_angelegt", None, ziel=b.id, email=email, rollen=["admin"], quelle="kommandozeile")
         db.commit()
-    print(f"Admin-Konto für {email} angelegt. Beim ersten Login wird der zweite Faktor (App-Code) eingerichtet.")
+    if config.ZWEI_FAKTOR_PFLICHT:
+        print(f"Admin-Konto für {email} angelegt. Beim ersten Login wird der zweite Faktor (App-Code) eingerichtet.")
+    else:
+        print(f"Admin-Konto für {email} angelegt. Der zweite Faktor ist derzeit abgeschaltet (ZWEI_FAKTOR_PFLICHT=false).")
     return 0
 
 

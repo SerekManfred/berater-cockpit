@@ -21,6 +21,9 @@ openssl rand -hex 32   # Ergebnis als SECRET_KEY in die .env (Sitzungen + 2FA-Ve
 ```
 `SECRET_KEY` nicht nachträglich ändern: Sonst sind alle Sitzungen beendet und jeder muss die Authenticator-App neu einrichten.
 
+`ZWEI_FAKTOR_PFLICHT=false` schaltet den zweiten Faktor während der Entwicklung ab (kein QR-Code, keine Code-Abfrage).
+Ohne Eintrag gilt `true`. Vor dem Produktivstart zwingend `true` – siehe CLAUDE.md, „Vor Produktivstart“.
+
 ## 4. Netz anlegen und starten
 ```bash
 docker network create cockpit-proxy
@@ -81,7 +84,8 @@ docker compose exec cockpit-api python -m app.cli admin-anlegen
 ```
 Abgefragt werden E-Mail-Adresse, Name und Passwort (mindestens 12 Zeichen, verdeckte Eingabe, zweimal).
 Dann `https://cockpit.mybase-test.de` öffnen: erst Basic Auth (gemeinsamer Zugang), dann Anmeldung mit dem
-Admin-Konto. Beim ersten Login den QR-Code mit einer Authenticator-App scannen und den Code eingeben.
+Admin-Konto. Mit `ZWEI_FAKTOR_PFLICHT=true` beim ersten Login den QR-Code mit einer Authenticator-App scannen
+und den Code eingeben; mit `false` (Entwicklung) entfällt dieser Schritt.
 Alle weiteren Konten legt der Admin unter „Benutzer“ an; das Startpasswort wird einmalig angezeigt
 und muss beim ersten Login geändert werden.
 

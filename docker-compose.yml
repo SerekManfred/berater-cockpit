@@ -17,6 +17,7 @@ services:
     environment:
       DATABASE_URL: postgresql://cockpit:${DB_PASSWORD}@cockpit-db:5432/cockpit
       SECRET_KEY: ${SECRET_KEY:?SECRET_KEY fehlt in der .env}   # Sitzungen und Verschlüsselung des 2FA-Geheimnisses
+      ZWEI_FAKTOR_PFLICHT: ${ZWEI_FAKTOR_PFLICHT:-true}         # nur in der Entwicklung false
     depends_on:
       cockpit-db: { condition: service_healthy }   # Migrationen laufen beim Start der API
 
