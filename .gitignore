@@ -1,0 +1,15 @@
+.env
+node_modules/
+frontend/dist/
+__pycache__/
+.pytest_cache/
+*.pyc
+# ergänzt bei der Einrichtung: alle .env-Varianten außer der Vorlage, Laufzeitdaten
+.env.*
+!.env.example
+*.log
+*.sql
+*.dump
+uploads/
+# Konzept-Dokument bleibt außerhalb des Repositorys (enthält Kundenbezug)
+docs/*.docx

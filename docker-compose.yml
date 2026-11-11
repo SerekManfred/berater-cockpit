@@ -1,0 +1,48 @@
+name: berater-cockpit
+
+services:
+  web:
+    build: { context: ., dockerfile: web/Dockerfile }
+    container_name: cockpit-web          # unter diesem Namen erreicht der zentrale Caddy das Cockpit
+    restart: unless-stopped
+    environment:
+      COCKPIT_USER: ${COCKPIT_USER}
+      COCKPIT_PASS_HASH: ${COCKPIT_PASS_HASH}
+    networks: [default, cockpit-proxy]   # kein eigener Port nach außen; Zugriff nur über den zentralen Caddy
+    depends_on: [api]
+
+  api:
+    build: { context: ./backend }
+    restart: unless-stopped
+    environment:
+      DATABASE_URL: postgresql://cockpit:${DB_PASSWORD}@db:5432/cockpit
+    depends_on: [db]
+
+  db:   # wird ab Phase 1 genutzt (Projekte, Konditionen-Versionen, Protokolle)
+    image: postgres:16-alpine
+    restart: unless-stopped
+    environment:
+      POSTGRES_DB: cockpit
+      POSTGRES_USER: cockpit
+      POSTGRES_PASSWORD: ${DB_PASSWORD}
+    volumes:
+      - db-daten:/var/lib/postgresql/data
+
+  # Nur Variante B: Server hat noch keinen Reverse Proxy -> dieser Caddy holt das TLS-Zertifikat
+  proxy:
+    image: caddy:2-alpine
+    profiles: ["tls"]
+    restart: unless-stopped
+    ports: ["80:80", "443:443"]
+    volumes:
+      - ./web/Caddyfile.tls:/etc/caddy/Caddyfile:ro
+      - caddy-daten:/data
+    depends_on: [web]
+
+networks:
+  cockpit-proxy:
+    external: true     # vorher anlegen: docker network create cockpit-proxy
+
+volumes:
+  db-daten:
+  caddy-daten:

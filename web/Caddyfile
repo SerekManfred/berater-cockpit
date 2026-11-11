@@ -1,0 +1,28 @@
+# Interner Webserver des Cockpits (nur HTTP, Port 80 im Container).
+# TLS übernimmt der Reverse Proxy des Servers (siehe README, Variante A oder B).
+{
+	auto_https off
+}
+
+:80 {
+	# Zugangsschutz für das Testsystem, bis die eigene Anmeldung (Phase 0) fertig ist
+	basic_auth {
+		{$COCKPIT_USER} {$COCKPIT_PASS_HASH}
+	}
+
+	handle_path /api/* {
+		reverse_proxy api:8000
+	}
+
+	handle {
+		root * /srv
+		try_files {path} /index.html
+		file_server
+	}
+
+	header {
+		X-Content-Type-Options nosniff
+		X-Frame-Options DENY
+		Referrer-Policy strict-origin-when-cross-origin
+	}
+}

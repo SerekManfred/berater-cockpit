@@ -1,0 +1,44 @@
+/* CI Energieberatung Manfred Serek: Anthrazit 50505A, Gold E0A848, Goldhell F6EAD2, Arial */
+:root { --anth: #50505A; --anth-d: #3C3C44; --gold: #E0A848; --gold-l: #F6EAD2; --grau: #5A5A64; --grau-l: #F2F2F4; --rand: #DADAE0; --text: #2F2F36; --gruen: #1F5C39; --gruen-l: #E6F2EA; --rot: #8E2A20; --rot-l: #FBE9E7; }
+* { box-sizing: border-box; }
+body { margin: 0; font-family: Arial, Helvetica, sans-serif; color: var(--text); background: var(--grau-l); }
+header { background: #fff; border-bottom: 3px solid var(--gold); padding: 10px 24px; display: flex; align-items: center; gap: 20px; flex-wrap: wrap; }
+header img { height: 44px; }
+header .titel { font-size: 18px; font-weight: bold; color: var(--anth); }
+.layout { display: flex; flex-wrap: wrap; min-height: calc(100vh - 67px); }
+nav { flex: 1 1 220px; max-width: 260px; background: #fff; border-right: 1px solid var(--rand); padding: 16px 12px; display: flex; flex-direction: column; gap: 4px; }
+nav button { font: inherit; font-size: 14px; text-align: left; border: 0; border-radius: 8px; padding: 12px 14px; min-height: 44px; cursor: pointer; background: transparent; color: var(--text); }
+nav button.aktiv { background: var(--gold-l); font-weight: bold; }
+main { flex: 999 1 560px; min-width: 0; padding: 24px 28px; }
+h1 { font-size: 26px; margin: 0 0 6px; } h2 { font-size: 18px; margin: 0 0 12px; }
+.hinweis { color: var(--grau); font-size: 14px; margin: 0 0 20px; }
+.kacheln { display: grid; grid-template-columns: repeat(auto-fill, minmax(220px, 1fr)); gap: 16px; }
+.kachel { font: inherit; text-align: left; background: #fff; border: 1px solid var(--rand); border-radius: 12px; padding: 20px; min-height: 140px; cursor: pointer; display: flex; flex-direction: column; gap: 8px; }
+.kachel:hover:not(:disabled) { border-color: var(--gold); box-shadow: 0 2px 10px rgba(80,80,90,.12); }
+.kachel:disabled { cursor: default; opacity: .6; }
+.kachel .t { font-size: 16px; font-weight: bold; } .kachel .s { font-size: 12px; color: var(--grau); }
+.karte { background: #fff; border: 1px solid var(--rand); border-radius: 12px; padding: 20px; margin-bottom: 18px; }
+.felder { display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 14px; }
+label { display: flex; flex-direction: column; gap: 6px; font-size: 12px; font-weight: bold; color: var(--anth); }
+input, select { font: inherit; font-size: 14px; font-weight: normal; border: 1px solid #C9C9D1; border-radius: 8px; padding: 10px 12px; min-height: 44px; background: #fff; color: var(--text); width: 100%; }
+.schalter { display: flex; flex-wrap: wrap; gap: 18px; margin-top: 14px; }
+.schalter label { flex-direction: row; align-items: center; font-weight: normal; font-size: 14px; color: var(--text); }
+.schalter input { width: 20px; min-height: 20px; }
+.btn { font: inherit; font-size: 14px; font-weight: bold; border-radius: 8px; padding: 11px 18px; min-height: 44px; cursor: pointer; border: 1px solid var(--anth); background: var(--anth); color: #fff; }
+.btn:hover { background: var(--anth-d); }
+.btn2 { font: inherit; font-size: 14px; border-radius: 8px; padding: 11px 18px; min-height: 44px; cursor: pointer; border: 1px solid #C9C9D1; background: #fff; color: var(--text); }
+.aktionen { display: flex; gap: 10px; flex-wrap: wrap; margin-top: 16px; }
+.tabelle { overflow-x: auto; }
+table { border-collapse: collapse; width: 100%; font-size: 13px; }
+th { background: var(--anth); color: #fff; text-align: left; padding: 10px 12px; }
+th.u { background: #6E6E78; text-align: center; }
+td { padding: 8px 12px; border-bottom: 1px solid #E6E6EB; vertical-align: middle; }
+td.z { text-align: right; white-space: nowrap; }
+tr.abschnitt td { background: var(--grau-l); font-weight: bold; }
+tr.summe td { font-weight: bold; }
+td.beste { background: var(--gold-l); }
+.marke { color: var(--gruen); font-weight: bold; }
+.fehler { background: var(--rot-l); color: var(--rot); border-radius: 8px; padding: 12px 14px; margin-top: 12px; font-size: 14px; }
+.info { background: var(--gold-l); border-radius: 8px; padding: 12px 14px; font-size: 13px; margin-top: 12px; }
+td input, td select { min-height: 38px; padding: 6px 10px; }
+.klein { font-size: 12px; color: var(--grau); }

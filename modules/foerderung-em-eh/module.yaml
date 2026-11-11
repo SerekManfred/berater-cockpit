@@ -1,0 +1,38 @@
+# Modulbeschreibung Fördervergleich EM/EH (Entwurf – die Oberfläche nutzt sie ab Phase 1)
+id: foerderung-em-eh
+titel: Fördervergleich EM/EH
+ci: serek
+rechenkern: app.rechenkern.foerdervergleich.vergleich
+konditionen: [beg_em, isfp_beratung, beg_wg, kfw_266]
+
+felder:
+  - { id: we_nach_sanierung, label: "Wohneinheiten nach Sanierung", typ: zahl, min: 1, pflicht: true }
+  - { id: bestandsheizung, label: "Bestandsheizung", typ: auswahl, pflicht: true,
+      optionen: ["fossil, älter als 5 Jahre", "neu in den letzten 5 Jahren", "EE >= 65 % oder Wärmenetz"] }
+  - { id: nutzung, label: "Nutzung", typ: auswahl, pflicht: true, optionen: ["komplett vermietet", "teilweise selbstgenutzt", "komplett selbstgenutzt"] }
+  - { id: wpb_status, label: "Worst Performing Building (Klasse H)", typ: auswahl, pflicht: true, optionen: ["ja", "nein", "unbekannt"] }
+  - { id: isfp, label: "iSFP wird erstellt", typ: ja_nein, standard: true }
+  - { id: eh_stufe, label: "Effizienzhaus-Stufe", typ: auswahl, optionen: [EH40EE, EH55EE, EH70EE, EH85EE], standard: EH55EE }
+  - { id: ee_klasse_erreichbar, label: "EE-Klasse rechnerisch erreichbar", typ: ja_nein, pflicht: true }
+  - { id: kfw266, label: "KfW 266 (Umnutzung zu Wohnraum)", typ: ja_nein }
+  - { id: we_neu, label: "Davon neue WE", typ: zahl, sichtbar_wenn: kfw266 }
+  - { id: umbaukosten_neue_we, label: "Umbaukosten neue WE (nicht energetisch)", typ: euro, sichtbar_wenn: kfw266 }
+  - { id: massnahmen, label: "Maßnahmen und Kosten", typ: tabelle, pflicht: true }
+
+uploads:
+  - { id: kostenschaetzung, label: "Kostenschätzung", formate: [pdf, xlsx] }
+  - { id: energieausweis, label: "Energieausweis", formate: [pdf, jpg, png], hinweis: "für WPB-Prüfung" }
+  - { id: plaene, label: "Pläne", formate: [pdf, jpg, png] }
+
+fachregeln:
+  - wenn: "bestandsheizung == 'fossil, älter als 5 Jahre' and kfw266"
+    meldung: "KfW 266 verlangt die EE-Klasse (mindestens EH 85 EE)."
+  - wenn: "massnahmen enthält Infrarot/Stromdirektheizung"
+    meldung: "Stromdirektheizung ist in BEG EM nicht förderfähig; EE-Klasse nur über WRG, Brauchwasser-WP und PV-Eigenstrom erreichbar."
+  - wenn: "wpb_status == 'ja'"
+    meldung: "WPB-Bonus bei Einzelmaßnahmen nur für BAFA-Anträge ab 01.01.2027 und nur auf Dämmung."
+  - wenn: "kfw266"
+    meldung: "Antragsfrist KfW 266 beachten (siehe Konditionen)."
+
+generator: { typ: docx, vorlage: foerdervergleich, pflichtkapitel: ["Fördervergleich auf einen Blick"] }
+freigabe: vier_augen_pflicht

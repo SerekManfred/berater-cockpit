@@ -1,0 +1,53 @@
+{
+  "version": 1,
+  "gueltig_ab": "2026-11-09",
+  "geprueft_von": ["M. Serek"],
+  "status": "aktiv",
+  "hinweis": "Erstbestand aus dem Referenzfall MFH-Umnutzung (6 WE). Jeder Wert ist vor produktiver Nutzung im Vier-Augen-Prinzip gegen die Quelle zu prüfen.",
+  "beg_em": {
+    "quelle": "Richtlinie BEG EM vom 17.07.2026 (in Kraft 21.07.2026); Ökozentrum NRW Zusammenfassung 18.08.2026",
+    "geprueft_am": "2026-11-09",
+    "foerdersatz": 0.15,
+    "isfp_bonus": 0.05,
+    "isfp_bonus_regel": "nur auf förderfähige Kosten oberhalb der Höchstgrenze ohne iSFP; Mindestinvestition 30.000 EUR",
+    "wpb_bonus": 0.05,
+    "wpb_bonus_regel": "nur Dämmung der Gebäudehülle (keine Fenster), nur mit iSFP, nur für Anträge ab 2027-01-01",
+    "wpb_bonus_ab": "2027-01-01",
+    "hoechstgrenze_ohne_isfp": { "erste_we": 30000, "we_2_bis_6": 15000, "ab_we_7": 8000 },
+    "hoechstgrenze_mit_isfp": { "erste_we": 60000, "we_2_bis_6": 30000, "ab_we_7": 15000 },
+    "hoechstgrenze_bezug": "je Gebäude und Kalenderjahr",
+    "baubegleitung": { "satz": 0.5, "efh_zfh_max": 5000, "mfh_je_we": 2000, "mfh_max": 20000 },
+    "ergaenzungskredit": { "programm": "KfW 358/359", "je_we": 120000 }
+  },
+  "beg_em_heizung": {
+    "quelle": "KfW-Infoblatt BEG förderfähige Maßnahmen 11/2026; BAFA",
+    "geprueft_am": "2026-11-09",
+    "stromdirektheizung_foerderfaehig": false,
+    "brauchwasser_wp_regel": "nur als Umfeldmaßnahme einer förderfähigen Heizung"
+  },
+  "isfp_beratung": {
+    "quelle": "BAFA Energieberatung für Wohngebäude (EBW)",
+    "geprueft_am": "2026-11-09",
+    "satz": 0.5, "efh_zfh_max": 650, "mfh_max": 850
+  },
+  "beg_wg": {
+    "quelle": "KfW-Hausbankenmitteilung 61/2026 (20.07.2026); Produktseite KfW 261",
+    "geprueft_am": "2026-11-09",
+    "ee_klasse_pflicht": true,
+    "tilgungszuschuss": { "EH40EE": 0.10, "EH55EE": 0.05, "EH70EE": 0.0, "EH85EE": 0.0, "DenkmalEE": 0.05 },
+    "wpb_bonus": 0.10,
+    "wpb_bonus_stufen": ["EH40EE", "EH55EE", "EH70EE"],
+    "kredit_je_we": 150000,
+    "baubegleitung": { "satz": 0.5, "efh_zfh_max": 10000, "mfh_je_we": 4000, "mfh_max": 40000 },
+    "kombination_mit_beg_em": "ausgeschlossen, 3 Jahre Sperrfrist in beide Richtungen"
+  },
+  "kfw_266": {
+    "quelle": "KfW-Merkblatt 266 Gewerbe zu Wohnen (07/2026); kfw.de/266",
+    "geprueft_am": "2026-11-09",
+    "satz": 0.30,
+    "max_kosten_je_neue_we": 100000,
+    "mindeststufe": "EH85EE",
+    "ee_ausnahme": "vorhandener EE-Erzeuger >= 65 %, Wärmenetz oder Heizung jünger als 5 Jahre",
+    "antragsfrist": "2026-12-31"
+  }
+}
