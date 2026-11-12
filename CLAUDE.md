@@ -17,8 +17,10 @@ Ausführliches Fachkonzept: `docs/Konzept_Berater-Cockpit.docx` (falls abgelegt)
 - `frontend/` – React (Vite), CI-Farben in `src/styles.css`
 - `backend/` – FastAPI (Python 3.12). Rechenkerne unter `app/rechenkern/`, Konditionen unter `app/konditionen/`
 - `web/` – Caddy: liefert die Oberfläche aus, leitet `/api/*` an das Backend
-- `cockpit-db` – PostgreSQL 16 (Benutzer, Sitzungen, Protokoll; ab Phase 1 Projekte, Konditionen-Versionen).
+- `cockpit-db` – PostgreSQL 16 (Benutzer, Sitzungen, Protokoll, Projekte, Berichte; ab Phase 1 Konditionen-Versionen).
   Schema nur über Alembic-Migrationen (`backend/alembic/versions/`), keine Tabellen ohne Migration. Tests laufen gegen SQLite.
+- Projektakte: `app/projekte_api.py`, Tabellen `projekte` und `berichte` (Migration 0002). Rechnen und Konditionen laden
+  zentral in `app/rechnen.py` (`RECHNER`: Modul → Eingabe-Schema + Rechenfunktion; neues Modul dort eintragen).
 - Anmeldung: `app/auth.py` (Sitzung, 2FA, Rollenprüfung per `Depends(rolle(...))` an jeder Route), `app/benutzer_api.py`
   (nur Admin). Neue Routen immer mit `aktueller_benutzer` oder `rolle(...)` schützen.
 - Später: Redis + Worker für lange Jobs (KI, Word-Erzeugung), Node-Container für die Word-Generatoren
@@ -37,6 +39,20 @@ Ausführliches Fachkonzept: `docs/Konzept_Berater-Cockpit.docx` (falls abgelegt)
 7. **KI-Anbindung austauschbar** über eine eigene Schnittstelle (`app/ki/`), Anbieter per `KI_ANBIETER` (anthropic | langdock).
    Kundennamen und Anschriften vor dem KI-Aufruf durch Platzhalter ersetzen.
 
+## Projektakte (Stand 12.11.2026)
+- Projektnummer automatisch `JJJJ-NNNN` je Kalenderjahr (Europe/Berlin), fortlaufend, nie neu vergeben (auch nicht nach Löschen).
+- Lesen: alle Angemeldeten. Projekte anlegen/bearbeiten: berater, verwaltung, admin. Löschen nur weich (`geloescht_am`), nur admin.
+  Berichte rechnen/speichern: berater, admin (Verwaltung nicht).
+- **Berichte werden nie überschrieben.** Kein UPDATE auf `berichte`; „Neu rechnen“ legt die nächste Versionsnummer je Projekt + Modul an.
+  Jeder Bericht speichert `konditionen_version` und `konditionen_snapshot` (vollständige Kopie). Neu rechnen nutzt den Snapshot des
+  Ausgangsberichts; die aktuelle Version nur bei `aktuelle_konditionen=true` (ausdrückliche Wahl in der Oberfläche).
+- Das Ergebnis rechnet beim Speichern immer das Backend aus den Eingaben – ein vom Client geschicktes Ergebnis wird ignoriert.
+- Protokoll: `projekt_angelegt`, `projekt_geaendert` (personenbezogene Felder nur als „geändert“, ohne Inhalt), `projekt_geloescht`,
+  `bericht_gespeichert`.
+- Bericht-Status (Entwurf/zur Freigabe/freigegeben) ist angelegt; gespeichert wird derzeit immer als Entwurf. Statuswechsel kommt mit dem
+  Freigabe-Workflow. Ein gelöschtes Projekt wiederherstellen geht bisher nur in der Datenbank (`geloescht_am` auf NULL).
+- Oberfläche: „Projekte“ (Liste, Suche, Filter, Projektakte), „Schnellrechnung“ (frei, ohne Speichern), Start mit „Meine offenen Projekte“.
+
 ## Module (erweiterbar)
 Jede Berichtsart ist ein Modul mit Beschreibung unter `modules/<id>/module.yaml`: Felder, Pflichtangaben, Upload-Slots,
 Fachregeln, Rechenkern, Generator. Die Oberfläche soll Masken aus dieser Beschreibung erzeugen. Neue Berichtsart = neues Modul, kein Umbau.
@@ -44,7 +60,8 @@ Fachregeln, Rechenkern, Generator. Die Oberfläche soll Masken aus dieser Beschr
 ## Phasenplan
 - **Phase 0 (jetzt):** Grundgerüst läuft auf `cockpit.mybase-test.de` mit Basic Auth. Eigene Anmeldung ist umgesetzt (Teilauftrag 1:
   Konten nur durch Admin, Rollen admin/berater/verwaltung kombinierbar, TOTP-Pflicht, serverseitige Sitzung, Protokoll);
-  Basic Auth bleibt zusätzlich aktiv, bis sie nach erfolgreichem Test in Teilauftrag 3 entfernt wird. Danach: Projektakte, Datei-Upload.
+  Basic Auth bleibt zusätzlich aktiv, bis sie nach erfolgreichem Test in Teilauftrag 3 entfernt wird.
+  Projektakte ist umgesetzt (Teilauftrag 2, Phase 0b, siehe Abschnitt „Projektakte“). Danach: Datei-Upload.
 - **Phase 1:** Konditionen in PostgreSQL mit Versionen und Vier-Augen-Freigabe; Modul Fördervergleich komplett inkl. Word-Ausgabe im CI
   (Gliederung wie Skill `foerderung-em-eh`, Kapitel 9 „Fördervergleich auf einen Blick“ ist Pflicht).
 - **Phase 2:** INIT und MEH mit KI (Checklisten-Erkennung, Fotozuordnung) – vorhandene Generatoren `generate_report.js` aus den Skills einbinden.

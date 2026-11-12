@@ -36,8 +36,8 @@ def _schema():
 def _leere_tabellen():
     yield
     from app.db import SessionLocal
-    from app.modelle import Benutzer, Protokoll, Sitzung
+    from app.modelle import Benutzer, Bericht, Projekt, Protokoll, Sitzung
     with SessionLocal() as db:
-        for tabelle in (Protokoll, Sitzung, Benutzer):
+        for tabelle in (Bericht, Projekt, Protokoll, Sitzung, Benutzer):
             db.execute(delete(tabelle))
         db.commit()

@@ -134,6 +134,8 @@ const AKTIONEN = {
   "2fa_eingerichtet": "2FA eingerichtet", passwort_geaendert: "Passwort geändert", benutzer_angelegt: "Konto angelegt",
   benutzer_geaendert: "Konto geändert", benutzer_gesperrt: "Konto gesperrt", benutzer_entsperrt: "Konto entsperrt",
   "2fa_zurueckgesetzt": "2FA zurückgesetzt", passwort_zurueckgesetzt: "Passwort zurückgesetzt",
+  projekt_angelegt: "Projekt angelegt", projekt_geaendert: "Projekt geändert", projekt_geloescht: "Projekt gelöscht",
+  bericht_gespeichert: "Bericht gespeichert",
 };
 
 export function Protokoll() {

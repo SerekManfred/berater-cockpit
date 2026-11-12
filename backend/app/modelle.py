@@ -1,7 +1,7 @@
 """Tabellen benutzer, sitzung, protokoll. Änderungen nur zusammen mit einer Alembic-Migration."""
 from datetime import UTC, datetime
 
-from sqlalchemy import JSON, BigInteger, Boolean, DateTime, ForeignKey, Integer, String, Text
+from sqlalchemy import JSON, BigInteger, Boolean, DateTime, ForeignKey, Integer, String, Text, UniqueConstraint
 from sqlalchemy.dialects.postgresql import ARRAY, JSONB
 from sqlalchemy.orm import Mapped, mapped_column
 from sqlalchemy.types import TypeDecorator
@@ -73,3 +73,45 @@ class Protokoll(Base):
     aktion: Mapped[str] = mapped_column(String(50), nullable=False, index=True)
     details: Mapped[dict | None] = mapped_column(DETAILS_TYP)
     ip: Mapped[str | None] = mapped_column(String(64))
+
+
+# ---------- Projektakte ----------
+
+GEBAEUDEARTEN = ("EFH", "ZFH", "MFH", "Nichtwohngebaeude", "Kirche")
+PROJEKT_STATUS = ("offen", "in_bearbeitung", "abgeschlossen")
+BERICHT_STATUS = ("entwurf", "zur_freigabe", "freigegeben")
+
+
+class Projekt(Base):
+    __tablename__ = "projekte"
+    id: Mapped[int] = mapped_column(Integer, primary_key=True)
+    projektnummer: Mapped[str] = mapped_column(String(20), unique=True, nullable=False)  # z. B. 2026-0001
+    kunde_name: Mapped[str] = mapped_column(String(200), nullable=False)
+    objekt_strasse: Mapped[str | None] = mapped_column(String(200))
+    objekt_plz: Mapped[str | None] = mapped_column(String(10))
+    objekt_ort: Mapped[str | None] = mapped_column(String(100))
+    gebaeudeart: Mapped[str] = mapped_column(String(30), nullable=False)
+    zustaendig_id: Mapped[int | None] = mapped_column(ForeignKey("benutzer.id", ondelete="SET NULL"), index=True)
+    status: Mapped[str] = mapped_column(String(20), nullable=False, default="offen")
+    notiz: Mapped[str | None] = mapped_column(Text)
+    erstellt_von_id: Mapped[int | None] = mapped_column(ForeignKey("benutzer.id", ondelete="SET NULL"))
+    erstellt_am: Mapped[datetime] = mapped_column(UTCZeit, nullable=False, default=jetzt)
+    geaendert_am: Mapped[datetime] = mapped_column(UTCZeit, nullable=False, default=jetzt, index=True)
+    geloescht_am: Mapped[datetime | None] = mapped_column(UTCZeit)  # nur weiches Löschen
+
+
+class Bericht(Base):
+    """Gespeicherter Bericht. Wird nie überschrieben – jede Neuberechnung ist eine neue Version."""
+    __tablename__ = "berichte"
+    __table_args__ = (UniqueConstraint("projekt_id", "modul", "versionsnummer", name="uq_berichte_version"),)
+    id: Mapped[int] = mapped_column(Integer, primary_key=True)
+    projekt_id: Mapped[int] = mapped_column(ForeignKey("projekte.id"), nullable=False, index=True)
+    modul: Mapped[str] = mapped_column(String(50), nullable=False)
+    versionsnummer: Mapped[int] = mapped_column(Integer, nullable=False)
+    eingaben: Mapped[dict] = mapped_column(DETAILS_TYP, nullable=False)
+    ergebnis: Mapped[dict] = mapped_column(DETAILS_TYP, nullable=False)
+    konditionen_version: Mapped[int] = mapped_column(Integer, nullable=False)
+    konditionen_snapshot: Mapped[dict] = mapped_column(DETAILS_TYP, nullable=False)  # vollständige Kopie
+    status: Mapped[str] = mapped_column(String(20), nullable=False, default="entwurf")
+    erstellt_von_id: Mapped[int | None] = mapped_column(ForeignKey("benutzer.id", ondelete="SET NULL"))
+    erstellt_am: Mapped[datetime] = mapped_column(UTCZeit, nullable=False, default=jetzt)

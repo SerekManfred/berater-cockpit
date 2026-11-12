@@ -96,7 +96,8 @@ Rollen: **Admin** (alles, Benutzerverwaltung, Protokoll) · **Berater** (Projekt
 **Verwaltung** (Projekte anlegen, Uploads; keine Berechnung, keine Konditionen-Pflege). Kombinierbar; geprüft wird im Backend.
 
 ## 7. Testen
-„Fördervergleich EM/EH“ → „Referenzfall MFH-Umnutzung (6 WE) laden“ → „Berechnen“.
+„Schnellrechnung“ → „Referenzfall MFH-Umnutzung (6 WE) laden“ → „Berechnen“.
+Mit Speichern: „Projekte“ → „Neues Projekt“ (nur Testdaten) → „Neuer Fördervergleich“ → Referenzfall laden → „Berechnen“ → „Speichern“.
 Erwartet: Zuschüsse gesamt **163.600 € / 169.155 € / 144.355 € / 173.065 €**.
 
 ## Lokal entwickeln

@@ -71,3 +71,23 @@ fieldset.rollen input { width: 22px; min-height: 22px; }
 tr.gewaehlt td { background: var(--gold-l); }
 td.details { font-size: 12px; color: var(--grau); max-width: 420px; word-break: break-word; }
 .sr { position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0 0 0 0); white-space: nowrap; }
+
+/* Projektakte */
+.titelzeile { display: flex; align-items: center; justify-content: space-between; gap: 12px; flex-wrap: wrap; margin-bottom: 6px; }
+.titelzeile h1, .titelzeile h2 { margin: 0; }
+textarea { font: inherit; font-size: 14px; font-weight: normal; border: 1px solid #C9C9D1; border-radius: 8px; padding: 10px 12px; width: 100%; color: var(--text); resize: vertical; }
+.link-btn { font: inherit; font-size: 13px; font-weight: bold; color: var(--anth); background: none; border: 0; padding: 0 4px; min-height: 44px; min-width: 44px; text-align: left; text-decoration: underline; cursor: pointer; }
+.link-btn:hover { color: var(--text); }
+dl.daten { display: grid; grid-template-columns: minmax(140px, max-content) 1fr; gap: 8px 18px; margin: 0; font-size: 14px; }
+dl.daten dt { font-weight: bold; color: var(--anth); }
+dl.daten dd { margin: 0; }
+dd.notiz { white-space: pre-wrap; }
+.status { display: inline-block; border-radius: 999px; padding: 3px 10px; font-size: 12px; font-weight: bold; white-space: nowrap; }
+.status-offen { background: var(--gold-l); color: #5C4310; }
+.status-in_bearbeitung { background: #E3ECF7; color: #1F3F66; }
+.status-abgeschlossen { background: var(--gruen-l); color: var(--gruen); }
+.btn2.gefahr { color: var(--rot); border-color: var(--rot); }
+.speichern-leiste .info { margin: 0 0 12px; }
+.speichern-leiste .aktionen { margin-top: 0; }
+:focus-visible { outline: 3px solid var(--gold); outline-offset: 2px; }
+@media (max-width: 600px) { dl.daten { grid-template-columns: 1fr; } }
