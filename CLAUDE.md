@@ -99,11 +99,24 @@ Fachregeln, Rechenkern, Generator. Die Oberfläche soll Masken aus dieser Beschr
 ## Vor Produktivstart
 Während der Entwicklung ist der zweite Faktor abgeschaltet (`ZWEI_FAKTOR_PFLICHT=false` in der `.env`); der Code dafür bleibt
 vollständig erhalten und getestet. Bevor echte Nutzer oder Kundendaten ins System kommen, in genau dieser Reihenfolge:
-1. **`ZWEI_FAKTOR_PFLICHT=true`** in der `.env` setzen (oder den Eintrag entfernen – ohne Eintrag gilt `true`) und `cockpit-api` neu starten.
-2. **Option „Gerät 30 Tage vertrauen“ ergänzen** (nach erfolgreichem Code, eigenes HttpOnly-Cookie, serverseitig widerrufbar, mit Tests).
-3. **Erst danach Basic Auth entfernen** (`web/Caddyfile`, `COCKPIT_USER`/`COCKPIT_PASS_HASH`).
-4. **Kopie der Datensicherung außer Haus einrichten** (Ziel noch offen, siehe „Unterlagen, Papierkorb, Datensicherung“).
-5. **Erst danach echte Kundendaten zulassen.** Bis dahin nur neutrale Test- und Referenzfälle.
+1. **Alle Geheimnisse neu erzeugen.** Die Test-Werte waren am 12.11.2026 außerhalb des Servers sichtbar und gelten als verbraucht.
+   Zuerst, weil `SECRET_KEY` die 2FA-Geheimnisse verschlüsselt – ein späterer Wechsel zwänge alle, die 2FA neu einzurichten.
+   - `SECRET_KEY`: `openssl rand -hex 32` in die `.env`. Beendet alle Sitzungen; bereits eingerichtete 2FA-Geheimnisse sind danach
+     unlesbar → bei betroffenen Konten im Admin „2FA zurücksetzen“.
+   - `DB_PASSWORD`: neues Passwort **zuerst in PostgreSQL** setzen, dann in die `.env` – die `.env` allein ändert ein bestehendes
+     Datenbank-Volume nicht. `docker compose exec cockpit-db psql -U cockpit -d cockpit -c "\password cockpit"` (verdeckte Eingabe,
+     Passwort taucht nicht in Shell-Verlauf oder Prozessliste auf), danach `DB_PASSWORD` in der `.env` anpassen.
+   - Basic-Auth-Passwort: neuen Hash erzeugen (README Schritt 3, jedes `$` als `$$`) und `COCKPIT_PASS_HASH` ersetzen – auch wenn
+     Basic Auth in Schritt 4 entfällt, bis dahin schützt sie das System.
+   - Danach `docker compose up -d` (übernimmt die neuen Werte) und prüfen: Anmeldung, `scripts/sicherung.sh`,
+     `scripts/wiederherstellen.sh pruefen`.
+   - Die fertige `.env` direkt vom Server in den Passwort-Manager übernehmen (z. B. per SFTP/WinSCP lesen und dort ablegen) –
+     **nie über Chats, E-Mail oder KI-Werkzeuge**. Werte nicht im Terminal ausgeben lassen.
+2. **`ZWEI_FAKTOR_PFLICHT=true`** in der `.env` setzen (oder den Eintrag entfernen – ohne Eintrag gilt `true`) und `cockpit-api` neu starten.
+3. **Option „Gerät 30 Tage vertrauen“ ergänzen** (nach erfolgreichem Code, eigenes HttpOnly-Cookie, serverseitig widerrufbar, mit Tests).
+4. **Erst danach Basic Auth entfernen** (`web/Caddyfile`, `COCKPIT_USER`/`COCKPIT_PASS_HASH`).
+5. **Kopie der Datensicherung außer Haus einrichten** (Ziel noch offen, siehe „Unterlagen, Papierkorb, Datensicherung“).
+6. **Erst danach echte Kundendaten zulassen.** Bis dahin nur neutrale Test- und Referenzfälle.
 
 ## Arbeitsweise
 - Vor jeder Änderung: `cd backend && python -m pytest -q`. Neue Rechenlogik nur mit Tests.
