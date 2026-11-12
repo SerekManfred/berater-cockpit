@@ -9,10 +9,15 @@
 }
 
 :80 {
-	# Gemeinsamer Zugangsschutz des Testsystems – bleibt zusätzlich zur eigenen Anmeldung,
-	# bis diese getestet ist (Entfernen in Teilauftrag 3)
+	# Gemeinsamer Zugangsschutz des Testsystems – bleibt zusätzlich zur eigenen Anmeldung
+	# bis zum Produktivstart (Reihenfolge siehe CLAUDE.md „Vor Produktivstart“)
 	basic_auth {
 		{$COCKPIT_USER} {$COCKPIT_PASS_HASH}
+	}
+
+	# Gleiche Grenze wie der zentrale Caddy: eine Datei je Anfrage, höchstens 25 MB
+	request_body {
+		max_size 25MB
 	}
 
 	handle_path /api/* {

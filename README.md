@@ -100,6 +100,48 @@ Rollen: **Admin** (alles, Benutzerverwaltung, Protokoll) · **Berater** (Projekt
 Mit Speichern: „Projekte“ → „Neues Projekt“ (nur Testdaten) → „Neuer Fördervergleich“ → Referenzfall laden → „Berechnen“ → „Speichern“.
 Erwartet: Zuschüsse gesamt **163.600 € / 169.155 € / 144.355 € / 173.065 €**.
 
+## 8. Unterlagen und Papierkorb
+In der Projektakte unter „Unterlagen“: Kategorie wählen, Dateien hineinziehen oder „Dateien auswählen“ (auf Tablet/Handy
+auch Kamera). Erlaubt PDF, JPG, PNG, HEIC, XLSX, DOCX bis 25 MB je Datei; der Typ wird am Inhalt geprüft. Doppelte Dateien
+im selben Projekt werden gemeldet. Gelöschte Projekte und Dateien landen im „Papierkorb“ (nur Admin): wiederherstellen
+oder endgültig löschen (Bestätigung mit Projektnummer bzw. Dateiname).
+
+Die Inhalte liegen im Docker-Volume `berater-cockpit_datei-daten`, **nicht** im Web-Verzeichnis; Download nur über die API
+mit gültiger Sitzung. `docker compose down -v` würde dieses Volume löschen – nie mit `-v` aufrufen.
+
+## 9. Datensicherung
+Täglich 01:45 UTC (02:45 MEZ / 03:45 MESZ) per Cron des Benutzers `dev`:
+```
+45 1 * * * /home/dev/berater-cockpit/scripts/sicherung.sh >> /home/dev/backups/cockpit/sicherung.log 2>&1
+```
+Ablage `/home/dev/backups/cockpit/` – `taeglich/` (letzte 14) und `woechentlich/` (letzte 8, harte Links, kein doppelter Platz).
+Jede Sicherung `cockpit_JJJJ-MM-TT_HHMMSS/` enthält `datenbank.dump`, `dateien.tar.gz`, `kennzahlen.txt`, `pruefsummen.sha256`.
+Eine Kopie außer Haus gibt es noch nicht (offener Punkt, siehe CLAUDE.md).
+
+**Sofort sichern:** `scripts/sicherung.sh`
+
+**Sicherung prüfen (gefahrlos, empfohlen monatlich und nach jeder größeren Änderung):**
+```bash
+scripts/wiederherstellen.sh pruefen                      # neueste Sicherung
+scripts/wiederherstellen.sh pruefen ~/backups/cockpit/woechentlich/cockpit_2026-11-12_014500
+```
+Spielt die Sicherung in eine leere Wegwerf-Datenbank und ein Wegwerf-Volume ein und vergleicht Migrationsstand, Anzahl und
+Inhalt (md5) von Benutzern, Projekten, Berichten, Dateien sowie jede Datei per sha256. Der Betrieb wird nicht berührt;
+danach wird alles entfernt. Am Ende steht „ERGEBNIS: … lässt sich vollständig wiederherstellen“ oder ein FEHLER.
+
+**Ernstfall – echte Wiederherstellung:**
+```bash
+ls ~/backups/cockpit/taeglich/                             # gewünschten Stand wählen
+scripts/wiederherstellen.sh pruefen   ~/backups/cockpit/taeglich/cockpit_…   # erst prüfen
+scripts/wiederherstellen.sh einspielen ~/backups/cockpit/taeglich/cockpit_…  # dann einspielen, Bestätigung „EINSPIELEN“
+```
+`einspielen` sichert vorher den aktuellen Stand, hält `cockpit-api` an, ersetzt Datenbank `cockpit` und Volume
+`datei-daten`, prüft wie oben und startet die API wieder (neuere Migrationen laufen dabei automatisch). Alle Benutzer
+müssen sich danach neu anmelden. Änderungen seit der gewählten Sicherung sind verloren.
+
+**Nach einem Server-Neuaufbau:** Repository klonen, `.env` (mit demselben `SECRET_KEY`, sonst müssen alle die 2FA neu
+einrichten) wiederherstellen, `docker network create cockpit-proxy`, `docker compose up -d --build`, dann `einspielen`.
+
 ## Lokal entwickeln
 ```bash
 cd backend && pip install -r requirements.txt && python -m pytest -q   # Tests nutzen eine eigene SQLite-Datei

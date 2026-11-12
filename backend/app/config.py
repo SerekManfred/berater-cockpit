@@ -26,3 +26,12 @@ def zwei_faktor_pflicht(wert: str | None) -> bool:
 ZWEI_FAKTOR_PFLICHT = zwei_faktor_pflicht(os.environ.get("ZWEI_FAKTOR_PFLICHT"))
 
 ROLLEN = ("admin", "berater", "verwaltung")
+
+# Datei-Upload: Ablage in einem eigenen Docker-Volume (nicht im Web-Verzeichnis)
+from pathlib import Path  # noqa: E402
+
+DATEI_VERZEICHNIS = Path(os.environ.get("DATEI_VERZEICHNIS", "/daten"))
+# Höchstgröße je Datei = Grenze des zentralen Caddy (request_body max_size 25MB = 25.000.000 Bytes).
+# Hochgeladen wird die Datei als roher Anfrage-Inhalt (kein Formular-Overhead), daher passt die volle Größe.
+MAX_DATEI_BYTES = 25_000_000
+VORSCHAU_KANTE = 320  # Vorschaubilder: längste Kante in Pixel

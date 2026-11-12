@@ -17,6 +17,7 @@ if _TEST_URL:
                          "erlaubt sind nur Datenbanken mit „test“ im Namen, nie die Produktivdatenbank.")
 os.environ["DATABASE_URL"] = _TEST_URL or f"sqlite:///{_ORDNER}/test.db"
 os.environ["SECRET_KEY"] = "test-schluessel-nur-fuer-pytest-" + "x" * 32
+os.environ["DATEI_VERZEICHNIS"] = f"{_ORDNER}/daten"  # Uploads der Tests landen nie im echten Datei-Volume
 
 import pytest  # noqa: E402
 from alembic import command  # noqa: E402
@@ -48,8 +49,8 @@ def _schema():
 def _leere_tabellen():
     yield
     from app.db import SessionLocal
-    from app.modelle import Benutzer, Bericht, Projekt, Protokoll, Sitzung
+    from app.modelle import Benutzer, Bericht, Datei, Projekt, ProjektnummerZaehler, Protokoll, Sitzung
     with SessionLocal() as db:
-        for tabelle in (Bericht, Projekt, Protokoll, Sitzung, Benutzer):
+        for tabelle in (Datei, Bericht, Projekt, ProjektnummerZaehler, Protokoll, Sitzung, Benutzer):
             db.execute(delete(tabelle))
         db.commit()

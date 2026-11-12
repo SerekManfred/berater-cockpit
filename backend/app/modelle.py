@@ -98,6 +98,14 @@ class Projekt(Base):
     erstellt_am: Mapped[datetime] = mapped_column(UTCZeit, nullable=False, default=jetzt)
     geaendert_am: Mapped[datetime] = mapped_column(UTCZeit, nullable=False, default=jetzt, index=True)
     geloescht_am: Mapped[datetime | None] = mapped_column(UTCZeit)  # nur weiches Löschen
+    geloescht_von_id: Mapped[int | None] = mapped_column(ForeignKey("benutzer.id", ondelete="SET NULL"))
+
+
+class ProjektnummerZaehler(Base):
+    """Letzte vergebene Projektnummer je Jahr – damit Nummern auch nach endgültigem Löschen nie neu vergeben werden."""
+    __tablename__ = "projektnummer_zaehler"
+    jahr: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=False)
+    letzte: Mapped[int] = mapped_column(Integer, nullable=False)
 
 
 class Bericht(Base):
@@ -115,3 +123,24 @@ class Bericht(Base):
     status: Mapped[str] = mapped_column(String(20), nullable=False, default="entwurf")
     erstellt_von_id: Mapped[int | None] = mapped_column(ForeignKey("benutzer.id", ondelete="SET NULL"))
     erstellt_am: Mapped[datetime] = mapped_column(UTCZeit, nullable=False, default=jetzt)
+
+
+DATEI_KATEGORIEN = ("kostenschaetzung", "energieausweis", "plaene", "fotos", "checkliste", "angebote", "sonstiges")
+
+
+class Datei(Base):
+    """Hochgeladene Unterlage. Der Inhalt liegt im Datei-Volume unter speichername (zufällig, nie der Originalname)."""
+    __tablename__ = "dateien"
+    id: Mapped[int] = mapped_column(Integer, primary_key=True)
+    projekt_id: Mapped[int] = mapped_column(ForeignKey("projekte.id"), nullable=False, index=True)
+    kategorie: Mapped[str] = mapped_column(String(30), nullable=False)
+    dateiname_original: Mapped[str] = mapped_column(String(255), nullable=False)
+    speichername: Mapped[str] = mapped_column(String(64), nullable=False, unique=True)
+    mime_typ: Mapped[str] = mapped_column(String(100), nullable=False)
+    groesse: Mapped[int] = mapped_column(BigInteger, nullable=False)
+    sha256: Mapped[str] = mapped_column(String(64), nullable=False, index=True)
+    hat_vorschau: Mapped[bool] = mapped_column(Boolean, nullable=False, default=False)
+    hochgeladen_von_id: Mapped[int | None] = mapped_column(ForeignKey("benutzer.id", ondelete="SET NULL"))
+    hochgeladen_am: Mapped[datetime] = mapped_column(UTCZeit, nullable=False, default=jetzt)
+    geloescht_am: Mapped[datetime | None] = mapped_column(UTCZeit)
+    geloescht_von_id: Mapped[int | None] = mapped_column(ForeignKey("benutzer.id", ondelete="SET NULL"))

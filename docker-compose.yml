@@ -20,8 +20,10 @@ services:
       ZWEI_FAKTOR_PFLICHT: ${ZWEI_FAKTOR_PFLICHT:-true}         # nur in der Entwicklung false
     depends_on:
       cockpit-db: { condition: service_healthy }   # Migrationen laufen beim Start der API
+    volumes:
+      - datei-daten:/daten   # hochgeladene Unterlagen – eigenes Volume, nicht im Web-Verzeichnis
 
-  cockpit-db:   # Benutzer, Sitzungen, Protokoll; ab Phase 1 auch Projekte und Konditionen-Versionen
+  cockpit-db:   # Benutzer, Sitzungen, Protokoll, Projekte, Berichte, Datei-Metadaten (Inhalte im Volume datei-daten)
     image: postgres:16-alpine
     restart: unless-stopped
     environment:
@@ -53,4 +55,5 @@ networks:
 
 volumes:
   db-daten:
+  datei-daten:
   caddy-daten:

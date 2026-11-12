@@ -22,6 +22,8 @@ Ausführliches Fachkonzept: `docs/Konzept_Berater-Cockpit.docx` (falls abgelegt)
   (beim Bauen) und gegen PostgreSQL (`scripts/test-postgres.sh`, siehe „Arbeitsweise“).
 - Projektakte: `app/projekte_api.py`, Tabellen `projekte` und `berichte` (Migration 0002). Rechnen und Konditionen laden
   zentral in `app/rechnen.py` (`RECHNER`: Modul → Eingabe-Schema + Rechenfunktion; neues Modul dort eintragen).
+- Unterlagen und Papierkorb: `app/dateien_api.py`, Typprüfung/Ablage/Vorschau in `app/dateien.py`, Tabelle `dateien` (Migration 0003).
+  Inhalte im Docker-Volume `datei-daten` (in `cockpit-api` unter `/daten`, Besitzer nobody), nie im Web-Verzeichnis.
 - Anmeldung: `app/auth.py` (Sitzung, 2FA, Rollenprüfung per `Depends(rolle(...))` an jeder Route), `app/benutzer_api.py`
   (nur Admin). Neue Routen immer mit `aktueller_benutzer` oder `rolle(...)` schützen.
 - Später: Redis + Worker für lange Jobs (KI, Word-Erzeugung), Node-Container für die Word-Generatoren
@@ -51,7 +53,33 @@ Ausführliches Fachkonzept: `docs/Konzept_Berater-Cockpit.docx` (falls abgelegt)
 - Protokoll: `projekt_angelegt`, `projekt_geaendert` (personenbezogene Felder nur als „geändert“, ohne Inhalt), `projekt_geloescht`,
   `bericht_gespeichert`.
 - Bericht-Status (Entwurf/zur Freigabe/freigegeben) ist angelegt; gespeichert wird derzeit immer als Entwurf. Statuswechsel kommt mit dem
-  Freigabe-Workflow (bestätigt 12.11.2026). Gelöschte Projekte wiederherstellen: kommt in Teilauftrag 3.
+  Freigabe-Workflow (bestätigt 12.11.2026). Gelöschte Projekte wiederherstellen: über den Papierkorb (Teilauftrag 3).
+- Projektnummern vergibt die Tabelle `projektnummer_zaehler` (je Jahr, gesperrt bis zum Commit) – nie aus dem Maximum der
+  vorhandenen Projekte ableiten, sonst würde eine endgültig gelöschte Nummer erneut vergeben.
+
+## Unterlagen, Papierkorb, Datensicherung (Stand 12.11.2026, Teilauftrag 3)
+- **Upload:** eine Datei je Anfrage als roher Anfrage-Inhalt (`POST /projekte/{id}/dateien?kategorie=…&dateiname=…`), die Oberfläche
+  lädt mehrere nacheinander hoch. Höchstgröße `MAX_DATEI_BYTES = 25_000_000` = Grenze des zentralen Caddy (`max_size 25MB`) und
+  von `cockpit-web`. Erlaubt PDF, JPG, PNG, HEIC, XLSX, DOCX – Typ wird am **Inhalt** erkannt (Magic Bytes bzw. ZIP-Struktur),
+  die Endung muss dazu passen; Office mit Makros und beschädigte Bilder werden abgelehnt. Speichername zufällig (32 Hex-Zeichen).
+- Vorschaubilder (JPEG, 320 px) für JPG/PNG/HEIC bei Upload. Duplikat = gleicher sha256 im selben Projekt unter den nicht gelöschten
+  Dateien → 409 mit Hinweis auf die vorhandene Datei.
+- **Rechte:** Liste/Download/Vorschau alle Angemeldeten; Hochladen berater, verwaltung, admin; Löschen (weich) berater, admin;
+  Papierkorb (ansehen, wiederherstellen, endgültig löschen) nur admin. Endgültiges Löschen verlangt die Projektnummer bzw. den
+  Dateinamen als Bestätigung und entfernt bei Projekten auch Berichte und Dateien.
+- **Protokoll:** `datei_hochgeladen`, `datei_abgelehnt`, `datei_heruntergeladen`, `datei_geloescht`, `datei_wiederhergestellt`,
+  `datei_endgueltig_geloescht`, `projekt_wiederhergestellt`, `projekt_endgueltig_geloescht`. Dateinamen kommen nicht ins
+  Protokoll (können Kundennamen enthalten) – nur ID, Kategorie, Typ, Größe, sha256.
+- **Datensicherung:** `scripts/sicherung.sh` per Cron (Benutzer dev) täglich **01:45 UTC** (02:45 MEZ / 03:45 MESZ, 15 Min. nach dem
+  IR-Planer). Ablage `/home/dev/backups/cockpit/taeglich|woechentlich/cockpit_JJJJ-MM-TT_HHMMSS/` mit `datenbank.dump` (pg_dump -Fc),
+  `dateien.tar.gz`, `kennzahlen.txt` (Anzahl + md5 je Tabelle), `pruefsummen.sha256`. Aufbewahrung 14 tägliche, 8 wöchentliche.
+  Log: `/home/dev/backups/cockpit/sicherung.log`. Prüfen/Wiederherstellen: `scripts/wiederherstellen.sh` (README „Datensicherung“).
+  Neue Tabellen mit wichtigen Daten auch in `scripts/kennzahlen.sh` aufnehmen.
+- **Offener Punkt: Kopie außer Haus.** Noch keine. Ziel wird gesondert geklärt. Vorbereitet: ein ausführbares
+  `scripts/sicherung-ausser-haus.sh` (nicht im Repository angelegt) wird nach jeder Sicherung mit deren Pfad aufgerufen.
+  Muss vor dem Produktivstart erledigt sein.
+  Die `.env` (u. a. `SECRET_KEY`, `DB_PASSWORD`) ist bewusst **nicht** Teil der Sicherung; sie muss getrennt und sicher
+  (z. B. Passwort-Manager) außer Haus aufbewahrt werden, sonst ist nach Serververlust keine vollständige Wiederherstellung möglich.
 - Oberfläche: „Projekte“ (Liste, Suche, Filter, Projektakte), „Schnellrechnung“ (frei, ohne Speichern), Start mit „Meine offenen Projekte“.
 
 ## Module (erweiterbar)
@@ -61,8 +89,8 @@ Fachregeln, Rechenkern, Generator. Die Oberfläche soll Masken aus dieser Beschr
 ## Phasenplan
 - **Phase 0 (jetzt):** Grundgerüst läuft auf `cockpit.mybase-test.de` mit Basic Auth. Eigene Anmeldung ist umgesetzt (Teilauftrag 1:
   Konten nur durch Admin, Rollen admin/berater/verwaltung kombinierbar, TOTP-Pflicht, serverseitige Sitzung, Protokoll);
-  Basic Auth bleibt zusätzlich aktiv, bis sie nach erfolgreichem Test in Teilauftrag 3 entfernt wird.
-  Projektakte ist umgesetzt (Teilauftrag 2, Phase 0b, siehe Abschnitt „Projektakte“). Danach: Datei-Upload.
+  Basic Auth bleibt zusätzlich aktiv bis zum Produktivstart (Reihenfolge siehe „Vor Produktivstart“).
+  Projektakte ist umgesetzt (Teilauftrag 2, Phase 0b). Datei-Upload, Papierkorb und Datensicherung sind umgesetzt (Teilauftrag 3).
 - **Phase 1:** Konditionen in PostgreSQL mit Versionen und Vier-Augen-Freigabe; Modul Fördervergleich komplett inkl. Word-Ausgabe im CI
   (Gliederung wie Skill `foerderung-em-eh`, Kapitel 9 „Fördervergleich auf einen Blick“ ist Pflicht).
 - **Phase 2:** INIT und MEH mit KI (Checklisten-Erkennung, Fotozuordnung) – vorhandene Generatoren `generate_report.js` aus den Skills einbinden.
@@ -74,7 +102,8 @@ vollständig erhalten und getestet. Bevor echte Nutzer oder Kundendaten ins Syst
 1. **`ZWEI_FAKTOR_PFLICHT=true`** in der `.env` setzen (oder den Eintrag entfernen – ohne Eintrag gilt `true`) und `cockpit-api` neu starten.
 2. **Option „Gerät 30 Tage vertrauen“ ergänzen** (nach erfolgreichem Code, eigenes HttpOnly-Cookie, serverseitig widerrufbar, mit Tests).
 3. **Erst danach Basic Auth entfernen** (`web/Caddyfile`, `COCKPIT_USER`/`COCKPIT_PASS_HASH`).
-4. **Erst danach echte Kundendaten zulassen.** Bis dahin nur neutrale Test- und Referenzfälle.
+4. **Kopie der Datensicherung außer Haus einrichten** (Ziel noch offen, siehe „Unterlagen, Papierkorb, Datensicherung“).
+5. **Erst danach echte Kundendaten zulassen.** Bis dahin nur neutrale Test- und Referenzfälle.
 
 ## Arbeitsweise
 - Vor jeder Änderung: `cd backend && python -m pytest -q`. Neue Rechenlogik nur mit Tests.

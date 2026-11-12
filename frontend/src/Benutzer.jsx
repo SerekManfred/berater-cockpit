@@ -136,6 +136,9 @@ const AKTIONEN = {
   "2fa_zurueckgesetzt": "2FA zurückgesetzt", passwort_zurueckgesetzt: "Passwort zurückgesetzt",
   projekt_angelegt: "Projekt angelegt", projekt_geaendert: "Projekt geändert", projekt_geloescht: "Projekt gelöscht",
   bericht_gespeichert: "Bericht gespeichert",
+  datei_hochgeladen: "Datei hochgeladen", datei_abgelehnt: "Datei abgelehnt", datei_heruntergeladen: "Datei heruntergeladen",
+  datei_geloescht: "Datei gelöscht", datei_wiederhergestellt: "Datei wiederhergestellt", datei_endgueltig_geloescht: "Datei endgültig gelöscht",
+  projekt_wiederhergestellt: "Projekt wiederhergestellt", projekt_endgueltig_geloescht: "Projekt endgültig gelöscht",
 };
 
 export function Protokoll() {

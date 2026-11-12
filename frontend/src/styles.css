@@ -91,3 +91,29 @@ dd.notiz { white-space: pre-wrap; }
 .speichern-leiste .aktionen { margin-top: 0; }
 :focus-visible { outline: 3px solid var(--gold); outline-offset: 2px; }
 @media (max-width: 600px) { dl.daten { grid-template-columns: 1fr; } }
+
+/* Unterlagen */
+h3 { font-size: 15px; margin: 18px 0 8px; color: var(--anth); }
+.upload { display: flex; flex-direction: column; gap: 12px; }
+.upload-kategorie { max-width: 320px; }
+.ablage { border: 2px dashed #A9A9B3; border-radius: 12px; padding: 18px; text-align: center; display: flex; flex-direction: column; align-items: center; gap: 8px; background: var(--grau-l); }
+.ablage p { margin: 0; }
+.ablage.ziehen { border-color: var(--gold); background: var(--gold-l); }
+.ablage.gesperrt { opacity: .7; }
+.btn-aus { opacity: .55; cursor: default; }
+label.btn { display: inline-flex; align-items: center; flex-direction: row; font-size: 14px; color: #fff; }
+.laeufe { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 6px; font-size: 13px; }
+.laeufe li { display: flex; gap: 10px; align-items: center; flex-wrap: wrap; padding: 6px 10px; border-radius: 8px; background: var(--grau-l); }
+.lauf-name { font-weight: bold; word-break: break-all; }
+.lauf-ok { background: var(--gruen-l) !important; color: var(--gruen); }
+.lauf-fehler { background: var(--rot-l) !important; color: var(--rot); }
+.laeufe progress { width: 120px; }
+.dateien { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 8px; }
+.dateien li { display: flex; align-items: center; gap: 12px; flex-wrap: wrap; border: 1px solid var(--rand); border-radius: 10px; padding: 8px 10px; }
+.vorschau img { width: 72px; height: 72px; object-fit: cover; border-radius: 6px; display: block; }
+.vorschau { min-width: 44px; min-height: 44px; }
+.typ-marke { width: 72px; height: 72px; border-radius: 6px; background: var(--grau-l); color: var(--anth); font-weight: bold; display: flex; align-items: center; justify-content: center; font-size: 14px; }
+.datei-info { flex: 1 1 220px; display: flex; flex-direction: column; gap: 2px; min-width: 0; }
+.datei-name { color: var(--anth); font-weight: bold; word-break: break-word; min-height: 24px; }
+.datei-aktionen, .zeilen-aktionen { display: flex; gap: 8px; flex-wrap: wrap; }
+a.btn2 { display: inline-flex; align-items: center; text-decoration: none; }

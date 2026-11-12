@@ -1,6 +1,7 @@
 import React, { useEffect, useState } from "react";
 import { api, hatRolle, zeit } from "./api.js";
 import { eur, Ergebnis, Foerdervergleich, KATEGORIEN } from "./Foerdervergleich.jsx";
+import { Unterlagen } from "./Unterlagen.jsx";
 
 export const GEBAEUDEARTEN = [["EFH", "Einfamilienhaus (EFH)"], ["ZFH", "Zweifamilienhaus (ZFH)"], ["MFH", "Mehrfamilienhaus (MFH)"],
   ["Nichtwohngebaeude", "Nichtwohngebäude"], ["Kirche", "Kirche"]];
@@ -191,7 +192,7 @@ function ProjektAkte({ ich, id, onZurueck, onGehe }) {
   useEffect(() => { laden(); }, [id]);
 
   async function loeschen() {
-    if (!window.confirm(`Projekt ${p.projektnummer} löschen? Es verschwindet aus allen Listen; Daten und Berichte bleiben in der Datenbank erhalten.`)) return;
+    if (!window.confirm(`Projekt ${p.projektnummer} löschen? Es wandert mit Berichten und Unterlagen in den Papierkorb und kann dort wiederhergestellt werden.`)) return;
     try { await api(`/projekte/${id}`, { method: "DELETE" }); onZurueck(); } catch (e) { setFehler(e.message); }
   }
 
@@ -226,6 +227,8 @@ function ProjektAkte({ ich, id, onZurueck, onGehe }) {
           </>
         )}
       </section>
+
+      <Unterlagen ich={ich} projektId={p.id} dateien={p.dateien} onGeaendert={laden} />
 
       <section className="karte">
         <div className="titelzeile">

@@ -18,8 +18,9 @@ from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session
 
 from app.auth import aktueller_benutzer, rolle
+from app.dateien_api import dateien_des_projekts
 from app.db import get_db
-from app.modelle import Benutzer, Bericht, Projekt, jetzt
+from app.modelle import Benutzer, Bericht, Projekt, ProjektnummerZaehler, jetzt
 from app.protokoll import protokollieren
 from app.rechnen import RECHNER, lade_konditionen
 
@@ -127,13 +128,14 @@ def _zustaendig_pruefen(db: Session, benutzer_id: int | None):
 
 
 def _naechste_projektnummer(db: Session) -> str:
+    """Zähler je Jahr (gesperrt bis zum Commit): Nummern werden nie neu vergeben, auch nicht nach endgültigem Löschen."""
     jahr = datetime.now(ZoneInfo("Europe/Berlin")).year
-    letzte = db.scalar(
-        select(Projekt.projektnummer).where(Projekt.projektnummer.like(f"{jahr}-%"))
-        .order_by(func.length(Projekt.projektnummer).desc(), Projekt.projektnummer.desc()).limit(1)
-    )
-    nummer = int(letzte.split("-", 1)[1]) + 1 if letzte else 1
-    return f"{jahr}-{nummer:04d}"
+    zaehler = db.scalar(select(ProjektnummerZaehler).where(ProjektnummerZaehler.jahr == jahr).with_for_update())
+    if zaehler is None:
+        zaehler = ProjektnummerZaehler(jahr=jahr, letzte=0)
+        db.add(zaehler)
+    zaehler.letzte += 1
+    return f"{jahr}-{zaehler.letzte:04d}"
 
 
 def _rechnen(modul: str, eingaben: dict, kond: dict) -> tuple[dict, dict]:
@@ -234,7 +236,8 @@ def projekt_akte(projekt_id: int, _: Benutzer = Depends(lesen), db: Session = De
     berichte = list(db.scalars(select(Bericht).where(Bericht.projekt_id == p.id)
                                .order_by(Bericht.modul, Bericht.versionsnummer.desc())))
     namen = _namen(db, [p.zustaendig_id, p.erstellt_von_id] + [b.erstellt_von_id for b in berichte])
-    return {**_projekt_aus(p, namen), "berichte": [_bericht_kurz(b, namen) for b in berichte]}
+    return {**_projekt_aus(p, namen), "berichte": [_bericht_kurz(b, namen) for b in berichte],
+            "dateien": dateien_des_projekts(db, p.id)}
 
 
 @router.patch("/projekte/{projekt_id}")
@@ -264,9 +267,9 @@ def projekt_bearbeiten(projekt_id: int, daten: ProjektAenderung, request: Reques
 @router.delete("/projekte/{projekt_id}")
 def projekt_loeschen(projekt_id: int, request: Request, ich: Benutzer = Depends(loeschen),
                      db: Session = Depends(get_db)):
-    """Weiches Löschen: Projekt und Berichte bleiben in der Datenbank, sind aber nicht mehr sichtbar."""
+    """Weiches Löschen: Projekt, Berichte und Unterlagen wandern in den Papierkorb."""
     p = _projekt_laden(db, projekt_id)
-    p.geloescht_am = jetzt()
+    p.geloescht_am, p.geloescht_von_id = jetzt(), ich.id
     protokollieren(db, request, "projekt_geloescht", ich.id, projekt_id=p.id, projektnummer=p.projektnummer)
     db.commit()
     return {"id": p.id, "geloescht_am": p.geloescht_am}

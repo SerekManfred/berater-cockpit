@@ -3,6 +3,7 @@ import { ABGEMELDET, api, hatRolle, rollenText } from "./api.js";
 import { Anmeldung, PasswortFormular, PasswortPflicht, ZweiFaktor, ZweiFaktorEinrichten } from "./Anmeldung.jsx";
 import { Benutzerverwaltung, Protokoll } from "./Benutzer.jsx";
 import { Foerdervergleich } from "./Foerdervergleich.jsx";
+import { Papierkorb } from "./Papierkorb.jsx";
 import { MeineProjekte, Projekte } from "./Projekte.jsx";
 
 export default function App() {
@@ -41,6 +42,7 @@ function Cockpit({ ich, onAbmelden }) {
     ["konditionen", "Förderkonditionen", true],
     ["benutzer", "Benutzer", hatRolle(ich)],
     ["protokoll", "Protokoll", hatRolle(ich)],
+    ["papierkorb", "Papierkorb", hatRolle(ich)],
   ].filter(([, , sichtbar]) => sichtbar);
   return (
     <>
@@ -65,6 +67,7 @@ function Cockpit({ ich, onAbmelden }) {
           {ansicht === "konditionen" && <Konditionen />}
           {ansicht === "benutzer" && <Benutzerverwaltung ich={ich} />}
           {ansicht === "protokoll" && <Protokoll />}
+          {ansicht === "papierkorb" && <Papierkorb />}
           {ansicht === "passwort" && <><h1>Passwort ändern</h1><section className="karte" style={{ maxWidth: 520 }}><PasswortFormular /></section></>}
         </main>
       </div>
