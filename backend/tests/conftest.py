@@ -46,11 +46,22 @@ def _schema():
 
 
 @pytest.fixture(autouse=True)
+def _festes_datum(monkeypatch):
+    """Fristen hängen vom Datum ab – Tests laufen immer mit dem 12.11.2026 (einzelne Tests setzen ein anderes)."""
+    from datetime import date
+    monkeypatch.setattr("app.fristen.heute", lambda: date(2026, 11, 12))
+
+
+@pytest.fixture(autouse=True)
 def _leere_tabellen():
     yield
     from app.db import SessionLocal
-    from app.modelle import Benutzer, Bericht, Datei, Projekt, ProjektnummerZaehler, Protokoll, Sitzung
+    from sqlalchemy import update
+    from app.modelle import Benutzer, Bericht, Datei, KonditionenVersion, Projekt, ProjektnummerZaehler, Protokoll, Sitzung
     with SessionLocal() as db:
+        # Konditionen: nur der Startbestand (Version 1, aktiv) bleibt
+        db.execute(delete(KonditionenVersion).where(KonditionenVersion.version != 1))
+        db.execute(update(KonditionenVersion).where(KonditionenVersion.version == 1).values(status="aktiv"))
         for tabelle in (Datei, Bericht, Projekt, ProjektnummerZaehler, Protokoll, Sitzung, Benutzer):
             db.execute(delete(tabelle))
         db.commit()

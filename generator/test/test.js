@@ -35,5 +35,21 @@ async function text(daten) {
   // Schutz: Konditionen-Version muss zum Ergebnis passen
   assert.throws(() => erstelleFoerdervergleich({ ...ref, konditionen: { ...ref.konditionen, version: 99 } }), /Konditionen-Version/);
   assert.throws(() => erstelleFoerdervergleich({ ...ref, ergebnis: { ...ref.ergebnis, szenarien: [] } }), /Szenarien fehlen/);
-  console.log(`OK – ${n} Beispiele + Referenzzahlen + Schutzprüfungen`);
+  // Fachwerte: ohne Abschnitt im Snapshot aus fachtexte.js, mit Abschnitt aus konditionen.fachwerte
+  const FT = require("../src/fachtexte");
+  assert(!ref.konditionen.fachwerte, "Referenzbeispiel soll ohne fachwerte sein");
+  assert(tr.includes(FT.haftung) && tr.includes(FT.tma_em[0][1]), "ohne fachwerte: Texte aus fachtexte.js");
+  const fw = {
+    tma_em: { quelle: "TEST-QUELLE-TMA", geprueft_am: "2026-12-01", bauteile: [{ bauteil: "Außenwand", anforderung: "U ≤ 0,17 W/(m²K) TEST" }] },
+    eh_stufen: { quelle: "TEST-QUELLE-EH", geprueft_am: "2026-12-01", stufen: { ...FT.eh_stufen, EH55EE: { name: "Effizienzhaus 55 EE TEST", qp: 55, ht: 70 } } },
+    ee_klasse: { quelle: "q", geprueft_am: "2026-12-01", text: "EE-KLASSE-TEST" },
+    kumulierung: { quelle: "q", geprueft_am: "2026-12-01", regeln: [{ kombination: "KUMULIERUNG-TEST", zulaessig: true, hinweis: "ok" }] },
+    haftung: { quelle: "q", geprueft_am: "2026-12-01", text: "HAFTUNG-TEST" },
+  };
+  const tm = await text({ ...ref, konditionen: { ...ref.konditionen, fachwerte: fw } });
+  for (const z of ["U ≤ 0,17 W/(m²K) TEST", "Effizienzhaus 55 EE TEST", "EE-KLASSE-TEST", "KUMULIERUNG-TEST", "HAFTUNG-TEST", "TEST-QUELLE-TMA"])
+    assert(tm.includes(z), "mit fachwerte: " + z);
+  assert(!tm.includes(FT.haftung) && !tm.includes(FT.tma_em[0][1]), "mit fachwerte: keine Texte aus fachtexte.js");
+  for (const z of ["163.600 €", "169.155 €", "144.355 €", "173.065 €"]) assert(tm.includes(z), "mit fachwerte, Beträge: " + z);
+  console.log(`OK – ${n} Beispiele + Referenzzahlen + Schutzprüfungen + Fachwerte mit/ohne`);
 })().catch(e => { console.error("FEHLER:", e.message); process.exit(1); });

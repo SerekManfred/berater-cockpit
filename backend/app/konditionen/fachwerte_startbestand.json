@@ -1,0 +1,111 @@
+{
+  "fachwerte": {
+    "tma_em": {
+      "quelle": "Technische Mindestanforderungen BEG EM (BAFA), Stand 2026",
+      "geprueft_am": "2026-11-09",
+      "bauteile": [
+        {
+          "bauteil": "Außenwand",
+          "anforderung": "U ≤ 0,20 W/(m²K)"
+        },
+        {
+          "bauteil": "Dach, Dachschräge",
+          "anforderung": "U ≤ 0,14 W/(m²K)"
+        },
+        {
+          "bauteil": "Oberste Geschossdecke",
+          "anforderung": "U ≤ 0,14 W/(m²K)"
+        },
+        {
+          "bauteil": "Bodenflächen gegen Erdreich / unbeheizt, Kellerdecke",
+          "anforderung": "U ≤ 0,25 W/(m²K)"
+        },
+        {
+          "bauteil": "Fenster, Fenstertüren",
+          "anforderung": "Uw ≤ 0,95 W/(m²K)"
+        },
+        {
+          "bauteil": "Lüftung mit Wärmerückgewinnung",
+          "anforderung": "Wärmebereitstellungsgrad ≥ 80 % bei ≤ 0,45 W/(m³/h) bzw. ≥ 75 % bei ≤ 0,35 W/(m³/h)"
+        }
+      ]
+    },
+    "eh_stufen": {
+      "quelle": "BEG WG, Technische Mindestanforderungen Effizienzhaus (KfW)",
+      "geprueft_am": "2026-11-09",
+      "stufen": {
+        "EH40EE": {
+          "name": "Effizienzhaus 40 EE",
+          "qp": 40,
+          "ht": 55
+        },
+        "EH55EE": {
+          "name": "Effizienzhaus 55 EE",
+          "qp": 55,
+          "ht": 70
+        },
+        "EH70EE": {
+          "name": "Effizienzhaus 70 EE",
+          "qp": 70,
+          "ht": 85
+        },
+        "EH85EE": {
+          "name": "Effizienzhaus 85 EE",
+          "qp": 85,
+          "ht": 100
+        },
+        "DenkmalEE": {
+          "name": "Effizienzhaus Denkmal EE",
+          "qp": 160,
+          "ht": 175
+        }
+      }
+    },
+    "ee_klasse": {
+      "quelle": "BEG WG, Technische Mindestanforderungen Effizienzhaus (KfW)",
+      "geprueft_am": "2026-11-09",
+      "text": "EE-Klasse: mindestens 65 % des Wärmebedarfs aus erneuerbaren Energien, unvermeidbarer Abwärme und/oder Wärmerückgewinnung aus Lüftungsanlagen"
+    },
+    "kumulierung": {
+      "quelle": "Kumulierungsregeln aus Richtlinien BEG EM / BEG WG, KfW-Merkblatt 266 und §§ 35a, 35c EStG (Übernahme aus generator/src/fachtexte.js, Einzelquellen bei der Prüfung bestätigen)",
+      "geprueft_am": "2026-11-09",
+      "regeln": [
+        {
+          "kombination": "KfW 266 + BEG EM (BAFA)",
+          "zulaessig": true,
+          "hinweis": "Umbaukosten nur in KfW 266, energetische Kosten nur in BEG EM"
+        },
+        {
+          "kombination": "KfW 266 + BEG WG (KfW 261)",
+          "zulaessig": true,
+          "hinweis": "Ausdrücklich vorgesehen; keine Doppelanrechnung derselben Kosten"
+        },
+        {
+          "kombination": "BEG EM + BEG WG",
+          "zulaessig": false,
+          "hinweis": "Ausgeschlossen; Sperrfrist 3 Jahre in beide Richtungen"
+        },
+        {
+          "kombination": "BEG EM + Ergänzungskredit 358/359",
+          "zulaessig": true,
+          "hinweis": "Kredit zusätzlich zum Zuschuss"
+        },
+        {
+          "kombination": "BEG + § 35c EStG (gleiche Maßnahme)",
+          "zulaessig": false,
+          "hinweis": "Steuerbonus nur für nicht geförderte Maßnahmen selbstgenutzter Wohnungen"
+        },
+        {
+          "kombination": "KfW 266 + § 35a EStG",
+          "zulaessig": false,
+          "hinweis": "Laut Merkblatt 266 ausgeschlossen"
+        }
+      ]
+    },
+    "haftung": {
+      "quelle": "Haftungshinweis Energieberatung Manfred Serek GmbH (Übernahme aus generator/src/fachtexte.js)",
+      "geprueft_am": "2026-11-09",
+      "text": "Alle Angaben nach bestem Wissen auf Basis der zum angegebenen Stand gültigen Förderbedingungen, ohne Gewähr. Fördermittel stehen unter Haushaltsvorbehalt. Maßgeblich sind die zum Zeitpunkt der Antragstellung gültigen Richtlinien, Merkblätter und die Bestätigung durch KfW/BAFA."
+    }
+  }
+}

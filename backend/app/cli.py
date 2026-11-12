@@ -46,13 +46,45 @@ def admin_anlegen() -> int:
     return 0
 
 
+def konditionen_entwurf(datei: str, notiz: str) -> int:
+    """Entwurf als Kopie der aktiven Version anlegen und die Abschnitte aus einer JSON-Datei einsetzen.
+    Ersteller bleibt leer („Kommandozeile“) – freigeben muss eine Person mit Rolle pruefer/admin über die Oberfläche."""
+    import json
+    from pathlib import Path
+
+    from fastapi import HTTPException
+
+    from app.konditionen_zentrale import entwurf_anlegen, pruefen
+    from app.modelle import KonditionenVersion
+
+    aenderungen = json.loads(Path(datei).read_text(encoding="utf-8"))
+    with SessionLocal() as db:
+        basis = db.scalar(select(KonditionenVersion).where(KonditionenVersion.status == "aktiv"))
+        try:
+            v = entwurf_anlegen(db, None, None, basis, aenderungen, notiz)
+        except HTTPException as fehler:
+            print(f"Fehler: {fehler.detail}", file=sys.stderr)
+            return 1
+        db.commit()
+        offen = pruefen(v.daten, v.aenderungsnotiz)
+        print(f"Entwurf Version {v.version} angelegt (Kopie von Version {basis.version}).")
+        print("Alle Prüfregeln erfüllt – kann zur Prüfung gesendet werden." if not offen
+              else f"Noch {len(offen)} offene Angabe(n), z. B. {offen[0]['pfad']}: {offen[0]['meldung']}")
+    return 0
+
+
 def main(argv=None) -> int:
     parser = argparse.ArgumentParser(prog="python -m app.cli", description="Berater-Cockpit – Verwaltung")
     befehle = parser.add_subparsers(dest="befehl", required=True)
     befehle.add_parser("admin-anlegen", help="Admin-Konto anlegen (Passwort wird abgefragt)")
+    k = befehle.add_parser("konditionen-entwurf", help="Konditionen-Entwurf aus aktiver Version + JSON-Datei anlegen")
+    k.add_argument("datei", help="JSON mit den zu setzenden Abschnitten, z. B. app/konditionen/fachwerte_startbestand.json")
+    k.add_argument("--notiz", required=True, help="Änderungsnotiz für die Prüfung")
     args = parser.parse_args(argv)
     if args.befehl == "admin-anlegen":
         return admin_anlegen()
+    if args.befehl == "konditionen-entwurf":
+        return konditionen_entwurf(args.datei, args.notiz)
     return 2
 
 

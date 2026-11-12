@@ -191,3 +191,29 @@ def test_echter_generator_erzeugt_bericht_mit_gespeicherten_zahlen(monkeypatch):
     for teil in ("Fördervergleich auf einen Blick", p["projektnummer"], "Version 1", "Teststadt", "berater",
                  "fossil, älter als 5 Jahre", "teilweise selbstgenutzt", ANZEIGE["kosten_hinweis"]):
         assert teil in text, teil
+
+
+@pytest.mark.skipif(not os.environ.get("GENERATOR_TEST_URL"), reason="kein Generator-Container (läuft mit scripts/test-postgres.sh)")
+def test_echter_generator_nutzt_fachwerte_aus_freigegebener_version(monkeypatch):
+    """Konditionen-Zentrale → Snapshot → Generator: Fachwerte der Version stehen im Bericht, alte Berichte wie bisher."""
+    from tests.test_konditionen import eingereicht
+    from tests.test_konditionen import nutzer as konto_nutzer
+    monkeypatch.setattr(config, "GENERATOR_URL", os.environ["GENERATOR_TEST_URL"].rstrip("/"))
+    monkeypatch.setattr(word, "TRANSPORT", None)
+    berater = nutzer("berater")
+    p, alt = bericht_anlegen(berater)  # Version 1, ohne Fachwerte
+    admin, pruefer = konto_nutzer("admin"), konto_nutzer("pruefer")
+    v = eingereicht(admin, fachwerte__haftung__text="Haftungshinweis TESTVERSION 2")
+    assert pruefer.post(f"/konditionen/versionen/{v['id']}/freigeben", json={}).status_code == 200
+    neu = berater.post(f"/projekte/{p['id']}/berichte", json={"modul": MODUL, "eingaben": {**REFERENZFALL, **ANZEIGE}}).json()
+
+    def text(bid):
+        r = berater.get(f"/berichte/{bid}/word")
+        assert r.status_code == 200, r.text
+        import re
+        with zipfile.ZipFile(io.BytesIO(r.content)) as z:
+            return re.sub(r"<[^>]+>", "", z.read("word/document.xml").decode())
+
+    t_neu, t_alt = text(neu["id"]), text(alt["id"])
+    assert "Haftungshinweis TESTVERSION 2" in t_neu and "(Version 2)" in t_neu
+    assert "Haftungshinweis TESTVERSION 2" not in t_alt and "(Version 1)" in t_alt

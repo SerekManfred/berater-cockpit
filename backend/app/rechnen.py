@@ -1,27 +1,44 @@
 """Konditionen laden und Module rechnen. Förderzahlen entstehen ausschließlich hier über den Rechenkern."""
-import json
-from pathlib import Path
-
-from fastapi import HTTPException
 from typing import Literal
 
+from fastapi import HTTPException
 from pydantic import BaseModel, Field
+from sqlalchemy import select
+from sqlalchemy.orm import Session
 
+from app import fristen
 from app.rechenkern.foerdervergleich import Eingaben, Massnahme, vergleich
 
-KOND_DIR = Path(__file__).parent / "konditionen"
+FREIGEGEBEN = ("aktiv", "abgeloest")
 
 
-def lade_konditionen(version: int | None = None) -> dict:
-    """Phase 1: Konditionen als JSON-Datei. Später: versionierte Tabelle in PostgreSQL mit Freigabe."""
-    dateien = sorted(KOND_DIR.glob("v*.json"), key=lambda p: int(p.stem[1:]))
-    if version is not None:
-        dateien = [p for p in dateien if p.stem == f"v{version}"]
-    aktiv = [json.loads(p.read_text(encoding="utf-8")) for p in dateien]
-    aktiv = [k for k in aktiv if k.get("status") == "aktiv" or version is not None]
-    if not aktiv:
-        raise HTTPException(404, "Keine aktive Konditionen-Version gefunden")
-    return aktiv[-1]
+def konditionen_daten(v) -> dict:
+    """Datensatz einer Version, wie ihn Rechenkern, Bericht-Snapshot und Generator bekommen."""
+    return {**v.daten, "version": v.version, "gueltig_ab": v.gueltig_ab.isoformat()}
+
+
+def lade_konditionen(version: int | None = None, db: Session | None = None) -> dict:
+    """Konditionen aus der Datenbank (Tabelle konditionen_versionen): ohne Angabe die aktive Version,
+    mit Angabe eine freigegebene (aktive oder abgelöste). Entwürfe werden hier nie geliefert."""
+    from app.db import SessionLocal
+    from app.modelle import KonditionenVersion
+
+    def laden(s: Session):
+        abfrage = select(KonditionenVersion)
+        if version is None:
+            abfrage = abfrage.where(KonditionenVersion.status == "aktiv")
+        else:
+            abfrage = abfrage.where(KonditionenVersion.version == version, KonditionenVersion.status.in_(FREIGEGEBEN))
+        v = s.scalar(abfrage)
+        if v is None:
+            raise HTTPException(404, "Keine aktive Konditionen-Version gefunden" if version is None
+                                else f"Konditionen-Version {version} ist nicht freigegeben")
+        return konditionen_daten(v)
+
+    if db is not None:
+        return laden(db)
+    with SessionLocal() as s:
+        return laden(s)
 
 
 class MassnahmeIn(BaseModel):
@@ -62,6 +79,10 @@ class FoerdervergleichIn(FoerdervergleichEingaben):
 def foerdervergleich_rechnen(daten: FoerdervergleichEingaben, kond: dict) -> dict:
     if daten.eh_stufe not in kond["beg_wg"]["tilgungszuschuss"]:
         raise HTTPException(422, f"Unbekannte EH-Stufe {daten.eh_stufe}")
+    for schalter, frist in fristen.abgelaufene_schalter(kond).items():
+        if getattr(daten, schalter, False):
+            raise HTTPException(422, f"Antragsfrist abgelaufen ({frist[8:10]}.{frist[5:7]}.{frist[:4]}): "
+                                     f"{schalter.replace('kfw', 'KfW ')} kann nicht mehr gewählt werden.")
     werte = daten.model_dump(exclude={"massnahmen", "konditionen_version"} | ANZEIGEFELDER)
     e = Eingaben(**werte, massnahmen=[Massnahme(**m.model_dump()) for m in daten.massnahmen])
     return vergleich(e, kond)

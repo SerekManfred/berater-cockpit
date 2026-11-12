@@ -26,7 +26,7 @@ export async function api(pfad, { method = "GET", body } = {}) {
   return daten;
 }
 
-export const ROLLEN = [["admin", "Admin"], ["berater", "Berater"], ["verwaltung", "Verwaltung"]];
+export const ROLLEN = [["admin", "Admin"], ["berater", "Berater"], ["verwaltung", "Verwaltung"], ["pruefer", "Prüfer"]];
 export const rollenText = rollen => rollen.map(r => Object.fromEntries(ROLLEN)[r] || r).join(", ");
 export const hatRolle = (ich, ...r) => ich.rollen.includes("admin") || r.some(x => ich.rollen.includes(x));
 export const zeit = t => t ? new Date(t).toLocaleString("de-DE", { dateStyle: "short", timeStyle: "short" }) : "–";

@@ -1,5 +1,6 @@
 import React, { useEffect, useState } from "react";
 import { api } from "./api.js";
+import { FristHinweise } from "./Konditionen.jsx";
 
 export const eur = n => (n ?? 0).toLocaleString("de-DE", { maximumFractionDigits: 0 }) + " €";
 const pct = n => ((n ?? 0) * 100).toLocaleString("de-DE", { minimumFractionDigits: 1, maximumFractionDigits: 1 }) + " %";
@@ -53,6 +54,9 @@ export function Foerdervergleich({ titel = "Fördervergleich Einzelmaßnahmen / 
   const setM = (i, k, v) => set("massnahmen", d.massnahmen.map((m, j) => j === i ? { ...m, [k]: v } : m));
   useEffect(() => { setErg(null); setBerechnetMit(null); }, [rechenSchluessel]);
   const aktuell = erg && berechnetMit === JSON.stringify(d);
+  const [fristen, setFristen] = useState([]);
+  useEffect(() => { api("/konditionen/fristen").then(f => setFristen(f.fristen)).catch(() => setFristen([])); }, []);
+  const frist266 = fristen.find(f => f.schalter === "kfw266");
 
   async function berechnen() {
     setFehler(""); setErg(null);
@@ -90,8 +94,14 @@ export function Foerdervergleich({ titel = "Fördervergleich Einzelmaßnahmen / 
         <div className="schalter">
           <label><input type="checkbox" checked={d.isfp} onChange={e => set("isfp", e.target.checked)} /> iSFP wird erstellt</label>
           <label><input type="checkbox" checked={d.ee_klasse_erreichbar} onChange={e => set("ee_klasse_erreichbar", e.target.checked)} /> EE-Klasse rechnerisch erreichbar</label>
-          <label><input type="checkbox" checked={d.kfw266} onChange={e => set("kfw266", e.target.checked)} /> KfW 266 (Umnutzung zu Wohnraum)</label>
+          <label><input type="checkbox" checked={d.kfw266} disabled={frist266?.status === "abgelaufen" && !d.kfw266}
+            onChange={e => set("kfw266", e.target.checked)} /> KfW 266 (Umnutzung zu Wohnraum)
+            {frist266?.status === "abgelaufen" && <span className="frist-aus"> – Antragsfrist abgelaufen</span>}</label>
         </div>
+        {frist266 && frist266.status !== "ok" && (d.kfw266 || frist266.status === "abgelaufen") && (
+          <div style={{ marginTop: 12 }}><FristHinweise fristen={[frist266]} /></div>)}
+        {d.kfw266 && frist266?.status === "abgelaufen" &&
+          <p className="klein">KfW 266 ist noch angehakt (aus gespeicherten Eingaben). Bitte abwählen – mit abgelaufener Frist wird nicht gerechnet.</p>}
         {d.kfw266 && (
           <div className="felder" style={{ marginTop: 14 }}>
             <Feld label="Davon neue WE (Umnutzung)" value={d.we_neu} onChange={v => set("we_neu", v)} />

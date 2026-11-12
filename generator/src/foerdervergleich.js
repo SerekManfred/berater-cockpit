@@ -2,7 +2,25 @@
 // Rechnet NICHT selbst: alle Beträge kommen aus `ergebnis` (Rechenkern), alle Sätze aus `konditionen` (Snapshot).
 const { Paragraph, PageBreak } = require("docx");
 const { C, W, eur, pct, datum, P, H1, H2, bullet, leer, tabelle, box, logo, dokument, AlignmentType } = require("./ci");
-const FT = require("./fachtexte");
+const FT_DATEI = require("./fachtexte");
+
+// Fachwerte aus dem Konditionen-Snapshot (ab Konditionen-Version mit Abschnitt „fachwerte“);
+// alte Berichte ohne diesen Abschnitt nutzen wie bisher fachtexte.js.
+function fachwerte(k) {
+  const f = k && k.fachwerte;
+  if (!f) return FT_DATEI;
+  return {
+    ...FT_DATEI,
+    stand: f.tma_em.geprueft_am,
+    quelle_tma_em: f.tma_em.quelle,
+    quelle_eh: f.eh_stufen.quelle,
+    tma_em: f.tma_em.bauteile.map(b => [b.bauteil, b.anforderung]),
+    eh_stufen: f.eh_stufen.stufen,
+    ee_klasse: f.ee_klasse.text,
+    kumulierung: f.kumulierung.regeln.map(r => [r.kombination, r.zulaessig, r.hinweis]),
+    haftung: f.haftung.text,
+  };
+}
 
 const R = AlignmentType.RIGHT, Z = AlignmentType.CENTER;
 const REIHE = ["EM_ohne_WPB", "EM_WPB", "EH_ohne_WPB", "EH_WPB"];
@@ -21,6 +39,7 @@ function pruefen(d) {
 
 function erstelleFoerdervergleich(d) {
   pruefen(d);
+  const FT = fachwerte(d.konditionen);
   const { projekt: pj, eingaben: e, ergebnis: erg, konditionen: k } = d;
   const stufe = FT.eh_stufen[e.eh_stufe] || { name: e.eh_stufe, qp: "?", ht: "?" };
   const titelVon = key => (key.startsWith("EM") ? "Einzelmaßnahmen" : stufe.name) + (key.endsWith("ohne_WPB") ? " ohne WPB" : " mit WPB");

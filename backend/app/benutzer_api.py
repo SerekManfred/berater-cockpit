@@ -15,7 +15,7 @@ from app.sicherheit import passwort_hash, startpasswort
 router = APIRouter(tags=["Benutzerverwaltung"])
 nur_admin = rolle("admin")
 
-Rolle = Literal["admin", "berater", "verwaltung"]
+Rolle = Literal["admin", "berater", "verwaltung", "pruefer"]
 
 
 class BenutzerNeu(BaseModel):

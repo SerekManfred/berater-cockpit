@@ -148,6 +148,27 @@ müssen sich danach neu anmelden. Änderungen seit der gewählten Sicherung sind
 **Nach einem Server-Neuaufbau:** Repository klonen, `.env` (mit demselben `SECRET_KEY`, sonst müssen alle die 2FA neu
 einrichten) wiederherstellen, `docker network create cockpit-proxy`, `docker compose up -d --build`, dann `einspielen`.
 
+## 10. Förderkonditionen pflegen (Vier-Augen-Prinzip)
+Menü „Förderkonditionen“: Reiter „Aktive Version“ (Kernwerte, Quelle, Prüfdatum je Programm) und „Versionen“ (alle Versionen,
+lesen und mit der Vorgängerversion vergleichen).
+
+1. **Admin:** „Neuer Entwurf (Kopie der aktiven Version)“ → Werte je Programm ändern (Prozent als 15, nicht 0,15; Beträge in €;
+   Quelle und Prüfdatum je Programm Pflicht) → Änderungsnotiz → „Speichern“. Fehler stehen direkt am Feld.
+2. **Admin:** „Zur Prüfung senden“ – geht erst, wenn alle Prüfregeln erfüllt sind.
+3. **Prüfer** (Rolle „Prüfer“ oder Admin, **nicht** wer die Version erstellt oder bearbeitet hat): Hinweis auf der Startseite →
+   „Zur Prüfung“ → Änderungen im Vergleich prüfen (gelb geändert, grün neu, rot entfernt) → „Freigeben“ oder „Zurückweisen“
+   (Begründung Pflicht).
+4. Nach der Freigabe rechnen **neue** Fördervergleiche sofort mit der neuen Version; gespeicherte Berichte bleiben unverändert
+   („Als neue Version bearbeiten“ → Haken „Mit aktueller Konditionen-Version rechnen“ wie bisher).
+
+Die Rolle „Prüfer“ vergibt ein Admin unter „Benutzer“ (kombinierbar, z. B. Berater + Prüfer).
+**Offen seit 12.11.2026:** Entwurf Version 2 (Fachwerte für den Word-Bericht) – per Kommandozeile angelegt, wartet auf
+„Zur Prüfung senden“ und Prüfung. Entwurf per Kommandozeile:
+`docker compose exec cockpit-api python -m app.cli konditionen-entwurf app/konditionen/DATEI.json --notiz "…"`
+
+**Antragsfristen:** Läuft eine Frist (z. B. KfW 266) in weniger als 30 Tagen ab, erscheint ein gelber Hinweis auf der Startseite und im
+Fördervergleich. Nach Ablauf ist das Programm im Fördervergleich nicht mehr wählbar. Fristen pflegt man in der Konditionen-Version.
+
 ## Lokal entwickeln
 ```bash
 cd backend && pip install -r requirements.txt && python -m pytest -q   # Tests nutzen eine eigene SQLite-Datei
@@ -158,7 +179,8 @@ cd frontend && npm install && npm run dev      # http://localhost:5173
 
 ## Aktualisieren
 ```bash
-cd /home/dev/berater-cockpit && git pull && docker compose build --no-cache cockpit-api cockpit-generator && docker compose up -d --build
+cd /home/dev/berater-cockpit && scripts/sicherung.sh   # vor jedem Update mit Migration; erst bei „Sicherung fertig“ weiter
+git pull && docker compose build --no-cache cockpit-api cockpit-generator && docker compose up -d --build
 scripts/test-postgres.sh      # alle Tests gegen PostgreSQL inkl. echtem Word-Generator
 ```
 `--no-cache`, damit die Tests beim Bauen (pytest bzw. `npm test` im Generator) wirklich laufen. Neue Tabellen oder Spalten nur über eine neue

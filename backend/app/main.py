@@ -2,9 +2,11 @@
 from contextlib import asynccontextmanager
 
 from fastapi import Depends, FastAPI
+from sqlalchemy.orm import Session
 
-from app import auth, benutzer_api, dateien_api, projekte_api, word
+from app import auth, benutzer_api, dateien_api, konditionen_zentrale, projekte_api, word
 from app.auth import aktueller_benutzer, rolle
+from app.db import get_db
 from app.rechnen import FoerdervergleichIn, foerdervergleich_rechnen, lade_konditionen
 from app.sicherheit import schluessel_pruefen
 
@@ -21,16 +23,12 @@ app.include_router(benutzer_api.router)
 app.include_router(projekte_api.router)
 app.include_router(dateien_api.router)
 app.include_router(word.router)
+app.include_router(konditionen_zentrale.router)
 
 
 @app.get("/health")
 def health():
     return {"status": "ok"}
-
-
-@app.get("/konditionen", dependencies=[Depends(aktueller_benutzer)])
-def konditionen():
-    return lade_konditionen()
 
 
 @app.get("/module", dependencies=[Depends(aktueller_benutzer)])
@@ -44,6 +42,6 @@ def module():
 
 
 @app.post("/module/foerderung-em-eh/berechnen", dependencies=[Depends(rolle("berater"))])
-def berechnen(daten: FoerdervergleichIn):
+def berechnen(daten: FoerdervergleichIn, db: Session = Depends(get_db)):
     """Schnellrechnung ohne Speichern (auch Vorschau vor dem Speichern in der Projektakte)."""
-    return foerdervergleich_rechnen(daten, lade_konditionen(daten.konditionen_version))
+    return foerdervergleich_rechnen(daten, lade_konditionen(daten.konditionen_version, db=db))

@@ -25,7 +25,7 @@ def zwei_faktor_pflicht(wert: str | None) -> bool:
 
 ZWEI_FAKTOR_PFLICHT = zwei_faktor_pflicht(os.environ.get("ZWEI_FAKTOR_PFLICHT"))
 
-ROLLEN = ("admin", "berater", "verwaltung")
+ROLLEN = ("admin", "berater", "verwaltung", "pruefer")  # pruefer: Freigabe von Konditionen-Versionen
 
 # Datei-Upload: Ablage in einem eigenen Docker-Volume (nicht im Web-Verzeichnis)
 from pathlib import Path  # noqa: E402

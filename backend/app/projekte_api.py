@@ -283,7 +283,10 @@ def bericht_speichern(projekt_id: int, daten: BerichtNeu, request: Request, ich:
                       db: Session = Depends(get_db)):
     """Neuen Bericht speichern. Das Ergebnis rechnet immer der Rechenkern – nie die Oberfläche."""
     p = _projekt_laden(db, projekt_id, sperren=True)
-    kond = lade_konditionen(daten.konditionen_version)
+    kond = lade_konditionen(daten.konditionen_version, db=db)
+    if daten.konditionen_version is not None and kond["version"] != lade_konditionen(db=db)["version"]:
+        raise HTTPException(409, f"Inzwischen gilt eine neue Konditionen-Version (statt Version {kond['version']}). "
+                                 "Bitte neu berechnen und dann speichern.")
     b = _bericht_speichern(db, request, p, daten.modul, daten.eingaben, kond, ich)
     return bericht_lesen(b.id, ich, db)
 
@@ -292,14 +295,14 @@ def bericht_speichern(projekt_id: int, daten: BerichtNeu, request: Request, ich:
 def bericht_lesen(bericht_id: int, _: Benutzer = Depends(lesen), db: Session = Depends(get_db)):
     b, p = _bericht_laden(db, bericht_id)
     namen = _namen(db, [b.erstellt_von_id])
-    aktuell = lade_konditionen()["version"]
+    aktuell = lade_konditionen(db=db)["version"]
     return {**_bericht_kurz(b, namen), "projektnummer": p.projektnummer, "eingaben": b.eingaben,
             "ergebnis": b.ergebnis, "aktuelle_konditionen_version": aktuell}
 
 
-def _kond_fuer_neu(b: Bericht, aktuelle: bool) -> dict:
+def _kond_fuer_neu(b: Bericht, aktuelle: bool, db: Session) -> dict:
     # Ohne ausdrücklichen Wunsch: exakt der eingefrorene Datensatz des Berichts
-    return lade_konditionen() if aktuelle else b.konditionen_snapshot
+    return lade_konditionen(db=db) if aktuelle else b.konditionen_snapshot
 
 
 @router.post("/berichte/{bericht_id}/berechnen")
@@ -307,7 +310,7 @@ def bericht_vorschau(bericht_id: int, daten: NeuRechnen, _: Benutzer = Depends(b
                      db: Session = Depends(get_db)):
     """Vorschau für „Als neue Version bearbeiten“ – speichert nichts."""
     b, _p = _bericht_laden(db, bericht_id)
-    return _rechnen(b.modul, daten.eingaben, _kond_fuer_neu(b, daten.aktuelle_konditionen))[1]
+    return _rechnen(b.modul, daten.eingaben, _kond_fuer_neu(b, daten.aktuelle_konditionen, db))[1]
 
 
 @router.post("/berichte/{bericht_id}/neue-version", status_code=201)
@@ -316,7 +319,7 @@ def bericht_neu_rechnen(bericht_id: int, daten: NeuRechnen, request: Request, ic
     """„Neu rechnen“: legt immer eine neue Version an, der alte Bericht bleibt unverändert."""
     b, _p = _bericht_laden(db, bericht_id)
     p = _projekt_laden(db, b.projekt_id, sperren=True)
-    kond = _kond_fuer_neu(b, daten.aktuelle_konditionen)
+    kond = _kond_fuer_neu(b, daten.aktuelle_konditionen, db)
     neu = _bericht_speichern(db, request, p, b.modul, daten.eingaben, kond, ich, basis_bericht_id=b.id,
                              basis_versionsnummer=b.versionsnummer, aktuelle_konditionen=daten.aktuelle_konditionen)
     return bericht_lesen(neu.id, ich, db)

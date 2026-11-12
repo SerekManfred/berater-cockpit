@@ -140,6 +140,9 @@ const AKTIONEN = {
   datei_geloescht: "Datei gelöscht", datei_wiederhergestellt: "Datei wiederhergestellt", datei_endgueltig_geloescht: "Datei endgültig gelöscht",
   projekt_wiederhergestellt: "Projekt wiederhergestellt", projekt_endgueltig_geloescht: "Projekt endgültig gelöscht",
   bericht_word_erzeugt: "Word-Bericht erzeugt", bericht_word_fehlgeschlagen: "Word-Bericht fehlgeschlagen",
+  konditionen_entwurf_angelegt: "Konditionen-Entwurf angelegt", konditionen_entwurf_geaendert: "Konditionen-Entwurf geändert",
+  konditionen_zur_pruefung: "Konditionen zur Prüfung gesendet", konditionen_zurueckgezogen: "Konditionen zurückgezogen",
+  konditionen_freigegeben: "Konditionen freigegeben", konditionen_zurueckgewiesen: "Konditionen zurückgewiesen",
 };
 
 export function Protokoll() {

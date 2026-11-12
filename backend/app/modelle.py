@@ -1,7 +1,7 @@
 """Tabellen benutzer, sitzung, protokoll. Änderungen nur zusammen mit einer Alembic-Migration."""
-from datetime import UTC, datetime
+from datetime import UTC, date, datetime
 
-from sqlalchemy import JSON, BigInteger, Boolean, DateTime, ForeignKey, Integer, String, Text, UniqueConstraint
+from sqlalchemy import JSON, BigInteger, Boolean, Date, DateTime, ForeignKey, Index, Integer, String, Text, UniqueConstraint, text
 from sqlalchemy.dialects.postgresql import ARRAY, JSONB
 from sqlalchemy.orm import Mapped, mapped_column
 from sqlalchemy.types import TypeDecorator
@@ -144,3 +144,31 @@ class Datei(Base):
     hochgeladen_am: Mapped[datetime] = mapped_column(UTCZeit, nullable=False, default=jetzt)
     geloescht_am: Mapped[datetime | None] = mapped_column(UTCZeit)
     geloescht_von_id: Mapped[int | None] = mapped_column(ForeignKey("benutzer.id", ondelete="SET NULL"))
+
+
+# ---------- Konditionen-Zentrale ----------
+
+KONDITIONEN_STATUS = ("entwurf", "zur_pruefung", "aktiv", "abgeloest", "zurueckgewiesen")
+
+
+class KonditionenVersion(Base):
+    """Versionierter Konditionen-Datensatz mit Vier-Augen-Freigabe. Genau eine Version ist aktiv
+    (eindeutiger Teilindex auf status = 'aktiv' – PostgreSQL und SQLite)."""
+    __tablename__ = "konditionen_versionen"
+    __table_args__ = (
+        Index("uq_konditionen_eine_aktive", "status", unique=True,
+              postgresql_where=text("status = 'aktiv'"), sqlite_where=text("status = 'aktiv'")),
+    )
+    id: Mapped[int] = mapped_column(Integer, primary_key=True)
+    version: Mapped[int] = mapped_column(Integer, nullable=False, unique=True)
+    gueltig_ab: Mapped[date] = mapped_column(Date, nullable=False)  # „Stand der Förderbedingungen“ im Bericht
+    status: Mapped[str] = mapped_column(String(20), nullable=False)
+    daten: Mapped[dict] = mapped_column(DETAILS_TYP, nullable=False)  # Aufbau wie app/konditionen/v1.json
+    aenderungsnotiz: Mapped[str | None] = mapped_column(Text)
+    basis_id: Mapped[int | None] = mapped_column(ForeignKey("konditionen_versionen.id"))  # Kopie von
+    erstellt_von_id: Mapped[int | None] = mapped_column(ForeignKey("benutzer.id", ondelete="SET NULL"))
+    erstellt_am: Mapped[datetime] = mapped_column(UTCZeit, nullable=False, default=jetzt)
+    bearbeitet_von: Mapped[list] = mapped_column(DETAILS_TYP, nullable=False, default=list)  # IDs aller, die Werte geändert haben
+    geprueft_von_id: Mapped[int | None] = mapped_column(ForeignKey("benutzer.id", ondelete="SET NULL"))
+    geprueft_am: Mapped[datetime | None] = mapped_column(UTCZeit)
+    pruefnotiz: Mapped[str | None] = mapped_column(Text)

@@ -22,6 +22,8 @@ Ausführliches Fachkonzept: `docs/Konzept_Berater-Cockpit.docx` (falls abgelegt)
   (beim Bauen) und gegen PostgreSQL (`scripts/test-postgres.sh`, siehe „Arbeitsweise“).
 - Projektakte: `app/projekte_api.py`, Tabellen `projekte` und `berichte` (Migration 0002). Rechnen und Konditionen laden
   zentral in `app/rechnen.py` (`RECHNER`: Modul → Eingabe-Schema + Rechenfunktion; neues Modul dort eintragen).
+- Konditionen-Zentrale: `app/konditionen_zentrale.py` (Formularbeschreibung `PROGRAMME`, Prüfregeln, Vergleich, Freigabe),
+  Laden für das Rechnen in `app/rechnen.py` (`lade_konditionen`), Fristen in `app/fristen.py`. Tabelle `konditionen_versionen` (Migration 0004).
 - Unterlagen und Papierkorb: `app/dateien_api.py`, Typprüfung/Ablage/Vorschau in `app/dateien.py`, Tabelle `dateien` (Migration 0003).
   Inhalte im Docker-Volume `datei-daten` (in `cockpit-api` unter `/daten`, Besitzer nobody), nie im Web-Verzeichnis.
 - Anmeldung: `app/auth.py` (Sitzung, 2FA, Rollenprüfung per `Depends(rolle(...))` an jeder Route), `app/benutzer_api.py`
@@ -29,12 +31,15 @@ Ausführliches Fachkonzept: `docs/Konzept_Berater-Cockpit.docx` (falls abgelegt)
 - `generator/` – Container `cockpit-generator` (Node 20, docx): erzeugt Word-Berichte im CI, rechnet nie. Nur im Netz
   `cockpit-intern` (internal, mit `cockpit-api`): kein Port, kein Internet, nicht in `cockpit-proxy`. Tests laufen beim Bauen.
   Fertig zugeliefert (Phase 1a) – **inhaltlich nicht im Cockpit ändern**; neue Fassungen kommen als Paket und ersetzen den Ordner.
+  Einzige freigegebene Änderung (Phase 1b): `foerdervergleich.js` liest die Fachwerte aus `konditionen.fachwerte`, sonst aus `fachtexte.js`.
 - Später: Redis + Worker für lange Jobs (KI, Word-Erzeugung)
 - Betrieb mit Docker Compose. Test: `cockpit.mybase-test.de` (Hostinger-VServer, Ordner `/home/dev/berater-cockpit`). TLS und Weiterleitung macht der zentrale Caddy der Schulungsplattform (`/opt/schulung`) über das Netz `cockpit-proxy` an `cockpit-web:80`. Änderungen unter `/opt/schulung` nur mit ausdrücklicher Freigabe; freigegeben (11.11.2026) sind nur der Site-Block `cockpit.mybase-test.de` im Caddyfile und der Anschluss von `schulung-caddy-1` an das Netz `cockpit-proxy` – immer per `docker network connect`, Anhängen, `caddy validate` und `caddy reload`, nie `docker compose up` oder Neustart des Caddy (siehe README Schritt 5). Produktion später: HostEurope.
 
 ## Unverhandelbare Regeln
 1. **Förderzahlen nur aus dem Rechenkern.** Keine Förderbeträge im Frontend berechnen, keine Sätze im Code hart verdrahten.
-   Alle Sätze, Grenzen und Fristen stehen im Konditionen-Datensatz (`app/konditionen/v<N>.json`, später Datenbank) mit Quelle und Prüfdatum.
+   Alle Sätze, Grenzen und Fristen stehen im Konditionen-Datensatz (Tabelle `konditionen_versionen`, nur über die Konditionen-Zentrale
+   mit Vier-Augen-Freigabe änderbar) mit Quelle und Prüfdatum. `app/konditionen/v1.json` ist nur noch Startbestand (Migration 0004) –
+   **nie ändern**, sonst entstünde in einer neuen Datenbank eine andere Version 1.
 2. **Referenzfall MFH-Umnutzung (6 WE) darf nicht brechen.** `backend/tests/test_referenzfall_mfh_umnutzung.py` enthält die geprüften Zahlen aus dem ausgelieferten Bericht.
    Schlägt ein Test fehl, ist das ein Fehler – außer es gibt eine neue Konditionen-Version, dann neuen Test für die neue Version anlegen und den alten behalten.
 3. **Berichte frieren ihre Konditionen-Version ein.** Jeder erzeugte Bericht speichert, mit welcher Konditionen-Version er gerechnet wurde.
@@ -95,8 +100,35 @@ Ausführliches Fachkonzept: `docs/Konzept_Berater-Cockpit.docx` (falls abgelegt)
   `bestandsheizung`, `nutzung`, `wpb_status`, `kosten_hinweis` (geht als `kosten_hinweis` auf oberster Ebene an den Generator).
   Auswahlwerte wie `modules/foerderung-em-eh/module.yaml`; nicht ausgefüllte Felder werden nicht gespeichert.
 - Gebäudeart „Nichtwohngebaeude“ wird für den Bericht als „Nichtwohngebäude“ übergeben, alle anderen unverändert.
-- Offen (Phase 1b): `generator/src/fachtexte.js` enthält fachliche Festwerte (U-Werte, EH-Stufen, Kumulierung, Haftung),
-  die in die Konditionen-Zentrale gehören.
+- Fachwerte (U-Werte, EH-Stufen, EE-Klasse, Kumulierung, Haftung) kommen ab der ersten Konditionen-Version mit Abschnitt `fachwerte`
+  aus dem Snapshot des Berichts; ältere Berichte ohne diesen Abschnitt nutzen weiter `generator/src/fachtexte.js`.
+
+## Konditionen-Zentrale (Stand 12.11.2026, Phase 1b)
+- **Tabelle `konditionen_versionen`:** version (fortlaufend, eindeutig), gueltig_ab (= „Stand der Förderbedingungen“ im Bericht), status
+  `entwurf → zur_pruefung → aktiv | zurueckgewiesen`, bei Freigabe wird die bisher aktive `abgeloest`; daten (Aufbau wie v1.json plus
+  Abschnitt `fachwerte`), aenderungsnotiz, basis_id (Kopiervorlage), erstellt_von/am, bearbeitet_von (IDs aller, die Werte geändert
+  haben), geprueft_von/am, pruefnotiz.
+- **Genau eine aktive Version:** eindeutiger Teilindex `uq_konditionen_eine_aktive` auf `status = 'aktiv'` (PostgreSQL und SQLite) –
+  höchstens eine; dass immer eine aktiv ist, sichert der Ablauf (Ablösen und Aktivieren in einer Transaktion, keine Löschfunktion).
+- **Rechnen:** `lade_konditionen()` liefert die aktive Version, `lade_konditionen(n)` nur freigegebene (aktiv/abgelöst) – Entwürfe nie.
+  Neue Berichte nur mit der aktiven Version (sonst 409 „bitte neu berechnen“). Gespeicherte Berichte behalten ihren Snapshot.
+- **Rechte:** freigegebene Versionen, Formular, Fristen lesen alle Angemeldeten; Entwürfe/Prüfungen sehen admin und pruefer.
+  Entwurf anlegen (Kopie der aktiven oder einer zurückgewiesenen Version; nur ein offener Entwurf gleichzeitig), bearbeiten,
+  einreichen, zurückziehen: admin. Freigeben/Zurückweisen (Begründung Pflicht): **Rolle `pruefer`** oder admin – nie der Ersteller
+  und niemand aus `bearbeitet_von` (Vier-Augen-Prinzip, im Backend erzwungen). Reines Einreichen zählt nicht als Bearbeiten.
+- **Formulare:** aus `PROGRAMME` (Feldtypen prozent/euro/zahl/datum/text/text_lang/janein/auswahl/mehrfach/tabelle). Gespeichert werden
+  nur Felder aus dieser Beschreibung (kein freies JSON). Prozent als Anteil gespeichert (0,15), in der Oberfläche als 15 eingegeben.
+  Neues Feld im Konditionen-Datensatz = Eintrag in `PROGRAMME` + ggf. Prüfregel + Test.
+- **Prüfregeln** (`pruefen()`): Pflichtfelder inkl. Quelle und Prüfdatum je Programm, Sätze 0–100 %, Beträge ≥ 0, Höchstgrenze mit iSFP ≥
+  ohne iSFP, gültige Daten, Auswahlwerte, Änderungsnotiz. Fehler kommen je Feld (`pfad`) zurück.
+- **Fristen** (`app/fristen.py`): jedes Programm mit `antragsfrist` (in jedem Programm optional pflegbar). < 30 Tage: gelber Hinweis
+  (Startseite, Fördervergleich). Abgelaufen: Programme mit Schalter im Fördervergleich (`SCHALTER`, bisher `kfw_266 → kfw266`) sind nicht
+  mehr wählbar; das Backend lehnt jede neue Berechnung damit ab (422). Gespeicherte Berichte bleiben lesbar. Tests laufen mit festem
+  Datum 12.11.2026 (`conftest.py`).
+- **Protokoll:** `konditionen_entwurf_angelegt`, `_entwurf_geaendert`, `_zur_pruefung`, `_zurueckgezogen`, `_freigegeben`, `_zurueckgewiesen`.
+- **Kommandozeile:** `python -m app.cli konditionen-entwurf DATEI.json --notiz "…"` legt einen Entwurf aus der aktiven Version plus den
+  Abschnitten der Datei an (Ersteller „Kommandozeile“). So entstand am 12.11.2026 **Entwurf Version 2** mit den Fachwerten
+  (`app/konditionen/fachwerte_startbestand.json`, erzeugt aus `fachtexte.js`) – **noch nicht freigegeben**, wartet auf Einreichen und Prüfung.
 
 ## Module (erweiterbar)
 Jede Berichtsart ist ein Modul mit Beschreibung unter `modules/<id>/module.yaml`: Felder, Pflichtangaben, Upload-Slots,
@@ -108,8 +140,7 @@ Fachregeln, Rechenkern, Generator. Die Oberfläche soll Masken aus dieser Beschr
   Basic Auth bleibt zusätzlich aktiv bis zum Produktivstart (Reihenfolge siehe „Vor Produktivstart“).
   Projektakte ist umgesetzt (Teilauftrag 2, Phase 0b). Datei-Upload, Papierkorb und Datensicherung sind umgesetzt (Teilauftrag 3).
 - **Phase 1a (erledigt 12.11.2026):** Word-Bericht Fördervergleich aus gespeicherten Berichten (siehe Abschnitt oben).
-- **Phase 1:** Konditionen in PostgreSQL mit Versionen und Vier-Augen-Freigabe; Modul Fördervergleich komplett inkl. Word-Ausgabe im CI
-  (Gliederung wie Skill `foerderung-em-eh`, Kapitel 9 „Fördervergleich auf einen Blick“ ist Pflicht).
+- **Phase 1b (erledigt 12.11.2026):** Konditionen-Zentrale in PostgreSQL mit Versionen, Vier-Augen-Freigabe, Fachwerten und Fristen.
 - **Phase 2:** INIT und MEH mit KI (Checklisten-Erkennung, Fotozuordnung) – vorhandene Generatoren `generate_report.js` aus den Skills einbinden.
 - **Phase 3:** Kirche. **Phase 4:** Änderungs-Monitor für Förderquellen, Freigabe-Workflow, Anbindung IR-Planer.
 
@@ -146,5 +177,8 @@ vollständig erhalten und getestet. Bevor echte Nutzer oder Kundendaten ins Syst
   Nie Tests gegen `cockpit-db`/die Datenbank `cockpit` laufen lassen – die Tests leeren ihre Datenbank. `conftest.py` bricht ab,
   wenn der Name der Testdatenbank kein „test“ enthält.
 - Bauen ohne Cache, damit die Tests im Build wirklich laufen: `docker compose build --no-cache cockpit-api cockpit-generator`.
+- **Vor jeder Migration im Betrieb sichern** – `scripts/sicherung.sh` direkt aufrufen (nicht durch eine Pipe, die den Exit-Code verdeckt)
+  und erst bei „Sicherung fertig“ weitermachen. Neue Tabellen in `scripts/kennzahlen.sh` ergänzen; es überspringt Tabellen, die ein
+  älterer Migrationsstand noch nicht hat, damit alte Sicherungen prüfbar bleiben.
 - Kleine, nachvollziehbare Commits mit deutscher Beschreibung.
 - Oberfläche: barrierearm (echte Buttons/Labels, Kontrast ≥ 4,5:1, Klickflächen ≥ 44 px), tablet-tauglich.
