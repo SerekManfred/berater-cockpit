@@ -1,0 +1,17 @@
+{
+  "name": "cockpit-generator",
+  "private": true,
+  "version": "0.1.0",
+  "description": "Word-Berichte im CI f\u00fcr das Berater-Cockpit",
+  "main": "src/server.js",
+  "scripts": {
+    "start": "node src/server.js",
+    "test": "node test/test.js"
+  },
+  "dependencies": {
+    "docx": "9.5.1"
+  },
+  "devDependencies": {
+    "jszip": "3.10.1"
+  }
+}

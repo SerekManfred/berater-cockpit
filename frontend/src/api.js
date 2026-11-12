@@ -55,3 +55,20 @@ export function dateiHochladen(projektId, datei, kategorie, onFortschritt) {
 
 export const groesseText = b => b >= 1_000_000 ? (b / 1_000_000).toLocaleString("de-DE", { maximumFractionDigits: 1 }) + " MB"
   : Math.max(1, Math.round(b / 1000)).toLocaleString("de-DE") + " kB";
+
+// Word-Bericht eines gespeicherten Berichts laden und als Datei speichern (Fehler als verständliche Meldung)
+export async function wordHerunterladen(berichtId) {
+  const r = await fetch(`/api/berichte/${berichtId}/word`, { credentials: "same-origin" });
+  if (!r.ok) {
+    let daten = null;
+    try { daten = await r.json(); } catch { /* keine JSON-Antwort */ }
+    if (r.status === 401) window.dispatchEvent(new Event(ABGEMELDET));
+    throw new Error(fehlertext(daten) || `Fehler ${r.status}`);
+  }
+  const blob = await r.blob();
+  const name = /filename="([^"]+)"/.exec(r.headers.get("content-disposition") || "")?.[1] || "Bericht.docx";
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement("a");
+  a.href = url; a.download = name; document.body.appendChild(a); a.click(); a.remove();
+  setTimeout(() => URL.revokeObjectURL(url), 2000);
+}

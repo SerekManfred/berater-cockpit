@@ -139,6 +139,7 @@ const AKTIONEN = {
   datei_hochgeladen: "Datei hochgeladen", datei_abgelehnt: "Datei abgelehnt", datei_heruntergeladen: "Datei heruntergeladen",
   datei_geloescht: "Datei gelöscht", datei_wiederhergestellt: "Datei wiederhergestellt", datei_endgueltig_geloescht: "Datei endgültig gelöscht",
   projekt_wiederhergestellt: "Projekt wiederhergestellt", projekt_endgueltig_geloescht: "Projekt endgültig gelöscht",
+  bericht_word_erzeugt: "Word-Bericht erzeugt", bericht_word_fehlgeschlagen: "Word-Bericht fehlgeschlagen",
 };
 
 export function Protokoll() {

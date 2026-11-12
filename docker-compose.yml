@@ -18,10 +18,25 @@ services:
       DATABASE_URL: postgresql://cockpit:${DB_PASSWORD}@cockpit-db:5432/cockpit
       SECRET_KEY: ${SECRET_KEY:?SECRET_KEY fehlt in der .env}   # Sitzungen und Verschlüsselung des 2FA-Geheimnisses
       ZWEI_FAKTOR_PFLICHT: ${ZWEI_FAKTOR_PFLICHT:-true}         # nur in der Entwicklung false
+      GENERATOR_URL: http://cockpit-generator:3000
+    networks: [default, cockpit-intern]
     depends_on:
       cockpit-db: { condition: service_healthy }   # Migrationen laufen beim Start der API
     volumes:
       - datei-daten:/daten   # hochgeladene Unterlagen – eigenes Volume, nicht im Web-Verzeichnis
+
+  cockpit-generator:   # Word-Berichte im CI (generator/README.md); Tests laufen beim Bauen
+    build: { context: ./generator }
+    restart: unless-stopped
+    networks: [cockpit-intern]   # nur internes Netz: kein Port, kein Internet, nicht in cockpit-proxy
+    read_only: true
+    cap_drop: [ALL]
+    security_opt: ["no-new-privileges:true"]
+    healthcheck:
+      test: ["CMD", "wget", "-qO-", "http://127.0.0.1:3000/health"]
+      interval: 30s
+      timeout: 5s
+      retries: 3
 
   cockpit-db:   # Benutzer, Sitzungen, Protokoll, Projekte, Berichte, Datei-Metadaten (Inhalte im Volume datei-daten)
     image: postgres:16-alpine
@@ -52,6 +67,8 @@ services:
 networks:
   cockpit-proxy:
     external: true     # vorher anlegen: docker network create cockpit-proxy
+  cockpit-intern:
+    internal: true     # API <-> Generator, ohne Verbindung nach außen
 
 volumes:
   db-daten:

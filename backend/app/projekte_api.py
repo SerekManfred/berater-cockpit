@@ -145,7 +145,8 @@ def _rechnen(modul: str, eingaben: dict, kond: dict) -> tuple[dict, dict]:
         daten = schema.model_validate(eingaben)
     except ValidationError as fehler:
         raise RequestValidationError(fehler.errors(include_url=False, include_context=False)) from None
-    return daten.model_dump(), rechner(daten, kond)
+    # Nicht ausgefüllte optionale Felder (None) werden nicht mitgespeichert
+    return daten.model_dump(exclude_none=True), rechner(daten, kond)
 
 
 def _bericht_speichern(db: Session, request: Request, p: Projekt, modul: str, eingaben: dict, kond: dict,

@@ -3,7 +3,7 @@ from contextlib import asynccontextmanager
 
 from fastapi import Depends, FastAPI
 
-from app import auth, benutzer_api, dateien_api, projekte_api
+from app import auth, benutzer_api, dateien_api, projekte_api, word
 from app.auth import aktueller_benutzer, rolle
 from app.rechnen import FoerdervergleichIn, foerdervergleich_rechnen, lade_konditionen
 from app.sicherheit import schluessel_pruefen
@@ -20,6 +20,7 @@ app.include_router(auth.router)
 app.include_router(benutzer_api.router)
 app.include_router(projekte_api.router)
 app.include_router(dateien_api.router)
+app.include_router(word.router)
 
 
 @app.get("/health")

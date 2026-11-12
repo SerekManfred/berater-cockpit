@@ -1,5 +1,5 @@
 import React, { useEffect, useState } from "react";
-import { api, hatRolle, zeit } from "./api.js";
+import { api, hatRolle, wordHerunterladen, zeit } from "./api.js";
 import { eur, Ergebnis, Foerdervergleich, KATEGORIEN } from "./Foerdervergleich.jsx";
 import { Unterlagen } from "./Unterlagen.jsx";
 
@@ -8,6 +8,7 @@ export const GEBAEUDEARTEN = [["EFH", "Einfamilienhaus (EFH)"], ["ZFH", "Zweifam
 export const PROJEKT_STATUS = [["offen", "offen"], ["in_bearbeitung", "in Bearbeitung"], ["abgeschlossen", "abgeschlossen"]];
 const BERICHT_STATUS = { entwurf: "Entwurf", zur_freigabe: "zur Freigabe", freigegeben: "freigegeben" };
 const MODULE = { "foerderung-em-eh": "Fördervergleich EM/EH" };
+const WORD_MODULE = ["foerderung-em-eh"];
 const text = (liste, wert) => Object.fromEntries(liste)[wert] || wert;
 const datum = t => t ? new Date(t).toLocaleDateString("de-DE") : "–";
 const adresse = p => [p.objekt_strasse, [p.objekt_plz, p.objekt_ort].filter(Boolean).join(" ")].filter(Boolean).join(", ");
@@ -20,6 +21,24 @@ function useBenutzerAuswahl() {
 
 function Fehler({ text: t }) {
   return t ? <div className="fehler" role="alert">{t}</div> : null;
+}
+
+/** „Word herunterladen“ – für alle Rollen; der Bericht wird aus den gespeicherten Daten erzeugt, nicht neu gerechnet. */
+function WordKnopf({ bericht, klasse = "btn2" }) {
+  const [laeuft, setLaeuft] = useState(false);
+  const [fehler, setFehler] = useState("");
+  if (!WORD_MODULE.includes(bericht.modul)) return null;
+  async function laden() {
+    setFehler(""); setLaeuft(true);
+    try { await wordHerunterladen(bericht.id); } catch (e) { setFehler(e.message); } finally { setLaeuft(false); }
+  }
+  return (
+    <span className="word-knopf">
+      <button className={klasse} onClick={laden} disabled={laeuft} aria-label={`Word-Bericht Version ${bericht.versionsnummer} herunterladen`}>
+        {laeuft ? "Erzeuge …" : "Word herunterladen"}</button>
+      {fehler && <span className="fehler" role="alert">{fehler}</span>}
+    </span>
+  );
 }
 
 /** Bereich „Projekte“: Liste → Projektakte → Fördervergleich / Bericht. */
@@ -244,8 +263,11 @@ function ProjektAkte({ ich, id, onZurueck, onGehe }) {
                   <tr key={b.id}>
                     <td>{MODULE[b.modul] || b.modul}</td><td>V{b.versionsnummer}</td><td>{zeit(b.erstellt_am)}</td>
                     <td>{b.erstellt_von || "–"}</td><td>Version {b.konditionen_version}</td><td>{BERICHT_STATUS[b.status] || b.status}</td>
-                    <td><button className="btn2" aria-label={`${MODULE[b.modul] || b.modul} Version ${b.versionsnummer} öffnen`}
-                      onClick={() => onGehe({ art: "bericht", id: b.id, projektId: p.id })}>Öffnen</button></td>
+                    <td><div className="zeilen-aktionen">
+                      <button className="btn2" aria-label={`${MODULE[b.modul] || b.modul} Version ${b.versionsnummer} öffnen`}
+                        onClick={() => onGehe({ art: "bericht", id: b.id, projektId: p.id })}>Öffnen</button>
+                      <WordKnopf bericht={b} />
+                    </div></td>
                   </tr>
                 ))}
               </tbody>
@@ -308,11 +330,11 @@ function BerichtAnsicht({ ich, id, onZurueck, onGehe }) {
       <h1>{MODULE[b.modul] || b.modul} · V{b.versionsnummer}</h1>
       <p className="hinweis">Projekt {b.projektnummer} · gespeichert {zeit(b.erstellt_am)} von {b.erstellt_von || "–"} ·
         Konditionen-Version {b.konditionen_version} (eingefroren) · {BERICHT_STATUS[b.status] || b.status} · nur lesen</p>
-      {hatRolle(ich, "berater") && (
-        <div className="aktionen" style={{ marginTop: 0, marginBottom: 18 }}>
-          <button className="btn" onClick={() => onGehe({ art: "rechnen", projektId: b.projekt_id, basis: b })}>Als neue Version bearbeiten</button>
-        </div>
-      )}
+      <div className="aktionen" style={{ marginTop: 0, marginBottom: 18 }}>
+        <WordKnopf bericht={b} klasse="btn" />
+        {hatRolle(ich, "berater") &&
+          <button className="btn2" onClick={() => onGehe({ art: "rechnen", projektId: b.projekt_id, basis: b })}>Als neue Version bearbeiten</button>}
+      </div>
       <section className="karte">
         <h2>Eingaben</h2>
         <dl className="daten">
@@ -323,6 +345,11 @@ function BerichtAnsicht({ ich, id, onZurueck, onGehe }) {
           <dt>iSFP wird erstellt</dt><dd>{e.isfp ? "ja" : "nein"}</dd>
           <dt>EE-Klasse erreichbar</dt><dd>{e.ee_klasse_erreichbar ? "ja" : "nein"}</dd>
           <dt>KfW 266</dt><dd>{e.kfw266 ? `ja – ${e.we_neu} neue WE, Umbaukosten ${eur(e.umbaukosten_neue_we)}` : "nein"}</dd>
+          <dt>Wohneinheiten vor Sanierung</dt><dd>{e.we_vor_sanierung ?? "keine Angabe"}</dd>
+          <dt>Bestandsheizung</dt><dd>{e.bestandsheizung?.replace(">=", "≥") || "keine Angabe"}</dd>
+          <dt>Nutzung</dt><dd>{e.nutzung || "keine Angabe"}</dd>
+          <dt>Worst Performing Building</dt><dd>{e.wpb_status || "keine Angabe"}</dd>
+          <dt>Hinweis zu den Kosten</dt><dd className="notiz">{e.kosten_hinweis || "–"}</dd>
         </dl>
         <div className="tabelle" style={{ marginTop: 14 }}>
           <table>

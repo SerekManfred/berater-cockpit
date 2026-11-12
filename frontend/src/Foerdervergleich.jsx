@@ -26,6 +26,11 @@ export const LEER = { ...BEISPIEL_REFERENZFALL, we_nach_sanierung: 1, we_neu: 0,
   massnahmen: [{ name: "", kosten: 0, em_kategorie: "daemmung", eh_foerderfaehig: true }] };
 
 
+// Anzeigefelder für den Word-Bericht (Auswahlwerte wie modules/foerderung-em-eh/module.yaml); der Rechenkern ignoriert sie
+export const BESTANDSHEIZUNG = ["fossil, älter als 5 Jahre", "neu in den letzten 5 Jahren", "EE >= 65 % oder Wärmenetz"];
+export const NUTZUNG = ["komplett vermietet", "teilweise selbstgenutzt", "komplett selbstgenutzt"];
+export const WPB_STATUS = ["ja", "nein", "unbekannt"];
+
 function Feld({ label, value, onChange, type = "number" }) {
   return <label>{label}<input type={type} value={value} onChange={e => onChange(type === "number" ? Number(e.target.value) : e.target.value)} /></label>;
 }
@@ -44,6 +49,7 @@ export function Foerdervergleich({ titel = "Fördervergleich Einzelmaßnahmen / 
   const [fehler, setFehler] = useState("");
   const [speichert, setSpeichert] = useState(false);
   const set = (k, v) => setD({ ...d, [k]: v });
+  const setOpt = (k, v) => { const n = { ...d }; if (v === "" || v === null || v === undefined) delete n[k]; else n[k] = v; setD(n); };
   const setM = (i, k, v) => set("massnahmen", d.massnahmen.map((m, j) => j === i ? { ...m, [k]: v } : m));
   useEffect(() => { setErg(null); setBerechnetMit(null); }, [rechenSchluessel]);
   const aktuell = erg && berechnetMit === JSON.stringify(d);
@@ -93,6 +99,40 @@ export function Foerdervergleich({ titel = "Fördervergleich Einzelmaßnahmen / 
           </div>
         )}
       </section>
+
+      {onSpeichern && (
+        <section className="karte">
+          <h2>Angaben für den Word-Bericht</h2>
+          <p className="klein" style={{ marginTop: 0 }}>Optional. Erscheinen im Bericht, haben aber keinen Einfluss auf die Berechnung.</p>
+          <div className="felder">
+            <label>Wohneinheiten vor Sanierung
+              <input type="number" min="0" value={d.we_vor_sanierung ?? ""} onChange={e => setOpt("we_vor_sanierung", e.target.value === "" ? null : Number(e.target.value))} />
+            </label>
+            <label>Bestandsheizung
+              <select value={d.bestandsheizung ?? ""} onChange={e => setOpt("bestandsheizung", e.target.value)}>
+                <option value="">keine Angabe</option>
+                {BESTANDSHEIZUNG.map(x => <option key={x} value={x}>{x.replace(">=", "≥")}</option>)}
+              </select>
+            </label>
+            <label>Nutzung
+              <select value={d.nutzung ?? ""} onChange={e => setOpt("nutzung", e.target.value)}>
+                <option value="">keine Angabe</option>
+                {NUTZUNG.map(x => <option key={x} value={x}>{x}</option>)}
+              </select>
+            </label>
+            <label>Worst Performing Building (WPB)
+              <select value={d.wpb_status ?? ""} onChange={e => setOpt("wpb_status", e.target.value)}>
+                <option value="">keine Angabe</option>
+                {WPB_STATUS.map(x => <option key={x} value={x}>{x}</option>)}
+              </select>
+            </label>
+          </div>
+          <label style={{ marginTop: 14 }}>Hinweis zu den Kosten (erscheint im Bericht unter „Kosten und Förderwege“)
+            <textarea rows={2} maxLength={1000} value={d.kosten_hinweis ?? ""} onChange={e => setOpt("kosten_hinweis", e.target.value)}
+              placeholder="z. B. Kosten laut Kostenschätzung Architekt vom …" />
+          </label>
+        </section>
+      )}
 
       <section className="karte">
         <h2>Maßnahmen und Kosten</h2>

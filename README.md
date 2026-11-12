@@ -99,6 +99,12 @@ Rollen: **Admin** (alles, Benutzerverwaltung, Protokoll) · **Berater** (Projekt
 „Schnellrechnung“ → „Referenzfall MFH-Umnutzung (6 WE) laden“ → „Berechnen“.
 Mit Speichern: „Projekte“ → „Neues Projekt“ (nur Testdaten) → „Neuer Fördervergleich“ → Referenzfall laden → „Berechnen“ → „Speichern“.
 Erwartet: Zuschüsse gesamt **163.600 € / 169.155 € / 144.355 € / 173.065 €**.
+Danach in der Projektakte beim Bericht „Word herunterladen“ → `Foerdervergleich_<Projektnummer>_V1.docx` mit denselben Beträgen.
+
+**Word-Bericht:** erzeugt der Container `cockpit-generator` (Ordner `generator/`, eigene README mit Datenvertrag) aus dem
+gespeicherten Bericht – ohne neu zu rechnen. Optional vorher in der Maske „Angaben für den Word-Bericht“ ausfüllen
+(WE vor Sanierung, Bestandsheizung, Nutzung, WPB-Status, Hinweis zu den Kosten). Der Generator hängt nur im internen Netz
+`cockpit-intern` (kein Port, kein Internet). Zustand prüfen: `docker compose ps cockpit-generator` (healthy).
 
 ## 8. Unterlagen und Papierkorb
 In der Projektakte unter „Unterlagen“: Kategorie wählen, Dateien hineinziehen oder „Dateien auswählen“ (auf Tablet/Handy
@@ -152,7 +158,8 @@ cd frontend && npm install && npm run dev      # http://localhost:5173
 
 ## Aktualisieren
 ```bash
-cd /home/dev/berater-cockpit && git pull && docker compose build --no-cache cockpit-api && docker compose up -d --build
+cd /home/dev/berater-cockpit && git pull && docker compose build --no-cache cockpit-api cockpit-generator && docker compose up -d --build
+scripts/test-postgres.sh      # alle Tests gegen PostgreSQL inkl. echtem Word-Generator
 ```
-`--no-cache` für die API, damit pytest beim Bauen wirklich läuft. Neue Tabellen oder Spalten nur über eine neue
+`--no-cache`, damit die Tests beim Bauen (pytest bzw. `npm test` im Generator) wirklich laufen. Neue Tabellen oder Spalten nur über eine neue
 Alembic-Migration in `backend/alembic/versions/` – nie von Hand in der Datenbank.

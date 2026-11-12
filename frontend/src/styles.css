@@ -117,3 +117,7 @@ label.btn { display: inline-flex; align-items: center; flex-direction: row; font
 .datei-name { color: var(--anth); font-weight: bold; word-break: break-word; min-height: 24px; }
 .datei-aktionen, .zeilen-aktionen { display: flex; gap: 8px; flex-wrap: wrap; }
 a.btn2 { display: inline-flex; align-items: center; text-decoration: none; }
+
+/* Word-Bericht */
+.word-knopf { display: inline-flex; flex-direction: column; gap: 6px; }
+.word-knopf .fehler { margin-top: 0; font-size: 13px; max-width: 360px; }

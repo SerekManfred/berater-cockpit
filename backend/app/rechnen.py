@@ -3,6 +3,8 @@ import json
 from pathlib import Path
 
 from fastapi import HTTPException
+from typing import Literal
+
 from pydantic import BaseModel, Field
 
 from app.rechenkern.foerdervergleich import Eingaben, Massnahme, vergleich
@@ -41,6 +43,16 @@ class FoerdervergleichEingaben(BaseModel):
     kfw266: bool = False
     we_neu: int = Field(0, ge=0)
     umbaukosten_neue_we: float = Field(0, ge=0)
+    # Anzeigefelder für den Word-Bericht (optional). Der Rechenkern bekommt sie nicht.
+    # Auswahlwerte wie in modules/foerderung-em-eh/module.yaml.
+    we_vor_sanierung: int | None = Field(None, ge=0)
+    bestandsheizung: Literal["fossil, älter als 5 Jahre", "neu in den letzten 5 Jahren", "EE >= 65 % oder Wärmenetz"] | None = None
+    nutzung: Literal["komplett vermietet", "teilweise selbstgenutzt", "komplett selbstgenutzt"] | None = None
+    wpb_status: Literal["ja", "nein", "unbekannt"] | None = None
+    kosten_hinweis: str | None = Field(None, max_length=1000)
+
+
+ANZEIGEFELDER = {"we_vor_sanierung", "bestandsheizung", "nutzung", "wpb_status", "kosten_hinweis"}
 
 
 class FoerdervergleichIn(FoerdervergleichEingaben):
@@ -50,7 +62,7 @@ class FoerdervergleichIn(FoerdervergleichEingaben):
 def foerdervergleich_rechnen(daten: FoerdervergleichEingaben, kond: dict) -> dict:
     if daten.eh_stufe not in kond["beg_wg"]["tilgungszuschuss"]:
         raise HTTPException(422, f"Unbekannte EH-Stufe {daten.eh_stufe}")
-    werte = daten.model_dump(exclude={"massnahmen", "konditionen_version"})
+    werte = daten.model_dump(exclude={"massnahmen", "konditionen_version"} | ANZEIGEFELDER)
     e = Eingaben(**werte, massnahmen=[Massnahme(**m.model_dump()) for m in daten.massnahmen])
     return vergleich(e, kond)
 

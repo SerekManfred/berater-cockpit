@@ -35,3 +35,7 @@ DATEI_VERZEICHNIS = Path(os.environ.get("DATEI_VERZEICHNIS", "/daten"))
 # Hochgeladen wird die Datei als roher Anfrage-Inhalt (kein Formular-Overhead), daher passt die volle Größe.
 MAX_DATEI_BYTES = 25_000_000
 VORSCHAU_KANTE = 320  # Vorschaubilder: längste Kante in Pixel
+
+# Word-Generator (eigener Container im internen Netz, kein Port nach außen)
+GENERATOR_URL = os.environ.get("GENERATOR_URL", "http://cockpit-generator:3000").rstrip("/")
+GENERATOR_TIMEOUT = 60.0  # Sekunden
