@@ -103,6 +103,7 @@ Erwartet: Zuschüsse gesamt **163.600 € / 169.155 € / 144.355 € / 173.065 
 ## Lokal entwickeln
 ```bash
 cd backend && pip install -r requirements.txt && python -m pytest -q   # Tests nutzen eine eigene SQLite-Datei
+scripts/test-postgres.sh   # alle Tests gegen ein Wegwerf-PostgreSQL im eigenen Container (nie gegen cockpit-db)
 # API lokal: DATABASE_URL und SECRET_KEY setzen, dann:  alembic upgrade head && uvicorn app.main:app --reload
 cd frontend && npm install && npm run dev      # http://localhost:5173
 ```

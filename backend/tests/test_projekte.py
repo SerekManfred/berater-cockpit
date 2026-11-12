@@ -258,3 +258,27 @@ def test_protokoll_projektakte():
     assert letzter["details"] == {"projekt_id": p["id"], "projektnummer": p["projektnummer"]}
     with SessionLocal() as db:
         assert db.scalar(select(Projekt.geloescht_am).where(Projekt.id == p["id"])) is not None
+
+
+def test_verwaltung_oeffnet_und_liest_gespeicherte_berichte():
+    """Verwaltung darf Berichte öffnen und lesen – aber weder speichern noch neu rechnen."""
+    berater, verwaltung = nutzer("berater"), nutzer("verwaltung")
+    p = projekt(verwaltung)
+    v1 = berater.post(f"/projekte/{p['id']}/berichte", json={"modul": MODUL, "eingaben": REFERENZFALL}).json()
+
+    akte = verwaltung.get(f"/projekte/{p['id']}").json()  # Berichtsliste in der Projektakte
+    assert [(x["id"], x["versionsnummer"], x["konditionen_version"], x["status"], x["erstellt_von"]) for x in akte["berichte"]] == \
+           [(v1["id"], 1, 1, "entwurf", "berater")]
+
+    gelesen = verwaltung.get(f"/berichte/{v1['id']}")
+    assert gelesen.status_code == 200
+    gelesen = gelesen.json()
+    assert gelesen["eingaben"] == bericht_db(v1["id"]).eingaben  # vollständige Eingaben
+    assert summen(gelesen) == SUMMEN_V1                         # vollständiges Ergebnis
+    assert (gelesen["projektnummer"], gelesen["konditionen_version"], gelesen["status"]) == (p["projektnummer"], 1, "entwurf")
+
+    # Lesen verändert nichts, schreiben bleibt verboten
+    assert verwaltung.post(f"/berichte/{v1['id']}/neue-version", json={"eingaben": REFERENZFALL}).status_code == 403
+    assert verwaltung.post(f"/projekte/{p['id']}/berichte", json={"modul": MODUL, "eingaben": REFERENZFALL}).status_code == 403
+    assert len(verwaltung.get(f"/projekte/{p['id']}").json()["berichte"]) == 1
+    assert "bericht_gespeichert" not in aktionen(verwaltung.benutzer_id)
