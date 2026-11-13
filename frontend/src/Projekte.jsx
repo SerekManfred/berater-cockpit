@@ -209,11 +209,11 @@ function ProjektFormular({ start, onSpeichern, onAbbrechen, knopf }) {
           <label>Telefon<input type="tel" autoComplete="off" maxLength={50} value={p.kunde_telefon || ""} onChange={e => set("kunde_telefon", e.target.value)} /></label>
           <label>E-Mail<input type="email" autoComplete="off" maxLength={200} value={p.kunde_email || ""} onChange={e => set("kunde_email", e.target.value)} /></label>
         </div>
-        <p className="klein">Anschrift des Auftraggebers nur ausfüllen, wenn sie von der Objektanschrift abweicht.</p>
+        <p className="klein" id="hinweis-kundenanschrift">Nur ausfüllen, wenn die Anschrift des Auftraggebers von der Objektadresse abweicht.</p>
         <div className="felder">
-          <label>Straße und Hausnummer (Auftraggeber)<input maxLength={200} value={p.kunde_strasse || ""} onChange={e => set("kunde_strasse", e.target.value)} /></label>
-          <label>PLZ (Auftraggeber)<input inputMode="numeric" maxLength={10} value={p.kunde_plz || ""} onChange={e => set("kunde_plz", e.target.value)} /></label>
-          <label>Ort (Auftraggeber)<input maxLength={100} value={p.kunde_ort || ""} onChange={e => set("kunde_ort", e.target.value)} /></label>
+          <label>Straße und Hausnummer (Auftraggeber)<input maxLength={200} aria-describedby="hinweis-kundenanschrift" value={p.kunde_strasse || ""} onChange={e => set("kunde_strasse", e.target.value)} /></label>
+          <label>PLZ (Auftraggeber)<input inputMode="numeric" maxLength={10} aria-describedby="hinweis-kundenanschrift" value={p.kunde_plz || ""} onChange={e => set("kunde_plz", e.target.value)} /></label>
+          <label>Ort (Auftraggeber)<input maxLength={100} aria-describedby="hinweis-kundenanschrift" value={p.kunde_ort || ""} onChange={e => set("kunde_ort", e.target.value)} /></label>
         </div>
       </fieldset>
 
