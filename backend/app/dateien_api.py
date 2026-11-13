@@ -42,6 +42,7 @@ def datei_aus(d: Datei, namen: dict[int, str]) -> dict:
     return {
         "id": d.id, "projekt_id": d.projekt_id, "kategorie": d.kategorie, "dateiname": d.dateiname_original,
         "mime_typ": d.mime_typ, "groesse": d.groesse, "sha256": d.sha256, "hat_vorschau": d.hat_vorschau,
+        "quelle": d.quelle, "checkliste_stand": d.checkliste_stand,
         "hochgeladen_von": namen.get(d.hochgeladen_von_id), "hochgeladen_am": d.hochgeladen_am,
     }
 

@@ -43,20 +43,26 @@ def generator_daten(b: Bericht, p: Projekt, ersteller: str | None) -> dict:
     }
 
 
-def generator_senden(pfad: str, daten: dict) -> bytes:
+def generator_senden(pfad: str, daten: dict, was: str = "Der Word-Bericht") -> bytes:
+    """Daten an cockpit-generator senden und das .docx zurückgeben (nicht erreichbar → 503, abgelehnt → 502)."""
+    return generator_anfrage(pfad, daten, was).content
+
+
+def generator_anfrage(pfad: str, daten: dict, was: str = "Der Word-Bericht") -> httpx.Response:
+    """Wie generator_senden, liefert aber die ganze Antwort (z. B. für die Kopfzeile X-Checkliste-Stand)."""
     try:
         with httpx.Client(transport=TRANSPORT, timeout=config.GENERATOR_TIMEOUT) as client:
             r = client.post(config.GENERATOR_URL + pfad, json=daten)
     except httpx.HTTPError:
         raise HTTPException(503, NICHT_ERREICHBAR) from None
     if r.status_code == 200 and r.headers.get("content-type", "").startswith(DOCX):
-        return r.content
+        return r
     try:
         grund = r.json().get("fehler")
-    except ValueError:
+    except (ValueError, AttributeError):
         grund = None
     if r.status_code == 422 and grund:
-        raise HTTPException(502, f"Der Word-Bericht konnte nicht erzeugt werden: {grund}")
+        raise HTTPException(502, f"{was} konnte nicht erzeugt werden: {grund}")
     raise HTTPException(502, f"Der Word-Generator hat unerwartet geantwortet (Status {r.status_code}). Bitte einen Admin informieren.")
 
 

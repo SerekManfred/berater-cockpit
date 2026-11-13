@@ -4,7 +4,7 @@ from contextlib import asynccontextmanager
 from fastapi import Depends, FastAPI
 from sqlalchemy.orm import Session
 
-from app import auth, benutzer_api, dateien_api, konditionen_zentrale, projekte_api, word
+from app import auth, benutzer_api, checkliste, dateien_api, konditionen_zentrale, projekte_api, word
 from app.auth import aktueller_benutzer, rolle
 from app.db import get_db
 from app.rechnen import FoerdervergleichIn, foerdervergleich_rechnen, lade_konditionen
@@ -23,6 +23,7 @@ app.include_router(benutzer_api.router)
 app.include_router(projekte_api.router)
 app.include_router(dateien_api.router)
 app.include_router(word.router)
+app.include_router(checkliste.router)
 app.include_router(konditionen_zentrale.router)
 
 
