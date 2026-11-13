@@ -60,7 +60,22 @@ Checkliste ist er der Nachweis, welche Fassung verwendet wurde.
 ## Aufbau des Berichts
 Kopf mit Objektdaten · 1 Kurzfazit · 2 Varianten · 3 Programme und Konditionen · 4 Technische Anforderungen ·
 5 Besonderheiten (regelbasiert) · 6 Kumulierung · 7 Kosten und Förderwege ·
-**8 Fördervergleich auf einen Blick** (Pflichtkapitel, eigene Seite) · 9 Empfohlenes Vorgehen · Quellen · Haftungshinweis
+**8 Fördervergleich auf einen Blick** (Pflichtkapitel, eigene Seite) · **9 Unsere Leistungen auf Ihrem Weg** (nur wenn
+Angebote A–D vorliegen, ab 0.3.0) · 9 bzw. 10 Empfohlenes Vorgehen · Quellen · Haftungshinweis
+
+## Angebote A–D (ab 0.3.0)
+Ablaufgrafik aus Word-Tabellen (keine Bilder): A immer → C nur bei KfW 266 → Weg B (Einzelmaßnahmen) oder D (Effizienzhaus),
+darunter Kosten, Zuschuss und Eigenanteil je Weg. Alle Beträge kommen aus `ergebnis.szenarien[].angebotsweg`
+(Rechenkern, Zuschuss inkl. Höchstgrenzen Fachplanung/Baubegleitung). Der Generator rechnet nicht.
+Anzeigetexte aus `eingaben.angebote`:
+```json
+"angebote": { "a": { "betrag": 2975, "titel": "Modellierung Gebäude", "leistungen": "3D-Erfassung, Prüfung WPB" },
+              "b": { "betrag": 2975, "titel": "BAFA Einzelmaßnahmen", "leistungen": "..." },
+              "c": { "betrag": 8330, "titel": "KfW 266 Umnutzung", "leistungen": "..." },   // optional, nicht gefördert
+              "d": { "betrag": 15000, "titel": "KfW Effizienzhaus 261", "leistungen": "..." },
+              "anrechnung_a_in_d": true }                                                     // A ist in D enthalten
+```
+Die Empfehlung (grüner Rahmen) erscheint nur bei bekanntem `wpb_status` („ja“/„nein“) und folgt `ergebnis.beste_wahl`.
 
 ## Dateien
 - `src/ci.js` – CI-Bausteine (Farben, Arial, Tabellen, Kopf-/Fußzeile, Logo)

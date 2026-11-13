@@ -1,0 +1,399 @@
+{
+ "projekt": {
+  "projektnummer": "2026-0001",
+  "kunde_name": "Referenzfall MFH-Umnutzung mit Angeboten (6 WE)",
+  "objekt_plz": "",
+  "objekt_ort": "Musterstadt",
+  "gebaeudeart": "MFH"
+ },
+ "berater": {
+  "name": "M. Serek"
+ },
+ "bericht": {
+  "versionsnummer": 1,
+  "erstellt_am": "2026-11-12"
+ },
+ "eingaben": {
+  "we_nach_sanierung": 6,
+  "massnahmen": [
+   {
+    "name": "Oberste Geschossdecke",
+    "kosten": 12000,
+    "em_kategorie": "daemmung",
+    "eh_foerderfaehig": true
+   },
+   {
+    "name": "WDVS",
+    "kosten": 76000,
+    "em_kategorie": "daemmung",
+    "eh_foerderfaehig": true
+   },
+   {
+    "name": "Fenster",
+    "kosten": 66500,
+    "em_kategorie": "fenster",
+    "eh_foerderfaehig": true
+   },
+   {
+    "name": "Bodendämmung UG",
+    "kosten": 23100,
+    "em_kategorie": "daemmung",
+    "eh_foerderfaehig": true
+   },
+   {
+    "name": "Lüftung mit WRG",
+    "kosten": 54000,
+    "em_kategorie": "anlagentechnik",
+    "eh_foerderfaehig": true
+   },
+   {
+    "name": "Infrarotheizung",
+    "kosten": 28500,
+    "em_kategorie": "nicht_foerderfaehig",
+    "eh_foerderfaehig": true
+   },
+   {
+    "name": "Brauchwasser-Wärmepumpe",
+    "kosten": 27000,
+    "em_kategorie": "nicht_foerderfaehig",
+    "eh_foerderfaehig": true
+   }
+  ],
+  "kosten_baubegleitung": 0,
+  "kosten_isfp": 2800,
+  "isfp": true,
+  "eh_stufe": "EH55EE",
+  "ee_klasse_erreichbar": true,
+  "kfw266": true,
+  "we_neu": 4,
+  "umbaukosten_neue_we": 420000,
+  "we_vor_sanierung": 2,
+  "bestandsheizung": "fossil, älter als 5 Jahre",
+  "nutzung": "teilweise selbstgenutzt",
+  "wpb_status": "nein",
+  "angebote": {
+   "a": {
+    "betrag": 2975,
+    "titel": "Modellierung Gebäude",
+    "leistungen": "3D-Erfassung, Prüfung WPB, Maßnahmen EH 85 / EH 55"
+   },
+   "b": {
+    "betrag": 2975,
+    "titel": "BAFA Einzelmaßnahmen",
+    "leistungen": "Fachplanung, BzA, Baubegleitung, Dokumentation, Rechnungssichtung, BnD"
+   },
+   "c": {
+    "betrag": 8330,
+    "titel": "KfW 266 Umnutzung",
+    "leistungen": "Fachplanung, BzA, Rechnungssichtung, BnD"
+   },
+   "d": {
+    "betrag": 15000,
+    "titel": "KfW Effizienzhaus 261",
+    "leistungen": "Fachplanung, BzA, Baubegleitung, Dokumentation, Rechnungssichtung, BnD"
+   },
+   "anrechnung_a_in_d": true
+  }
+ },
+ "ergebnis": {
+  "konditionen_version": 1,
+  "szenarien": [
+   {
+    "schluessel": "EM_ohne_WPB",
+    "titel": "Einzelmaßnahmen ohne WPB",
+    "foerderfaehig": true,
+    "zuschuesse": {
+     "beg_em": 31500.0,
+     "isfp_bonus": 5250.0,
+     "baubegleitung": 2975.0,
+     "isfp_beratung": 850.0
+    },
+    "summe_zuschuesse_energetisch": 40575.0,
+    "kreditprogramm": "KfW 358/359",
+    "kreditrahmen": 231600.0,
+    "kredit_pflicht": false,
+    "zuschuss_266": 120000.0,
+    "summe_zuschuesse_gesamt": 160575.0,
+    "kosten_energetisch": 295850.0,
+    "eigenanteil_energetisch": 255275.0,
+    "foerderquote_energetisch": 0.1371,
+    "hinweise": [
+     "Höchstgrenze erreicht: 21.600 € nicht förderfähig (Staffelung über Kalenderjahre prüfen)"
+    ],
+    "angebotsweg": {
+     "posten": [
+      {
+       "kennung": "A",
+       "betrag": 2975.0,
+       "zuschuss": 1487.5,
+       "eigenanteil": 1487.5
+      },
+      {
+       "kennung": "B",
+       "betrag": 2975.0,
+       "zuschuss": 1487.5,
+       "eigenanteil": 1487.5
+      },
+      {
+       "kennung": "C",
+       "betrag": 8330.0,
+       "zuschuss": 0.0,
+       "eigenanteil": 8330.0
+      }
+     ],
+     "kosten_baubegleitung": 5950.0,
+     "kosten": 14280.0,
+     "zuschuss": 2975.0,
+     "eigenanteil": 11305.0,
+     "anrechnung_a": 0.0,
+     "hoechstgrenze_greift": false
+    }
+   },
+   {
+    "schluessel": "EM_WPB",
+    "titel": "Einzelmaßnahmen mit WPB",
+    "foerderfaehig": true,
+    "zuschuesse": {
+     "beg_em": 31500.0,
+     "isfp_bonus": 5250.0,
+     "wpb_bonus": 5555.0,
+     "baubegleitung": 2975.0,
+     "isfp_beratung": 850.0
+    },
+    "summe_zuschuesse_energetisch": 46130.0,
+    "kreditprogramm": "KfW 358/359",
+    "kreditrahmen": 231600.0,
+    "kredit_pflicht": false,
+    "zuschuss_266": 120000.0,
+    "summe_zuschuesse_gesamt": 166130.0,
+    "kosten_energetisch": 295850.0,
+    "eigenanteil_energetisch": 249720.0,
+    "foerderquote_energetisch": 0.1559,
+    "hinweise": [
+     "WPB-Bonus Einzelmaßnahmen nur für BAFA-Anträge ab 01.01.2027",
+     "Höchstgrenze erreicht: 21.600 € nicht förderfähig (Staffelung über Kalenderjahre prüfen)"
+    ],
+    "angebotsweg": {
+     "posten": [
+      {
+       "kennung": "A",
+       "betrag": 2975.0,
+       "zuschuss": 1487.5,
+       "eigenanteil": 1487.5
+      },
+      {
+       "kennung": "B",
+       "betrag": 2975.0,
+       "zuschuss": 1487.5,
+       "eigenanteil": 1487.5
+      },
+      {
+       "kennung": "C",
+       "betrag": 8330.0,
+       "zuschuss": 0.0,
+       "eigenanteil": 8330.0
+      }
+     ],
+     "kosten_baubegleitung": 5950.0,
+     "kosten": 14280.0,
+     "zuschuss": 2975.0,
+     "eigenanteil": 11305.0,
+     "anrechnung_a": 0.0,
+     "hoechstgrenze_greift": false
+    }
+   },
+   {
+    "schluessel": "EH_ohne_WPB",
+    "titel": "EH55EE ohne WPB",
+    "foerderfaehig": true,
+    "zuschuesse": {
+     "tilgungszuschuss": 14355.0,
+     "baubegleitung": 7500.0
+    },
+    "summe_zuschuesse_energetisch": 21855.0,
+    "kreditprogramm": "KfW 261",
+    "kreditrahmen": 302100.0,
+    "kredit_pflicht": true,
+    "zuschuss_266": 120000.0,
+    "summe_zuschuesse_gesamt": 141855.0,
+    "kosten_energetisch": 302100.0,
+    "eigenanteil_energetisch": 280245.0,
+    "foerderquote_energetisch": 0.0723,
+    "hinweise": [
+     "Tilgungszuschuss nur auf tatsächlich abgerufenen Kredit"
+    ],
+    "angebotsweg": {
+     "posten": [
+      {
+       "kennung": "A",
+       "betrag": 2975.0,
+       "zuschuss": 1487.5,
+       "eigenanteil": 1487.5
+      },
+      {
+       "kennung": "D",
+       "betrag": 12025.0,
+       "zuschuss": 6012.5,
+       "eigenanteil": 6012.5
+      },
+      {
+       "kennung": "C",
+       "betrag": 8330.0,
+       "zuschuss": 0.0,
+       "eigenanteil": 8330.0
+      }
+     ],
+     "kosten_baubegleitung": 15000.0,
+     "kosten": 23330.0,
+     "zuschuss": 7500.0,
+     "eigenanteil": 15830.0,
+     "anrechnung_a": 2975.0,
+     "hoechstgrenze_greift": false
+    }
+   },
+   {
+    "schluessel": "EH_WPB",
+    "titel": "EH55EE mit WPB",
+    "foerderfaehig": true,
+    "zuschuesse": {
+     "tilgungszuschuss": 14355.0,
+     "wpb_bonus": 28710.0,
+     "baubegleitung": 7500.0
+    },
+    "summe_zuschuesse_energetisch": 50565.0,
+    "kreditprogramm": "KfW 261",
+    "kreditrahmen": 302100.0,
+    "kredit_pflicht": true,
+    "zuschuss_266": 120000.0,
+    "summe_zuschuesse_gesamt": 170565.0,
+    "kosten_energetisch": 302100.0,
+    "eigenanteil_energetisch": 251535.0,
+    "foerderquote_energetisch": 0.1674,
+    "hinweise": [
+     "Tilgungszuschuss nur auf tatsächlich abgerufenen Kredit"
+    ],
+    "angebotsweg": {
+     "posten": [
+      {
+       "kennung": "A",
+       "betrag": 2975.0,
+       "zuschuss": 1487.5,
+       "eigenanteil": 1487.5
+      },
+      {
+       "kennung": "D",
+       "betrag": 12025.0,
+       "zuschuss": 6012.5,
+       "eigenanteil": 6012.5
+      },
+      {
+       "kennung": "C",
+       "betrag": 8330.0,
+       "zuschuss": 0.0,
+       "eigenanteil": 8330.0
+      }
+     ],
+     "kosten_baubegleitung": 15000.0,
+     "kosten": 23330.0,
+     "zuschuss": 7500.0,
+     "eigenanteil": 15830.0,
+     "anrechnung_a": 2975.0,
+     "hoechstgrenze_greift": false
+    }
+   }
+  ],
+  "beste_wahl": {
+   "ohne_WPB": "EM_ohne_WPB",
+   "WPB": "EH_WPB"
+  }
+ },
+ "konditionen": {
+  "version": 1,
+  "gueltig_ab": "2026-11-09",
+  "geprueft_von": [
+   "M. Serek"
+  ],
+  "status": "aktiv",
+  "hinweis": "Erstbestand aus Projekt Zunker. Jeder Wert ist vor produktiver Nutzung im Vier-Augen-Prinzip gegen die Quelle zu prüfen.",
+  "beg_em": {
+   "quelle": "Richtlinie BEG EM vom 17.07.2026 (in Kraft 21.07.2026); Ökozentrum NRW Zusammenfassung 18.08.2026",
+   "geprueft_am": "2026-11-09",
+   "foerdersatz": 0.15,
+   "isfp_bonus": 0.05,
+   "isfp_bonus_regel": "nur auf förderfähige Kosten oberhalb der Höchstgrenze ohne iSFP; Mindestinvestition 30.000 EUR",
+   "wpb_bonus": 0.05,
+   "wpb_bonus_regel": "nur Dämmung der Gebäudehülle (keine Fenster), nur mit iSFP, nur für Anträge ab 2027-01-01",
+   "wpb_bonus_ab": "2027-01-01",
+   "hoechstgrenze_ohne_isfp": {
+    "erste_we": 30000,
+    "we_2_bis_6": 15000,
+    "ab_we_7": 8000
+   },
+   "hoechstgrenze_mit_isfp": {
+    "erste_we": 60000,
+    "we_2_bis_6": 30000,
+    "ab_we_7": 15000
+   },
+   "hoechstgrenze_bezug": "je Gebäude und Kalenderjahr",
+   "baubegleitung": {
+    "satz": 0.5,
+    "efh_zfh_max": 5000,
+    "mfh_je_we": 2000,
+    "mfh_max": 20000
+   },
+   "ergaenzungskredit": {
+    "programm": "KfW 358/359",
+    "je_we": 120000
+   }
+  },
+  "beg_em_heizung": {
+   "quelle": "KfW-Infoblatt BEG förderfähige Maßnahmen 11/2026; BAFA",
+   "geprueft_am": "2026-11-09",
+   "stromdirektheizung_foerderfaehig": false,
+   "brauchwasser_wp_regel": "nur als Umfeldmaßnahme einer förderfähigen Heizung"
+  },
+  "isfp_beratung": {
+   "quelle": "BAFA Energieberatung für Wohngebäude (EBW)",
+   "geprueft_am": "2026-11-09",
+   "satz": 0.5,
+   "efh_zfh_max": 650,
+   "mfh_max": 850
+  },
+  "beg_wg": {
+   "quelle": "KfW-Hausbankenmitteilung 61/2026 (20.07.2026); Produktseite KfW 261",
+   "geprueft_am": "2026-11-09",
+   "ee_klasse_pflicht": true,
+   "tilgungszuschuss": {
+    "EH40EE": 0.1,
+    "EH55EE": 0.05,
+    "EH70EE": 0.0,
+    "EH85EE": 0.0,
+    "DenkmalEE": 0.05
+   },
+   "wpb_bonus": 0.1,
+   "wpb_bonus_stufen": [
+    "EH40EE",
+    "EH55EE",
+    "EH70EE"
+   ],
+   "kredit_je_we": 150000,
+   "baubegleitung": {
+    "satz": 0.5,
+    "efh_zfh_max": 10000,
+    "mfh_je_we": 4000,
+    "mfh_max": 40000
+   },
+   "kombination_mit_beg_em": "ausgeschlossen, 3 Jahre Sperrfrist in beide Richtungen"
+  },
+  "kfw_266": {
+   "quelle": "KfW-Merkblatt 266 Gewerbe zu Wohnen (07/2026); kfw.de/266",
+   "geprueft_am": "2026-11-09",
+   "satz": 0.3,
+   "max_kosten_je_neue_we": 100000,
+   "mindeststufe": "EH85EE",
+   "ee_ausnahme": "vorhandener EE-Erzeuger >= 65 %, Wärmenetz oder Heizung jünger als 5 Jahre",
+   "antragsfrist": "2026-12-31"
+  }
+ },
+ "kosten_hinweis": "Kosten sind Richtwerte (brutto) für rd. 380 m² Wohnfläche und ersetzen keine Kostenschätzung."
+}

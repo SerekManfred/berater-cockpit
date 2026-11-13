@@ -1,7 +1,7 @@
 // Word-Bericht „Fördervergleich Einzelmaßnahmen / Effizienzhaus“ aus gespeicherten Berichtsdaten.
 // Rechnet NICHT selbst: alle Beträge kommen aus `ergebnis` (Rechenkern), alle Sätze aus `konditionen` (Snapshot).
-const { Paragraph, PageBreak } = require("docx");
-const { C, W, eur, pct, datum, P, H1, H2, bullet, leer, tabelle, box, logo, dokument, AlignmentType } = require("./ci");
+const { Paragraph, PageBreak, TextRun, Table, TableRow, TableCell, WidthType, ShadingType, BorderStyle, VerticalAlign } = require("docx");
+const { C, F, W, eur, pct, datum, runs, P, H1, H2, bullet, leer, tabelle, box, logo, dokument, AlignmentType } = require("./ci");
 const FT_DATEI = require("./fachtexte");
 
 // Fachwerte aus dem Konditionen-Snapshot (ab Konditionen-Version mit Abschnitt „fachwerte“);
@@ -35,6 +35,90 @@ function pruefen(d) {
   if (ohne.length) throw new Error("Szenarien fehlen im Ergebnis: " + ohne.join(", "));
   if (d.ergebnis.konditionen_version !== d.konditionen.version)
     throw new Error(`Konditionen-Version passt nicht: Ergebnis ${d.ergebnis.konditionen_version}, Snapshot ${d.konditionen.version}`);
+}
+
+// ---------- Ablaufgrafik „Unsere Leistungen auf Ihrem Weg“ (Word-Tabellen, keine Bilder) ----------
+const eur2 = n => (n || 0).toLocaleString("de-DE", { minimumFractionDigits: Number.isInteger(n || 0) ? 0 : 2, maximumFractionDigits: 2 }) + " €";
+const KEIN = { style: BorderStyle.NONE, size: 0, color: "FFFFFF" };
+const linie = (farbe, dick = 6, art = BorderStyle.SINGLE) => ({ style: art, size: dick, color: farbe });
+const ohneRahmen = { top: KEIN, bottom: KEIN, left: KEIN, right: KEIN };
+const absatz = (t, o = {}) => new Paragraph({ alignment: o.align || AlignmentType.CENTER, spacing: { after: o.after ?? 30 },
+  keepNext: true, children: runs(t, { size: o.size || 17, color: o.color, bold: o.bold }) });
+const pfeil = () => absatz("▼", { size: 20, color: C.gold, after: 0 });
+
+function flussZelle(zeilen, breite, o = {}) {
+  const r = o.rahmen || linie(o.randfarbe || C.rand, o.dick || 6, o.gestrichelt ? BorderStyle.DASHED : BorderStyle.SINGLE);
+  return new TableCell({ width: { size: breite, type: WidthType.DXA }, verticalAlign: VerticalAlign.CENTER,
+    borders: o.ohne ? ohneRahmen : { top: r, bottom: r, left: r, right: r },
+    shading: { fill: o.fill || "FFFFFF", type: ShadingType.CLEAR, color: "auto" },
+    margins: { top: o.ohne ? 0 : 70, bottom: o.ohne ? 0 : 70, left: 110, right: 110 },
+    children: zeilen.length ? zeilen : [absatz("")] });
+}
+// Ein zentrierter Kasten über `breite` (DXA)
+function kasten(zeilen, breite, o = {}) {
+  return new Table({ width: { size: breite, type: WidthType.DXA }, columnWidths: [breite], alignment: AlignmentType.CENTER,
+    rows: [new TableRow({ cantSplit: true, children: [flussZelle(zeilen, breite, o)] })] });
+}
+
+function angebotsweg(d, s, erg, e) {
+  const em = s.EM_ohne_WPB.angebotsweg, eh = s.EH_ohne_WPB.angebotsweg;
+  if (!em || !eh) return [];
+  const txt = e.angebote || {};
+  const p = (w, k) => w.posten.find(x => x.kennung === k);
+  const leistung = k => txt[k] && txt[k].leistungen ? [absatz(txt[k].leistungen, { size: 15, color: C.grau })] : [];
+  const wpbKey = e.wpb_status === "ja" ? "WPB" : e.wpb_status === "nein" ? "ohne_WPB" : null;
+  const empf = wpbKey ? (erg.beste_wahl[wpbKey].startsWith("EM") ? "EM" : "EH") : null;
+  const ch = [];
+  ch.push(P("Diese Übersicht zeigt, welche unserer Leistungen Sie auf welchem Weg brauchen und was Sie nach Abzug der Förderung selbst tragen. " +
+    "Die Zuschüsse für Fachplanung und Baubegleitung sind in den Zahlen von Kapitel 8 bereits enthalten."));
+  const BR = 6600;
+  const A = p(em, "A");
+  ch.push(kasten([absatz("**A  " + (txt.a?.titel || "Gebäudemodell und WPB-Prüfung") + "**", { size: 19 }), ...leistung("a"),
+    absatz(`Immer erforderlich · ${eur2(A.betrag)} · Zuschuss ${eur2(A.zuschuss)} · Eigenanteil **${eur2(A.eigenanteil)}**`)], BR, { fill: C.goldL, randfarbe: C.gold }));
+  const C_ = p(em, "C");
+  if (C_) {
+    ch.push(pfeil());
+    ch.push(kasten([absatz("**C  " + (txt.c?.titel || "KfW 266 Umnutzung") + "**", { size: 19 }), ...leistung("c"),
+      absatz(`Nötig, weil neuer Wohnraum entsteht · ${eur2(C_.betrag)} · kein Zuschuss`)], BR, { fill: C.goldL, randfarbe: C.gold, gestrichelt: true }));
+  }
+  ch.push(pfeil());
+  ch.push(kasten([absatz("**Welcher Sanierungsweg?**", { size: 19 })], 4200, { fill: C.grauL, randfarbe: C.anth }));
+  // Trenner: zwei direkt aufeinanderfolgende Tabellen verschmilzt Word zu einer
+  ch.push(new Paragraph({ keepNext: true, spacing: { after: 0, line: 120 }, children: [new TextRun({ text: "", size: 4, font: F })] }));
+
+  const SP = 4950, LUECKE = W - 2 * SP;
+  const zeile = (links, rechts, o = {}) => new TableRow({ cantSplit: true, children: [
+    flussZelle(links, SP, o.l || {}), flussZelle([], LUECKE, { ohne: true }), flussZelle(rechts, SP, o.r || {})] });
+  const B = p(em, "B"), D = p(eh, "D");
+  const ehOk = s.EH_ohne_WPB.foerderfaehig;
+  const karte = (weg, k) => ({ fill: C.goldL, randfarbe: empf === weg ? C.gruen : C.gold, dick: empf === weg ? 18 : 6 });
+  const markierung = weg => empf === weg ? [absatz("**Empfehlung für Ihr Gebäude**", { color: C.gruen })] : [];
+  const linksB = [absatz("**B  " + (txt.b?.titel || "BAFA Einzelmaßnahmen") + "**", { size: 19 }), ...leistung("b"),
+    absatz(`Preis ${eur2(B.betrag)}`), absatz(`Zuschuss ${eur2(B.zuschuss)} · Eigenanteil **${eur2(B.eigenanteil)}**`), ...markierung("EM")];
+  const rechtsD = [absatz("**D  " + (txt.d?.titel || "KfW Effizienzhaus 261") + "**", { size: 19 }), ...leistung("d"),
+    absatz(eh.anrechnung_a ? `Preis ${eur2(D.betrag + eh.anrechnung_a)} abzgl. Anrechnung A = ${eur2(D.betrag)}` : `Preis ${eur2(D.betrag)}`),
+    absatz(ehOk ? `Zuschuss ${eur2(D.zuschuss)} · Eigenanteil **${eur2(D.eigenanteil)}**` : "**Nicht förderfähig** (EE-Klasse nicht erreichbar)", { color: ehOk ? undefined : C.rot }),
+    ...markierung("EH")];
+  const summe = (titel, w, cKosten) => [absatz("**" + titel + "**", { size: 18 }),
+    absatz(`Kosten ${eur2(w.kosten)}` + (cKosten ? " (inkl. C)" : "")),
+    absatz(`Zuschuss ${eur2(w.zuschuss)}`),
+    absatz(`Ihr Eigenanteil **${eur2(w.eigenanteil)}**`, { size: 19 })];
+  ch.push(new Table({ width: { size: W, type: WidthType.DXA }, columnWidths: [SP, LUECKE, SP], rows: [
+    zeile([pfeil()], [pfeil()], { l: { ohne: true }, r: { ohne: true } }),
+    zeile(linksB, rechtsD, { l: karte("EM"), r: karte("EH") }),
+    zeile([pfeil()], [pfeil()], { l: { ohne: true }, r: { ohne: true } }),
+    zeile(summe("Weg Einzelmaßnahmen: A + B" + (C_ ? " + C" : ""), em, !!C_), summe("Weg Effizienzhaus: A + D" + (C_ ? " + C" : ""), eh, !!C_),
+      { l: { fill: C.grauL }, r: { fill: C.grauL } }),
+  ] }));
+  const fuss = [];
+  if (eh.anrechnung_a) fuss.push(`A ist in D enthalten und wird mit ${eur2(eh.anrechnung_a)} angerechnet – A wird also nur einmal bezahlt. Der Eigenanteil von A ist in der Summe des Effizienzhaus-Weges enthalten.`);
+  fuss.push("Zuschuss für Fachplanung und Baubegleitung nach BEG" + (C_ ? "; die Leistungen für KfW 266 (C) sind nicht förderfähig" : "") + ".");
+  if (em.hoechstgrenze_greift || eh.hoechstgrenze_greift)
+    fuss.push("Der Zuschuss ist durch die Höchstgrenze für Fachplanung/Baubegleitung begrenzt (" +
+      [em.hoechstgrenze_greift && "Einzelmaßnahmen", eh.hoechstgrenze_greift && "Effizienzhaus"].filter(Boolean).join(" und ") + ").");
+  if (!empf) fuss.push("Welcher Weg sich für Sie lohnt, hängt von der WPB-Einstufung ab (siehe Kapitel 8).");
+  fuss.forEach(t => ch.push(P(t, { size: 15, color: C.grau, before: 40, after: 20 })));
+  return ch;
 }
 
 function erstelleFoerdervergleich(d) {
@@ -158,6 +242,13 @@ function erstelleFoerdervergleich(d) {
     { t: m.eh_foerderfaehig ? "KfW 261" : "–", align: Z }]);
   kz.push([{ t: "**Summe Maßnahmen**", fill: C.grauL }, { t: "**" + eur(kostenMass) + "**", align: R, fill: C.grauL }, { t: "", fill: C.grauL }, { t: "", fill: C.grauL }]);
   if (e.kosten_baubegleitung) kz.push(["Fachplanung / Baubegleitung", { t: eur(e.kosten_baubegleitung), align: R }, { t: "BEG EM", align: Z }, { t: "KfW 261", align: Z }]);
+  const awEM = s.EM_ohne_WPB.angebotsweg, awEH = s.EH_ohne_WPB.angebotsweg;
+  if (awEM && awEH) {
+    kz.push(["Fachplanung / Baubegleitung Einzelmaßnahmen (Angebote A + B)", { t: eur(awEM.kosten_baubegleitung), align: R }, { t: "BEG EM", align: Z }, { t: "–", align: Z }]);
+    kz.push(["Fachplanung / Baubegleitung Effizienzhaus (Angebote A + D)", { t: eur(awEH.kosten_baubegleitung), align: R }, { t: "–", align: Z }, { t: "KfW 261", align: Z }]);
+    const c = awEM.posten.find(x => x.kennung === "C");
+    if (c) kz.push(["Fachplanung KfW 266 (Angebot C)", { t: eur(c.betrag), align: R }, { t: "nicht gefördert", align: Z, span: 2 }]);
+  }
   if (e.isfp && e.kosten_isfp) kz.push(["iSFP-Beratung", { t: eur(e.kosten_isfp), align: R }, { t: "BAFA EBW", align: Z }, { t: "–", align: Z }]);
   if (mit266) kz.push([`Umbau ${e.we_neu || ""} neue WE (nicht energetisch)`, { t: eur(e.umbaukosten_neue_we), align: R }, { t: "KfW 266", align: Z, span: 2 }]);
   ch.push(tabelle([4204, 1800, 2100, 2100], ["Position", "Kosten", "Variante 1", "Variante 2"], kz));
@@ -212,8 +303,16 @@ function erstelleFoerdervergleich(d) {
     `Der WPB-Bonus bei Einzelmaßnahmen gilt für BAFA-Anträge ab **${datum(em.wpb_bonus_ab)}**.`]);
   ch.push(tabelle([3400, 6804], null, regel));
 
-  // ---------- 9 Vorgehen ----------
-  ch.push(H1("9  Empfohlenes Vorgehen"));
+  // ---------- 9 Unsere Leistungen (nur mit Angeboten) ----------
+  const weg = angebotsweg(d, s, erg, e);
+  if (weg.length) {
+    ch.push(new Paragraph({ children: [new PageBreak()] }));
+    ch.push(H1("9  Unsere Leistungen auf Ihrem Weg"));
+    weg.forEach(x => ch.push(x));
+  }
+
+  // ---------- Vorgehen ----------
+  ch.push(H1((weg.length ? "10" : "9") + "  Empfohlenes Vorgehen"));
   const schritte = [];
   if (!e.wpb_status || e.wpb_status === "unbekannt") schritte.push("**WPB-Status klären** (Energieausweis bzw. Endenergiebedarf) – entscheidet über den Weg.");
   if (wg.ee_klasse_pflicht && ee) schritte.push(`**Effizienzhaus-Vorberechnung** für ${stufe.name}${mit266 ? " und " + (FT.eh_stufen[k266.mindeststufe]?.name || "") : ""} inkl. EE-Klasse erstellen.`);

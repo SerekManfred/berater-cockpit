@@ -32,6 +32,15 @@ async function text(daten) {
   const ref = JSON.parse(fs.readFileSync(path.join(dir, "referenzfall_mfh_umnutzung.json"), "utf8"));
   const tr = await text(ref);
   for (const z of ["163.600 €", "169.155 €", "144.355 €", "173.065 €", "120.000 €", "31.12.2026"]) assert(tr.includes(z), "Referenzfall: " + z);
+  assert(!tr.includes("Unsere Leistungen auf Ihrem Weg"), "ohne Angebote kein Kapitel Leistungen");
+  // Angebote A–D: Ablauf mit Eigenanteilen aus dem Rechenkern (A in D angerechnet)
+  const mitA = JSON.parse(fs.readFileSync(path.join(dir, "referenzfall_mit_angeboten.json"), "utf8"));
+  const ta = await text(mitA);
+  for (const z of ["Unsere Leistungen auf Ihrem Weg", "10  Empfohlenes Vorgehen", "Preis 15.000 € abzgl. Anrechnung A = 12.025 €",
+    "Eigenanteil 1.487,50 €", "Ihr Eigenanteil 11.305 €", "Ihr Eigenanteil 15.830 €", "Empfehlung für Ihr Gebäude",
+    "Angebote A + B", "Angebote A + D", "Fachplanung KfW 266 (Angebot C)"]) assert(ta.includes(z), "Angebote: " + z);
+  const ohneWpb = await text({ ...mitA, eingaben: { ...mitA.eingaben, wpb_status: "unbekannt" } });
+  assert(!ohneWpb.includes("Empfehlung für Ihr Gebäude") && ohneWpb.includes("hängt von der WPB-Einstufung ab"), "Angebote ohne WPB-Status: keine Empfehlung");
   // Schutz: Konditionen-Version muss zum Ergebnis passen
   assert.throws(() => erstelleFoerdervergleich({ ...ref, konditionen: { ...ref.konditionen, version: 99 } }), /Konditionen-Version/);
   assert.throws(() => erstelleFoerdervergleich({ ...ref, ergebnis: { ...ref.ergebnis, szenarien: [] } }), /Szenarien fehlen/);
