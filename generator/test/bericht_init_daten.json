@@ -1,0 +1,342 @@
+{
+ "titel": "Energieberatungsbericht",
+ "berichtsnummer": "2026-0042",
+ "kunde": {
+  "name": "Familie Beispielmann",
+  "strasse": "Musterweg 7",
+  "plz_ort": "89352 Ellzee",
+  "telefon": "01234 567890",
+  "email": "familie.beispielmann@example.de"
+ },
+ "objekt": {
+  "adresse": "Musterweg 7, 89352 Ellzee",
+  "gebaeudetyp": "Freistehendes Einfamilienhaus, massiv",
+  "baujahr": "1974",
+  "wohnflaeche": "ca. 165 m²",
+  "wohneinheiten": "1",
+  "we_eigennutz": "1",
+  "we_vermietung": "0",
+  "geschosse": "EG, OG, ausgebautes DG",
+  "energietraeger": "Erdgas",
+  "frontbild": "bilder/front.jpg",
+  "frontbild_caption": "Südwest-Ansicht des Objekts, Musterweg 7"
+ },
+ "termin": {
+  "datum": "05.06.2026, 10:00 Uhr",
+  "berater": "Manfred Serek",
+  "anwesende": "Herr und Frau Beispielmann, M. Serek",
+  "art": "Vor-Ort-Beratung mit Begehung aller zugänglichen Bauteile"
+ },
+ "zielsetzung": "Die Eigentümer möchten die laufenden Heizkosten spürbar senken und das Gebäude schrittweise auf einen zukunftssicheren, klimafreundlichen Stand bringen. Ein kurzfristiger Heizungstausch ist nicht zwingend gewünscht, soll aber mittelfristig geplant werden. Wichtig ist eine wirtschaftlich sinnvolle Reihenfolge der Maßnahmen sowie eine Übersicht der verfügbaren Fördermittel.",
+ "istzustand": {
+  "baulicher_zustand": "Das Gebäude wurde 1974 in Massivbauweise errichtet. Die Außenwände sind zweischalig, eine nachträgliche Dämmung ist nicht erkennbar. Der Außenputz weist im Sockelbereich Risse und beginnende Feuchteschäden auf. Die oberste Geschossdecke bzw. der Dachstuhl ist ungedämmt. Die Kellerdecke ist ebenfalls ungedämmt.\nDie Fenster wurden laut Eigentümer Ende der 1990er-Jahre erneuert (Isolierverglasung, 2-fach). Die Dichtungen sind teilweise spröde.",
+  "baulicher_fotos": [
+   {
+    "path": "bilder/fassade.jpg",
+    "caption": "Rissbildung und Feuchtespuren im Sockel-/Fassadenbereich"
+   }
+  ],
+  "anlagentechnik": {
+   "heizung": "Erdgas-Heizwertkessel, Baujahr ca. 2002, Leistung ~20 kW. Ungeregelte alte Heizungspumpe, Vorlauftemperatur hoch eingestellt.",
+   "warmwasser": "Zentral über den Gaskessel, 160-l-Speicher, Zirkulationsleitung ohne Dämmung im Keller.",
+   "pv": "Derzeit keine Photovoltaik vorhanden. Dachfläche Süd/West weitgehend verschattungsfrei – PV als künftige Maßnahme vorgesehen (siehe 3.2.1).",
+   "lueftung": "Fensterlüftung, keine mechanische Lüftungsanlage.",
+   "sonstiges": "Heizkörper überwiegend Stahl-Plattenheizkörper, Thermostatventile alt und nicht voreinstellbar."
+  },
+  "anlagentechnik_fotos": [
+   {
+    "path": "bilder/heizung.jpg",
+    "caption": "Gas-Heizwertkessel und Warmwasserspeicher im Keller"
+   },
+   {
+    "path": "bilder/zaehler.jpg",
+    "caption": "Zähler- und Anschlussbereich"
+   }
+  ],
+  "auffaelligkeiten": "Im Dachgeschoss ist die Dämmung der Dachschrägen unzureichend; an einzelnen Sparren sind Wärmebrücken spürbar. Im Keller verlaufen ungedämmte Heizungs- und Warmwasserleitungen über mehrere Meter. Die Kellerdecke ist ungedämmt, der Keller selbst unbeheizt.",
+  "auffaelligkeiten_fotos": [
+   {
+    "path": "bilder/dach.jpg",
+    "caption": "Dachstuhl mit unzureichender Zwischensparrendämmung"
+   },
+   {
+    "path": "bilder/keller.jpg",
+    "caption": "Ungedämmte Kellerdecke und Leitungen"
+   }
+  ]
+ },
+ "pv": {
+  "status": "geplant",
+  "gesamtleistung": "ca. 9,8 kWp",
+  "ausrichtung": "Süd-West, Dachneigung ca. 35°, weitgehend verschattungsfrei",
+  "jahresertrag": "ca. 9.000 kWh/a (überschlägige Erwartung)",
+  "alter": "Neuanlage geplant",
+  "vertragslaufzeit": "—",
+  "einspeiseverguetung": "Teileinspeisung nach EEG zum Zeitpunkt der Inbetriebnahme",
+  "einspeiseart": "Teileinspeiser (Eigenverbrauch im Vordergrund)",
+  "speicher": "ja (geplant)",
+  "speicherkapazitaet": "ca. 8 kWh",
+  "eauto": "geplant; Wallbox vorgesehen",
+  "heizung_einbindung": "spätere Wärmepumpe soll PV-Strom mitnutzen (Eigenstromoptimierung)",
+  "stromverbrauch": "ca. 4.200 kWh/a"
+ },
+ "verbrauch": {
+  "intro": "Energieverbraeuche und -kosten im Ist-Zustand (pro Jahr):",
+  "tabelle": [
+   {
+    "traeger": "Erdgas (Heizung + Warmwasser)",
+    "menge": "ca. 18.000 kWh",
+    "kosten": "ca. 2.000 €"
+   },
+   {
+    "traeger": "Strom (Haushalt)",
+    "menge": "ca. 3.500 kWh",
+    "kosten": "ca. 1.200 €"
+   }
+  ],
+  "hinweis": "Werte aus der letzten Verbrauchsabrechnung uebernehmen."
+ },
+ "zwischenfazit": "Das Gebäude befindet sich in einem für das Baujahr typischen, unsanierten energetischen Zustand. Die größten Wärmeverluste entstehen über die ungedämmte Gebäudehülle (Dach/oberste Geschossdecke, Außenwand, Kellerdecke) sowie über die in die Jahre gekommene, ungeregelte Heizungstechnik. Mehrere gering investive Maßnahmen lassen sich kurzfristig und wirtschaftlich umsetzen, bevor die übergreifenden Sanierungsschritte folgen.",
+ "massnahmen_stufe1_intro": "Die folgenden Maßnahmen sind mit geringem Aufwand und kurzer Amortisation umsetzbar (Quick Wins):",
+ "massnahmen_stufe1": [
+  {
+   "titel": "Austausch von Umwälz- und Zirkulationspumpen",
+   "beschreibung": "Ersatz der alten ungeregelten Pumpe durch eine hocheffiziente, drehzahlgeregelte Pumpe. Reduziert den Stromverbrauch der Heizung deutlich."
+  },
+  {
+   "titel": "Voreinstellbare bzw. smarte Thermostatventile",
+   "beschreibung": "Ermöglicht den hydraulischen Abgleich und eine bedarfsgerechte Raumtemperaturregelung."
+  },
+  {
+   "titel": "Dämmung der Wärmeverteilleitungen im Keller",
+   "beschreibung": "Nachträgliche Dämmung der frei zugänglichen Heizungs- und Warmwasserleitungen sowie der Zirkulationsleitung."
+  },
+  {
+   "titel": "Hydraulischer Abgleich (Verfahren B)",
+   "beschreibung": "Optimiert die Verteilung der Wärme, senkt Vorlauftemperatur und Pumpenleistung."
+  },
+  {
+   "titel": "Dichtungstausch an den Fenstern",
+   "beschreibung": "Erneuerung spröder Dichtungen zur Reduzierung von Zugluft und Lüftungswärmeverlusten."
+  }
+ ],
+ "massnahmen_stufe2_intro": "Übergreifende Maßnahmen mit höherem Investitionsvolumen, sinnvoll in abgestimmter Reihenfolge:",
+ "massnahmen_stufe2": [
+  {
+   "titel": "Dämmung der obersten Geschossdecke / Dachsanierung",
+   "beschreibung": "Wirtschaftlich sehr attraktive Maßnahme mit großer Wirkung; bei ohnehin anstehender Dacherneuerung als Aufsparrendämmung."
+  },
+  {
+   "titel": "Außendämmung der Fassade (WDVS)",
+   "beschreibung": "Reduziert Transmissionswärmeverluste der größten Hüllfläche; gut mit der Sockelsanierung kombinierbar."
+  },
+  {
+   "titel": "Dämmung der Kellerdecke",
+   "beschreibung": "Erhöht den Komfort im EG und reduziert Wärmeverluste nach unten."
+  },
+  {
+   "titel": "Fenstertausch (3-fach-Verglasung)",
+   "beschreibung": "Mittelfristig, sobald die bestehenden Fenster das Ende ihrer Lebensdauer erreichen."
+  },
+  {
+   "titel": "Heizungstausch auf Wärmepumpe",
+   "beschreibung": "Nach Reduktion der Heizlast durch Hüllsanierung; ergänzt um PV-Anlage zur Eigenstromnutzung."
+  }
+ ],
+ "bewertung": "Durch die Kombination der Maßnahmen lässt sich der Endenergiebedarf des Gebäudes nach überschlägiger Einschätzung deutlich reduzieren. Den größten Hebel bieten die Dämmung der obersten Geschossdecke bzw. des Dachs sowie der spätere Heizungstausch. Die Quick-Wins der Stufe 1 senken bereits ohne große Investition den Verbrauch und verbessern die Effizienz der bestehenden Anlage.\nHinweis: Die nachfolgenden Werte beruhen auf den Angaben und Erfahrungswerten des Energieberaters und sind als überschlägige Schätzung zu verstehen.",
+ "kosten_intro": "Überschlägige Schätzung der Kosten und jährlichen Einsparungen (Werte des Energieberaters, keine Angebotspreise):",
+ "kosten_tabelle": [
+  {
+   "massnahme": "Pumpentausch + hydraul. Abgleich",
+   "kosten": "1.200 €",
+   "einsparung": "180 €",
+   "prozent": "5 %"
+  },
+  {
+   "massnahme": "Leitungsdämmung Keller",
+   "kosten": "600 €",
+   "einsparung": "120 €",
+   "prozent": "3 %"
+  },
+  {
+   "massnahme": "Dämmung oberste Geschossdecke",
+   "kosten": "6.500 €",
+   "einsparung": "650 €",
+   "prozent": "16 %"
+  },
+  {
+   "massnahme": "Fassadendämmung (WDVS)",
+   "kosten": "32.000 €",
+   "einsparung": "900 €",
+   "prozent": "22 %"
+  },
+  {
+   "massnahme": "Heizungstausch Wärmepumpe",
+   "kosten": "28.000 €",
+   "einsparung": "1.100 €",
+   "prozent": "—"
+  }
+ ],
+ "foerderung": {
+  "bafa": "Über die Bundesförderung für effiziente Gebäude – Einzelmaßnahmen (BEG EM) bezuschusst das BAFA Maßnahmen an der Gebäudehülle (Dämmung von Dach, Fassade, Kellerdecke, oberster Geschossdecke), Fenster/Türen, Lüftung sowie die Heizungsoptimierung. Die Basisförderung beträgt 15 % der förderfähigen Kosten. Förderfähig sind je Gebäude und Kalenderjahr bis zu 30.000 € für die erste Wohneinheit (2.–6. Wohneinheit je 15.000 €, ab der 7. je 8.000 €). Mit individuellem Sanierungsfahrplan (iSFP) steigen die Grenzen auf 60.000 € / 30.000 € / 15.000 €; der iSFP-Bonus von 5 % gilt seit dem 21.07.2026 nur für den Kostenanteil oberhalb der Höchstgrenze ohne iSFP. Der Antrag muss vor Beauftragung des Fachunternehmens gestellt werden. Für die Heizungsoptimierung gilt: Anlage älter als 2 Jahre, fossile Anlagen nicht älter als 20 Jahre.",
+  "kfw": "Der Tausch der fossilen Heizung gegen eine Anlage auf Basis erneuerbarer Energien (z. B. Wärmepumpe) wird über den KfW-Zuschuss 458 gefördert. Die Grundförderung beträgt 30 % der förderfähigen Kosten. Für die selbstgenutzte Wohneinheit können hinzukommen: ein Klimageschwindigkeitsbonus von derzeit 16 % beim Austausch einer funktionstüchtigen alten fossilen Heizung (sinkt ab 01.02.2027 schrittweise) und ein einkommensabhängiger Bonus von 10, 30 oder 40 %. Die Förderung ist auf 70 % gedeckelt, bei der höchsten Einkommensstufe auf 80 %. Förderfähig sind für die erste Wohneinheit bis zu 28.000 € (ab 01.02.2027 halbjährlich 750 € weniger); der Zuschuss erreicht damit bis zu 19.600 € bzw. 22.400 €.",
+  "kfw261": "Für eine umfassende Sanierung zum Effizienzhaus steht der zinsgünstige KfW-Förderkredit 261 (BEG Wohngebäude – Kredit) zur Verfügung. Gefördert werden seit dem 21.07.2026 nur Effizienzhaus-Stufen mit Erneuerbare-Energien- oder Nachhaltigkeits-Klasse; der Kreditbetrag beträgt einheitlich bis zu 150.000 € je Wohneinheit. Der Tilgungszuschuss liegt je nach Stufe zwischen 0 % (EH 85 EE, EH 70 EE) und 10 % (EH 40 EE); hinzukommen können Boni für die Nachhaltigkeits-Klasse (+5 %), die Sanierung eines besonders schlechten Bestandsgebäudes ('Worst Performing Building', +10 %) und die serielle Sanierung (+15 %), zusammen höchstens 40 %. Gefördert werden alle Maßnahmen an Gebäudehülle und Anlagentechnik, die zur Erreichung der Effizienzhaus-Stufe beitragen; die Einbindung eines Energieeffizienz-Experten ist verpflichtend.",
+  "steuer": "Alternativ zur direkten Förderung kann die steuerliche Förderung nach § 35c EStG genutzt werden. Begünstigt sind selbstgenutzte Wohngebäude, die bei Beginn der Maßnahme älter als 10 Jahre sind. Gefördert werden 20 % der Aufwendungen, verteilt über drei Jahre (7 % / 7 % / 6 %), maximal 40.000 € je Objekt. Voraussetzung ist eine Fachunternehmererklärung nach amtlichem Muster. Eine gleichzeitige Inanspruchnahme von BAFA-/KfW-Förderung und § 35c EStG für dieselbe Maßnahme ist nicht möglich (keine Doppelförderung).",
+  "uebersicht_intro": "",
+  "stand": "12.11.2026",
+  "quellen": [
+   {
+    "titel": "BAFA – Bundesförderung für effiziente Gebäude (BEG EM)",
+    "url": "https://www.bafa.de"
+   },
+   {
+    "titel": "KfW – Heizungsförderung für Privatpersonen – Wohngebäude (458)",
+    "url": "https://www.kfw.de"
+   },
+   {
+    "titel": "KfW – Wohngebäude – Kredit (261), Hausbankenmitteilung 61/2026",
+    "url": "https://www.kfw.de"
+   },
+   {
+    "titel": "Ökozentrum NRW – Zusammenfassung BEG-Reform (18.08.2026)",
+    "url": "https://oekozentrum.nrw"
+   },
+   {
+    "titel": "§ 35c EStG – gesetze-im-internet.de",
+    "url": "https://www.gesetze-im-internet.de/estg/__35c.html"
+   }
+  ],
+  "kfw458": {
+   "klimageschwindigkeit": "ja",
+   "einkommensbonus": "30"
+  },
+  "eh_ziel": {
+   "label": "Effizienzhaus 55 EE",
+   "tilgung": 0.05,
+   "wpb": false
+  },
+  "rechenkern": {
+   "konditionen_version": 1,
+   "saetze": {
+    "konditionen_stand": "Konditionen-Version 1, gültig ab 09.11.2026",
+    "em_satz": 0.15,
+    "em_isfp_bonus": 0.05,
+    "em_quote_basis": "15 %",
+    "em_quote_isfp": "15 % + 5 %",
+    "em_cap_we1": 30000,
+    "em_cap_we_2_6": 15000,
+    "em_cap_we_ab7": 8000,
+    "em_cap_isfp_we1": 60000,
+    "em_cap_isfp_we_2_6": 30000,
+    "em_cap_isfp_we_ab7": 15000,
+    "em_isfp_min": 30000,
+    "heizung_kosten_we1": 28000,
+    "heizung_kosten_we_2_6": 15000,
+    "heizung_kosten_we_ab7": 8000,
+    "heizung_grund": 0.3,
+    "heizung_klima": 0.16,
+    "heizung_deckel": 0.7,
+    "heizung_deckel_max": 0.8,
+    "eh_kredit_pro_we_klasse": 150000,
+    "eh_tilgung_max": 0.4,
+    "eh_wpb_bonus": 0.1,
+    "eh_tilgung_label": "0–40 %",
+    "steuer_quote": "20 % / 3 J.",
+    "steuer_kosten_objekt": 200000,
+    "steuer_max_objekt": 40000
+   },
+   "werte": {
+    "we": 1,
+    "we_eigen": 1,
+    "we_verm": 0,
+    "n_we_2_6": 0,
+    "n_we_ab7": 0,
+    "em_cap_ohne": 30000,
+    "em_cap_mit": 60000,
+    "em_foerder_ohne": 4500.0,
+    "em_isfp_schwelle": 30000,
+    "em_isfp_bonus": 1500.0,
+    "em_foerder_mit_basis": 9000.0,
+    "em_foerder_mit": 10500.0,
+    "heiz_kosten": 28000,
+    "heiz_klima": 0.16,
+    "heiz_einkommen": 0.3,
+    "heiz_bonus_we": 1,
+    "heiz_rate_verm": 0.3,
+    "heiz_rate_eigen": 0.7,
+    "heiz_anteil_verm": 0.0,
+    "heiz_anteil_eigen": 19600.0,
+    "heiz_max": 19600.0,
+    "eh_kredit": 150000,
+    "eh_tilgung_basis": 0.05,
+    "eh_tilgung": 0.05,
+    "eh_foerder": 7500.0,
+    "eh_max_uebersicht": 60000.0,
+    "weg_a": 30100.0
+   }
+  },
+  "saetze": {
+   "heizung_grund": 0.99
+  }
+ },
+ "roi_intro": "Gegenüberstellung der wesentlichen Maßnahmen mit überschlägiger Amortisationsabschätzung (Eigenanteil ÷ jährliche Einsparung):",
+ "roi_tabelle": [
+  {
+   "massnahme": "Pumpe + Abgleich",
+   "invest": "1.200 €",
+   "foerderung": "180 €",
+   "eigenanteil": "1.020 €",
+   "einsparung": "180 €",
+   "amortisation": "5,7"
+  },
+  {
+   "massnahme": "Leitungsdämmung",
+   "invest": "600 €",
+   "foerderung": "90 €",
+   "eigenanteil": "510 €",
+   "einsparung": "120 €",
+   "amortisation": "4,3"
+  },
+  {
+   "massnahme": "Oberste Geschossdecke",
+   "invest": "6.500 €",
+   "foerderung": "1.300 €",
+   "eigenanteil": "5.200 €",
+   "einsparung": "650 €",
+   "amortisation": "8,0"
+  },
+  {
+   "massnahme": "Fassadendämmung",
+   "invest": "32.000 €",
+   "foerderung": "6.400 €",
+   "eigenanteil": "25.600 €",
+   "einsparung": "900 €",
+   "amortisation": "28,4"
+  },
+  {
+   "massnahme": "Wärmepumpe",
+   "invest": "28.000 €",
+   "foerderung": "14.000 €",
+   "eigenanteil": "14.000 €",
+   "einsparung": "1.100 €",
+   "amortisation": "12,7"
+  }
+ ],
+ "fazit": "Das Gebäude bietet ein erhebliches Einsparpotenzial. Wir empfehlen, mit den gering investiven Quick-Wins der Stufe 1 zu beginnen, da diese sofort wirken und sich kurzfristig amortisieren. Parallel sollte die Dämmung der obersten Geschossdecke als wirtschaftlich attraktivste Hüllmaßnahme umgesetzt werden. Der Heizungstausch auf eine Wärmepumpe ist sinnvoll, sobald die Heizlast durch die Hüllsanierung reduziert wurde – idealerweise kombiniert mit einer PV-Anlage. Wir empfehlen die Erstellung eines individuellen Sanierungsfahrplans (iSFP), um den erhöhten Förderbonus zu sichern und die Reihenfolge verbindlich festzulegen.",
+ "empfehlungen": [
+  "Erstellung eines individuellen Sanierungsfahrplans (iSFP) für den 5-%-Förderbonus",
+  "Kurzfristig: Pumpentausch, hydraulischer Abgleich, Leitungsdämmung",
+  "Mittelfristig: Dämmung oberste Geschossdecke / Dach",
+  "Förderanträge stets vor Beauftragung des Fachunternehmens stellen"
+ ],
+ "anhang_fotos": [
+  {
+   "path": "bilder/fassade.jpg",
+   "caption": "Fassade Gesamtansicht"
+  },
+  {
+   "path": "bilder/keller.jpg",
+   "caption": "Kellerbereich mit Technik"
+  }
+ ]
+}

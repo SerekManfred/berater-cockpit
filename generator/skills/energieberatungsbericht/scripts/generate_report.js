@@ -20,6 +20,7 @@ const fs = require("fs");
 const path = require("path");
 // image-size: v2 exportiert { imageSize }, ältere Versionen eine Funktion
 const _imgSize = require("image-size");
+const { rechneFoerderung } = require("./foerder_rechnung");
 const sizeOf = (typeof _imgSize === "function") ? _imgSize : _imgSize.imageSize;
 const {
   Document, Packer, Paragraph, TextRun, Table, TableRow, TableCell,
@@ -651,7 +652,7 @@ const FS = Object.assign({
   steuer_quote:         "20 % / 3 J.",
   steuer_kosten_objekt: 200000,
   steuer_max_objekt:    40000,
-}, cleanSaetze(foe.saetze));
+}, cleanSaetze(foe.saetze), (foe.rechenkern && foe.rechenkern.saetze) || {});
 const WEraw = parseWE(obj.wohneinheiten);
 const WE = WEraw || 1;
 // Gestaffelte Höchstgrenzen: 1. WE / 2.-6. WE / ab 7. WE
@@ -663,21 +664,11 @@ const staffelHerl = (a, b, c) => {
   if (_n7 > 0)  t += " + " + eur(c) + " × " + _n7 + " WE";
   return t + " = " + eur(staffel(a, b, c));
 };
-// BEG EM (BAFA): 15 %, iSFP-Bonus 5 % nur auf den Anteil oberhalb der Höchstgrenze ohne iSFP
-const emCapOhne = staffel(FS.em_cap_we1, FS.em_cap_we_2_6, FS.em_cap_we_ab7);
-const emCapMit  = staffel(FS.em_cap_isfp_we1, FS.em_cap_isfp_we_2_6, FS.em_cap_isfp_we_ab7);
-const emFoerderOhne = Math.round(0.15 * emCapOhne);
-const emIsfpBonus   = Math.round(0.05 * Math.max(0, emCapMit - Math.max(emCapOhne, FS.em_isfp_min)));
-const emFoerderMit  = Math.round(0.15 * emCapMit) + emIsfpBonus;
 // Nutzungsart der Wohneinheiten (steuert die KfW-458-Boni): selbstgenutzt vs. vermietet
 let weEigen = parseWE(obj.we_eigennutz);
 let weVerm  = parseWE(obj.we_vermietung);
 if (weEigen === null && weVerm === null) { weEigen = WE; weVerm = 0; }
 else { weEigen = weEigen || 0; weVerm = (weVerm === null) ? Math.max(WE - weEigen, 0) : weVerm; }
-// KfW 458: Höchstkosten gleichmäßig je WE verteilt. Grundförderung 30 % für alle WE.
-// Klimageschwindigkeits- und Einkommensbonus nur für EINE selbstgenutzte WE (Haupt-/alleiniger Wohnsitz).
-const heizKosten = staffel(FS.heizung_kosten_we1, FS.heizung_kosten_we_2_6, FS.heizung_kosten_we_ab7);
-const heizProWE = heizKosten / WE;
 const kfw458 = foe.kfw458 || {};
 // Einkommensbonus: Stufe als Zahl/Prozent ("40 %", 30, 0.1) oder ja/nein (ja = 30 %-Stufe)
 function einkRate(v) {
@@ -687,13 +678,15 @@ function einkRate(v) {
   if (n !== null && n > 0) return n > 1 ? n / 100 : n;
   return isYes(v) ? 0.30 : 0;
 }
-const bKlima = isYes(kfw458.klimageschwindigkeit) ? FS.heizung_klima : 0;
-const bEink  = einkRate(kfw458.einkommensbonus);
-const heizDeckel = bEink >= 0.40 ? FS.heizung_deckel_max : FS.heizung_deckel;
-const bonusWE = (weEigen >= 1 && (bKlima > 0 || bEink > 0)) ? 1 : 0;
-const rateVerm  = FS.heizung_grund;
-const rateEigen = bonusWE ? Math.min(FS.heizung_grund + bKlima + bEink, heizDeckel) : FS.heizung_grund;
-const heizMax = Math.round(rateVerm * heizProWE * (WE - bonusWE) + rateEigen * heizProWE * bonusWE);
+// Förderzahlen: aus dem Cockpit-Rechenkern (foerderung.rechenkern), sonst lokal mit denselben Formeln
+const RK = (foe.rechenkern && foe.rechenkern.werte) ? foe.rechenkern.werte : null;
+const R = RK || rechneFoerderung(FS, { we: WE, we_eigen: weEigen, we_verm: weVerm,
+  klima: isYes(kfw458.klimageschwindigkeit), einkommen: einkRate(kfw458.einkommensbonus), eh_ziel: foe.eh_ziel || {} });
+if (RK) { weEigen = R.we_eigen; weVerm = R.we_verm; }
+const emCapOhne = R.em_cap_ohne, emCapMit = R.em_cap_mit, emFoerderOhne = R.em_foerder_ohne;
+const emIsfpBonus = R.em_isfp_bonus, emFoerderMit = R.em_foerder_mit;
+const heizKosten = R.heiz_kosten, bKlima = R.heiz_klima, bEink = R.heiz_einkommen, bonusWE = R.heiz_bonus_we;
+const rateVerm = R.heiz_rate_verm, rateEigen = R.heiz_rate_eigen, heizMax = R.heiz_max;
 const qV = Math.round(rateVerm * 100), qE = Math.round(rateEigen * 100);
 const heizQuote = (bonusWE && WE > 1 && qV !== qE) ? (qV + "–" + qE + " %") : (Math.max(qV, qE) + " %");
 children.push(...bodyText(
@@ -716,8 +709,8 @@ const uebersichtRows = (Array.isArray(foe.uebersicht) && foe.uebersicht.length)
       quote: heizQuote, kosten: eur(heizKosten),
       foerderung: eur(heizMax), form: "Zuschuss" },
     { weg: "KfW 261 \u2013 Sanierung zum Effizienzhaus",
-      quote: FS.eh_tilgung_label, kosten: "bis " + eur(FS.eh_kredit_pro_we_klasse * WE),
-      foerderung: "bis " + eur(FS.eh_tilgung_max * FS.eh_kredit_pro_we_klasse * WE),
+      quote: FS.eh_tilgung_label, kosten: "bis " + eur(R.eh_kredit),
+      foerderung: "bis " + eur(R.eh_max_uebersicht),
       form: "Kredit + Tilgungszuschuss" },
     { weg: "§ 35c EStG \u2013 Steuerermäßigung (selbstgenutzt)",
       quote: FS.steuer_quote, kosten: eur(FS.steuer_kosten_objekt) + " / Objekt",
@@ -814,13 +807,10 @@ const anhang = D.anhang_fotos || [];
   children.push(h1Break("9. Anhang – Detaillierte Förderaufschlüsselung"));
   const ez = foe.eh_ziel || {};
   const ehLabel = has(ez.label) ? ez.label : "Effizienzhaus (Zielniveau)";
-  const ehBaseT = (typeof ez.tilgung === "number") ? ez.tilgung : null;
-  const ehT = (ehBaseT === null) ? null : Math.min(ehBaseT + (ez.wpb ? 0.10 : 0), FS.eh_tilgung_max);
-  const ehKredit = FS.eh_kredit_pro_we_klasse * WE;
-  const ehFoerder = (ehT === null) ? null : Math.round(ehT * ehKredit);
+  const ehBaseT = R.eh_tilgung_basis, ehT = R.eh_tilgung, ehKredit = R.eh_kredit, ehFoerder = R.eh_foerder;
   const bafaKosten = emCapMit;
   const bafaFoerder = emFoerderMit;
-  const wegA = bafaFoerder + heizMax;
+  const wegA = R.weg_a;
   bodyText("Die folgende Aufschlüsselung stellt die beiden Förderwege gegenüber, damit die wirtschaftlichere "
     + "Lösung gewählt werden kann. Angegeben sind die maximal möglichen Förderbeträge (unverbindlich, keine "
     + "verbindliche Förderauskunft).", { keep: true }).forEach(p => children.push(p));
@@ -859,11 +849,11 @@ const anhang = D.anhang_fotos || [];
   ]));
   children.push(spacer(40));
   children.push(noteBox("Herleitung KfW-458-Zuschuss: " + qV + " % Grundförderung auf " + (WE - bonusWE) + " WE-Anteil(e) ("
-    + eur(Math.round(rateVerm * heizProWE * (WE - bonusWE))) + ")"
+    + eur(R.heiz_anteil_verm) + ")"
     + (bonusWE ? " + " + qE + " % (inkl. Boni) auf die bonusberechtigte selbstgenutzte WE ("
-      + eur(Math.round(rateEigen * heizProWE)) + ")" : "") + " = " + eur(heizMax) + ". BAFA BEG EM: 15 % von "
-    + eur(bafaKosten) + " (" + eur(Math.round(0.15 * bafaKosten)) + ") + iSFP-Bonus 5 % auf den Anteil über "
-    + eur(Math.max(emCapOhne, FS.em_isfp_min)) + " (" + eur(emIsfpBonus) + ") = " + eur(bafaFoerder) + "."));
+      + eur(R.heiz_anteil_eigen) + ")" : "") + " = " + eur(heizMax) + ". BAFA BEG EM: 15 % von "
+    + eur(bafaKosten) + " (" + eur(R.em_foerder_mit_basis) + ") + iSFP-Bonus 5 % auf den Anteil über "
+    + eur(R.em_isfp_schwelle) + " (" + eur(emIsfpBonus) + ") = " + eur(bafaFoerder) + "."));
   children.push(h2("Weg B – Effizienzhaus (KfW 261, Komplettsanierung)"));
   children.push(dataTable(colsAB, [
     { b: ehLabel + (ez.wpb ? " + WPB-Bonus" : ""), h: ehHerl,

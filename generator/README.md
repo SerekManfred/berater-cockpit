@@ -63,6 +63,17 @@ Kopf mit Objektdaten · 1 Kurzfazit · 2 Varianten · 3 Programme und Konditione
 **8 Fördervergleich auf einen Blick** (Pflichtkapitel, eigene Seite) · **9 Unsere Leistungen auf Ihrem Weg** (nur wenn
 Angebote A–D vorliegen, ab 0.3.0) · 9 bzw. 10 Empfohlenes Vorgehen · Quellen · Haftungshinweis
 
+## Beratungsbericht INIT (ab 0.4.0)
+`POST /bericht/init` mit `{ "daten": {...}, "bilder": { "front.jpg": "<base64>", ... } }` → .docx.
+- `daten` = Datenschema des Skills (`skills/energieberatungsbericht/vorlage/daten_vorlage.json` im Skill), Bildverweise
+  immer als `"bilder/<name>"`; jeder Verweis muss in `bilder` enthalten sein (max. 40 Fotos, je max. 8 MB, nur jpg/png).
+- **Pflicht:** `kunde.name`, `berichtsnummer`, `objekt.wohneinheiten` und `foerderung.rechenkern`
+  (`{konditionen_version, saetze, werte}` aus `app/rechenkern/init_foerderung.py`). Ohne Rechenkern-Ergebnis → 422.
+  `rechenkern.werte.we` muss zu `objekt.wohneinheiten` passen.
+- `foerderung.saetze` und `foerderung.uebersicht` werden entfernt (würden am Rechenkern vorbei Zahlen setzen).
+- Der Skill läuft unverändert; Fotos liest er virtuell (`skill_runner.js --bilder --daten-zuerst`), es wird nichts geschrieben.
+- Anfragegröße bis 64 MB – das Backend soll Fotos vorher verkleinern (z. B. max. 1600 px, JPEG 85 %).
+
 ## Angebote A–D (ab 0.3.0)
 Ablaufgrafik aus Word-Tabellen (keine Bilder): A immer → C nur bei KfW 266 → Weg B (Einzelmaßnahmen) oder D (Effizienzhaus),
 darunter Kosten, Zuschuss und Eigenanteil je Weg. Alle Beträge kommen aus `ergebnis.szenarien[].angebotsweg`
@@ -83,7 +94,7 @@ Die Empfehlung (grüner Rahmen) erscheint nur bei bekanntem `wpb_status` („ja�
 - `src/fachtexte.js` – fachliche Festwerte (U-Werte BEG EM, EH-Stufen, Kumulierung, Haftung).
   **Gehören mittelfristig in die Konditionen-Zentrale (Phase 1b).**
 - `beispiele/` – Referenzfall, Fall ohne EE-Klasse, EFH ohne KfW 266 (erzeugt mit dem Cockpit-Rechenkern)
-- `src/checkliste.js`, `src/skill_runner.js` – Vor-Ort-Checklisten aus den Skills
+- `src/checkliste.js`, `src/bericht.js`, `src/skill_runner.js` – Checklisten und Berichte aus den Skills
 - `skills/` – eingebundene Claude-Skills (unverändert)
 - `test/test.js` – prüft, dass die Beträge aus dem Ergebnis unverändert im Dokument stehen, und die drei Checklisten
   (vorausgefüllt, Projekt-ID und Stand in der Fußzeile)

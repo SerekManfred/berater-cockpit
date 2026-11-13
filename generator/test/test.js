@@ -80,5 +80,21 @@ async function text(daten) {
   }
   await assert.rejects(() => erzeugeCheckliste("init", { ...pd, projekt_id: "" }), /projekt_id fehlt/);
   await assert.rejects(() => erzeugeCheckliste("xyz", pd), /Unbekanntes Modul/);
-  console.log(`OK – ${n} Beispiele + Referenzzahlen + Schutzprüfungen + Fachwerte mit/ohne + ${MODULE.length} Checklisten`);
+  // Bericht INIT (ab 0.4.0): Skill unverändert, Förderzahlen aus foerderung.rechenkern, Fotos virtuell
+  const { erzeugeBericht } = require("../src/bericht");
+  const bd = JSON.parse(fs.readFileSync(path.join(__dirname, "bericht_init_daten.json"), "utf8"));
+  const bilder = Object.fromEntries(fs.readdirSync(path.join(__dirname, "bilder")).map(n => [n, fs.readFileSync(path.join(__dirname, "bilder", n)).toString("base64")]));
+  const bt = await alles(await erzeugeBericht("init", { daten: bd, bilder }));
+  for (const z of ["Familie Beispielmann", "19.600", "30.100", "Konditionen-Version 1", "70 %"]) assert(bt.includes(z), "Bericht INIT: " + z);
+  assert(!bt.includes("99 %"), "Bericht INIT: foerderung.saetze darf den Rechenkern nicht überschreiben");
+  const docx = await JSZip.loadAsync(await erzeugeBericht("init", { daten: bd, bilder }));
+  assert(Object.keys(docx.files).filter(n => n.startsWith("word/media/")).length >= 5, "Bericht INIT: Fotos fehlen");
+  const ohneRk = JSON.parse(JSON.stringify(bd)); delete ohneRk.foerderung.rechenkern;
+  await assert.rejects(erzeugeBericht("init", { daten: ohneRk, bilder }), /rechenkern fehlt/);
+  const { "front.jpg": _weg, ...ohneFront } = bilder;
+  await assert.rejects(erzeugeBericht("init", { daten: bd, bilder: ohneFront }), /Foto fehlt.*front\.jpg/);
+  await assert.rejects(erzeugeBericht("init", { daten: { ...bd, objekt: { ...bd.objekt, wohneinheiten: "3" } }, bilder }), /Wohneinheiten passen nicht/);
+  await assert.rejects(erzeugeBericht("init", { daten: bd, bilder: { ...bilder, "../x.jpg": "AA==" } }), /Unzulässiger Bildname/);
+  await assert.rejects(erzeugeBericht("meh", { daten: bd, bilder }), /Unbekanntes Modul/);
+  console.log(`OK – Bericht INIT + ${n} Beispiele + Referenzzahlen + Schutzprüfungen + Fachwerte mit/ohne + ${MODULE.length} Checklisten`);
 })().catch(e => { console.error("FEHLER:", e.message); process.exit(1); });

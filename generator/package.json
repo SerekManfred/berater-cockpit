@@ -1,7 +1,7 @@
 {
   "name": "cockpit-generator",
   "private": true,
-  "version": "0.3.0",
+  "version": "0.4.0",
   "description": "Word-Berichte und Vor-Ort-Checklisten im CI für das Berater-Cockpit",
   "main": "src/server.js",
   "scripts": {
