@@ -2,7 +2,8 @@ import React, { useRef, useState } from "react";
 import { api, dateiHochladen, groesseText, hatRolle, zeit } from "./api.js";
 
 export const KATEGORIEN_DATEI = [["kostenschaetzung", "Kostenschätzung"], ["energieausweis", "Energieausweis"], ["plaene", "Pläne"],
-  ["fotos", "Fotos"], ["checkliste", "Checkliste"], ["angebote", "Angebote"], ["sonstiges", "Sonstiges"]];
+  ["fotos", "Fotos"], ["checkliste", "Checkliste"], ["angebote", "Angebote"], ["bericht", "Berichte (erzeugt)"], ["sonstiges", "Sonstiges"]];
+const NUR_ERZEUGT = ["bericht"]; // diese Kategorien füllt nur das Cockpit selbst
 const ERLAUBT = ".pdf,.jpg,.jpeg,.png,.heic,.heif,.xlsx,.docx";
 const MAX = 25_000_000;
 const TYP = { "application/pdf": "PDF", "image/jpeg": "JPG", "image/png": "PNG", "image/heic": "HEIC",
@@ -54,7 +55,7 @@ export function Unterlagen({ ich, projektId, dateien, onGeaendert }) {
           <label className="upload-kategorie">Kategorie für neue Dateien
             <select value={kategorie} onChange={e => setKategorie(e.target.value)} required>
               <option value="">– bitte wählen –</option>
-              {KATEGORIEN_DATEI.map(([k, t]) => <option key={k} value={k}>{t}</option>)}
+              {KATEGORIEN_DATEI.filter(([k]) => !NUR_ERZEUGT.includes(k)).map(([k, t]) => <option key={k} value={k}>{t}</option>)}
             </select>
           </label>
           <div className={"ablage" + (ziehen ? " ziehen" : "") + (kategorie ? "" : " gesperrt")}

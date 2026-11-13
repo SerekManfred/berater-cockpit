@@ -135,7 +135,7 @@ class MassnahmeText(_Frei):
 
 class VarianteText(_Frei):
     titel: str = T(200)
-    punkte: list[str] = Field(default_factory=list, max_length=10)
+    punkte: list[str] = Field(default_factory=list, max_length=40)  # Leerzeilen der Oberfläche werden beim Speichern entfernt
 
 
 class TexteIn(_Frei):
@@ -208,9 +208,9 @@ def _texte_normalisieren(t: dict) -> dict:
     for w in ("einzel", "effizienzhaus"):
         x = ev.get(w) or {}
         v["empfehlung_varianten"][w] = {"titel": str(x.get("titel") or "")[:200],
-                                        "punkte": [str(p)[:600] for p in (x.get("punkte") or [])[:10]]}
+                                        "punkte": [str(p)[:600] for p in (x.get("punkte") or []) if str(p).strip()][:10]}
     rf = t.get("reihenfolge") or {}
-    v["reihenfolge"] = {"intro": str(rf.get("intro") or "")[:2000], "schritte": [str(s)[:400] for s in (rf.get("schritte") or [])[:15]]}
+    v["reihenfolge"] = {"intro": str(rf.get("intro") or "")[:2000], "schritte": [str(s)[:400] for s in (rf.get("schritte") or []) if str(s).strip()][:15]}
     return v
 
 
@@ -357,7 +357,7 @@ def entwurf_aus(db: Session, e: BerichtEntwurf | None, p: Projekt, ich: Benutzer
         "revision": e.revision if e else 0, "status": e.status if e else "offen",
         "daten": daten, "foto_zuordnung": zuordnung, "abschnitte": abschnitte,
         "fotos": [datei_aus(f, {}) for f in fotos],
-        "fehlende_pflichtangaben": fehlend, "alle_geprueft": alle_geprueft, "bereit": alle_geprueft and not fehlend,
+        "fehlende_pflichtangaben": fehlend, "pflichtangaben": PFLICHT, "alle_geprueft": alle_geprueft, "bereit": alle_geprueft and not fehlend,
         "darf_bearbeiten": any(r in ich.rollen for r in ("admin", "berater", "verwaltung")),
         "darf_freigeben": "berater" in ich.rollen,
         "ki": {"aktiv": config.KI_AKTIV, "modell": config.KI_MODELL, "laeufe_heute": _ki_laeufe_heute(e) if e else 0,

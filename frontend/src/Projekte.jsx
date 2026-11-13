@@ -2,13 +2,15 @@ import React, { useEffect, useState } from "react";
 import { api, hatRolle, wordHerunterladen, zeit } from "./api.js";
 import { ANGEBOTE, eur, Ergebnis, Foerdervergleich, KATEGORIEN } from "./Foerdervergleich.jsx";
 import { Unterlagen, VorOrtCheckliste } from "./Unterlagen.jsx";
+import { BerichtInit } from "./BerichtInit.jsx";
 
 export const GEBAEUDEARTEN = [["EFH", "Einfamilienhaus (EFH)"], ["ZFH", "Zweifamilienhaus (ZFH)"], ["MFH", "Mehrfamilienhaus (MFH)"],
   ["Nichtwohngebaeude", "Nichtwohngebäude"], ["Kirche", "Kirche"]];
 export const PROJEKT_STATUS = [["offen", "offen"], ["in_bearbeitung", "in Bearbeitung"], ["abgeschlossen", "abgeschlossen"]];
 const BERICHT_STATUS = { entwurf: "Entwurf", zur_freigabe: "zur Freigabe", freigegeben: "freigegeben" };
-const MODULE = { "foerderung-em-eh": "Fördervergleich EM/EH" };
-const WORD_MODULE = ["foerderung-em-eh"];
+const MODULE = { "foerderung-em-eh": "Fördervergleich EM/EH", "bericht-init": "Beratungsbericht INIT" };
+const WORD_MODULE = ["foerderung-em-eh", "bericht-init"];
+const NUR_ASSISTENT = ["bericht-init"]; // entstehen über den Bericht-Assistenten, Ansicht = Word-Dokument
 const text = (liste, wert) => Object.fromEntries(liste)[wert] || wert;
 const datum = t => t ? new Date(t).toLocaleDateString("de-DE") : "–";
 const adresse = p => [p.objekt_strasse, [p.objekt_plz, p.objekt_ort].filter(Boolean).join(" ")].filter(Boolean).join(", ");
@@ -53,6 +55,7 @@ export function Projekte({ ich, startProjekt = null }) {
   if (seite.art === "akte") return <ProjektAkte ich={ich} id={seite.id} onZurueck={() => setSeite({ art: "liste" })} onGehe={setSeite} />;
   if (seite.art === "bericht") return <BerichtAnsicht ich={ich} id={seite.id} onZurueck={() => zurAkte(seite.projektId)} onGehe={setSeite} />;
   if (seite.art === "rechnen") return <BerichtRechnen {...seite} onFertig={b => setSeite({ art: "bericht", id: b.id, projektId: b.projekt_id })} onAbbrechen={() => zurAkte(seite.projektId)} />;
+  if (seite.art === "init") return <BerichtInit ich={ich} projekt={seite.projekt} onZurueck={() => zurAkte(seite.projekt.id)} />;
   if (seite.art === "neu") return <ProjektNeu onFertig={p => zurAkte(p.id)} onAbbrechen={() => setSeite({ art: "liste" })} />;
   return <ProjektListe ich={ich} onOeffnen={zurAkte} onNeu={() => setSeite({ art: "neu" })} />;
 }
@@ -317,6 +320,16 @@ function ProjektAkte({ ich, id, onZurueck, onGehe }) {
 
       <Unterlagen ich={ich} projektId={p.id} dateien={p.dateien} onGeaendert={laden} />
 
+      {["EFH", "ZFH", "MFH"].includes(p.gebaeudeart) && (
+        <section className="karte">
+          <div className="titelzeile">
+            <h2>Beratungsbericht INIT</h2>
+            <button className="btn" onClick={() => onGehe({ art: "init", projekt: p })}>{darfBearbeiten ? "Bericht-Assistent öffnen" : "Entwurf ansehen"}</button>
+          </div>
+          <p className="klein">Daten → Fotos → KI-Vorschlag → Prüfen und freigeben → Bericht erzeugen. Der Entwurf bleibt über mehrere Sitzungen erhalten.</p>
+        </section>
+      )}
+
       <section className="karte">
         <div className="titelzeile">
           <h2>Berichte</h2>
@@ -332,8 +345,8 @@ function ProjektAkte({ ich, id, onZurueck, onGehe }) {
                     <td>{MODULE[b.modul] || b.modul}</td><td>V{b.versionsnummer}</td><td>{zeit(b.erstellt_am)}</td>
                     <td>{b.erstellt_von || "–"}</td><td>Version {b.konditionen_version}</td><td>{BERICHT_STATUS[b.status] || b.status}</td>
                     <td><div className="zeilen-aktionen">
-                      <button className="btn2" aria-label={`${MODULE[b.modul] || b.modul} Version ${b.versionsnummer} öffnen`}
-                        onClick={() => onGehe({ art: "bericht", id: b.id, projektId: p.id })}>Öffnen</button>
+                      {!NUR_ASSISTENT.includes(b.modul) && <button className="btn2" aria-label={`${MODULE[b.modul] || b.modul} Version ${b.versionsnummer} öffnen`}
+                        onClick={() => onGehe({ art: "bericht", id: b.id, projektId: p.id })}>Öffnen</button>}
                       <WordKnopf bericht={b} />
                     </div></td>
                   </tr>

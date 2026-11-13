@@ -168,3 +168,27 @@ fieldset.gruppe legend { font-size: 13px; font-weight: bold; color: var(--anth);
 fieldset.gruppe .klein { margin: 12px 0 8px; }
 .checkliste-zeile { display: flex; flex-wrap: wrap; gap: 12px; align-items: flex-end; }
 .checkliste-zeile label { flex: 1 1 260px; max-width: 360px; }
+/* Beratungsbericht INIT (Phase 2b) */
+.foto-liste { list-style: none; margin: 0; padding: 0; display: grid; grid-template-columns: repeat(auto-fill, minmax(300px, 1fr)); gap: 12px; }
+.foto-liste li { border: 1px solid var(--rand); border-radius: 10px; padding: 10px; display: flex; gap: 12px; align-items: flex-start; }
+.foto-liste li.front { border: 2px solid var(--gold); background: var(--gold-l); }
+.foto-liste img { width: 110px; height: 110px; object-fit: cover; border-radius: 6px; flex: none; }
+.foto-felder { display: flex; flex-direction: column; gap: 8px; flex: 1; min-width: 0; }
+label.radio { flex-direction: row; align-items: center; min-height: 44px; font-weight: normal; font-size: 14px; color: var(--text); cursor: pointer; }
+label.radio input { width: 22px; min-height: 22px; }
+p.markiert { white-space: pre-wrap; font-size: 13px; background: var(--grau-l); border-radius: 8px; padding: 8px 10px; margin: 0; }
+mark.m-zahl { background: #FFE08A; color: #3A2A00; border-radius: 3px; padding: 0 2px; }
+mark.m-pruefen { background: var(--rot-l); color: var(--rot); font-weight: bold; border-radius: 3px; padding: 0 2px; }
+.ab-offen { background: var(--grau-l); color: var(--anth); }
+.ab-vorschlag { background: var(--gold-l); color: #5C4310; }
+.ab-bearbeitet { background: #E3ECF7; color: #1F3F66; }
+.ab-geprueft { background: var(--gruen-l); color: var(--gruen); }
+.karte.abschnitt-geprueft { border-left: 4px solid var(--gruen); }
+.karte.abschnitt-vorschlag { border-left: 4px solid var(--gold); }
+.massnahme { border: 1px solid var(--rand); border-radius: 10px; padding: 10px 12px; margin-bottom: 10px; display: flex; flex-direction: column; gap: 8px; }
+.massnahme .btn2 { align-self: flex-start; }
+ul.pruefliste { list-style: none; padding: 0; margin: 0 0 12px; display: flex; flex-direction: column; gap: 6px; font-size: 14px; }
+ul.pruefliste li::before { margin-right: 8px; font-weight: bold; }
+ul.pruefliste li.ja::before { content: "✓"; color: var(--gruen); }
+ul.pruefliste li.nein::before { content: "✗"; color: var(--rot); }
+.reiter button[aria-selected="true"] { border-bottom-color: var(--gold); font-weight: bold; }
