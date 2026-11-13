@@ -169,6 +169,24 @@ Die Rolle „Prüfer“ vergibt ein Admin unter „Benutzer“ (kombinierbar, z.
 **Antragsfristen:** Läuft eine Frist (z. B. KfW 266) in weniger als 30 Tagen ab, erscheint ein gelber Hinweis auf der Startseite und im
 Fördervergleich. Nach Ablauf ist das Programm im Fördervergleich nicht mehr wählbar. Fristen pflegt man in der Konditionen-Version.
 
+## 11. Beratungsbericht INIT (Phase 2b)
+Projektakte (EFH/ZFH/MFH) → Kasten „Beratungsbericht INIT“ → **Bericht-Assistent öffnen**. Fünf Schritte:
+1. **Daten:** Objekt, Termin, Angaben aus der Vor-Ort-Checkliste (Stichpunkte), PV, Verbräuche, Notizen, Förderdaten
+   (Klimabonus, Einkommensbonus, Effizienzhaus-Ziel, Investitionskosten). Pflichtangaben: ausfüllen oder „bewusst leer“.
+2. **Fotos:** aus „Unterlagen → Fotos“; Frontbild wählen, je Foto Abschnitt und Bildunterschrift.
+3. **KI-Vorschlag** (nur mit `KI_AKTIV=true`): Textvorschläge für alle offenen Abschnitte, Fotozuordnung als Vorschlag.
+4. **Prüfen und freigeben:** jeder Abschnitt einzeln, nur **Berater**. Gelb = Zahl nicht in den Eingaben, rot = `[PRÜFEN]`
+   (blockiert). Jede spätere Änderung verlangt eine neue Freigabe.
+5. **Bericht erzeugen:** Vorschau der Förder-Übersicht (Rechenkern), dann neue Version unter „Berichte“, Word in den Unterlagen.
+
+Voraussetzung: aktive Konditionen-Version mit **KfW 458** und **§ 35c** (ab Version 3). Version 3 als Entwurf anlegen:
+`docker compose exec cockpit-api python -m app.cli konditionen-entwurf app/konditionen/ergaenzung_init_v3.json --notiz "…"`,
+dann wie in Abschnitt 10 einreichen und im Vier-Augen-Prinzip freigeben.
+
+**KI einschalten** (erst nach Freigabe durch den Geschäftsführer, API-Bedingungen + AVV mit Anthropic): in der `.env`
+`ANTHROPIC_API_KEY=…` und `KI_AKTIV=true`, dann `docker compose up -d cockpit-api`. Nur `cockpit-api` braucht Internet
+(`api.anthropic.com`), der Generator bleibt im internen Netz.
+
 ## Lokal entwickeln
 ```bash
 cd backend && pip install -r requirements.txt && python -m pytest -q   # Tests nutzen eine eigene SQLite-Datei

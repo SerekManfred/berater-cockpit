@@ -144,9 +144,8 @@ Ausführliches Fachkonzept: `docs/Konzept_Berater-Cockpit.docx` (falls abgelegt)
   Ablage als Datei `Checkliste_<INIT|MEH|Kirche>_<Projektnummer>.docx` (ohne Kundennamen), Kategorie `checkliste`,
   gleicher Inhalt wird **nicht** als Duplikat abgelehnt (jede Erzeugung = neue Fassung). Protokoll `checkliste_erzeugt` /
   `checkliste_fehlgeschlagen`, ohne Namen.
-- **Offen vor Phase 2b:** Die Bericht-Generatoren der Skills (`generate_report.js` INIT/MEH) rechnen Förderbeträge selbst
-  (widerspricht Regel 1). Entscheidung A (Rechenkern `app/rechenkern/vorort.py`) oder B (Sätze aus dem Snapshot, dokumentierte
-  Ausnahme) steht aus. Bis dahin **keine** Berichtserzeugung INIT/MEH/Kirche im Cockpit.
+- **Entschieden 13.11.2026 (Weg A):** Förderbeträge der Vor-Ort-Berichte rechnet der Rechenkern
+  (`app/rechenkern/init_foerderung.py`), siehe „Beratungsbericht INIT“. MEH und Kirche: noch **keine** Berichtserzeugung im Cockpit.
 
 ## Angebote A–D im Fördervergleich (Stand 13.11.2026, Phase 2c)
 - Optionale Eingabe `angebote` (`AngeboteIn` in `app/rechnen.py`): `a`, `b`, `d` Pflicht, `c` optional, je `betrag` (≥ 0),
@@ -162,6 +161,46 @@ Ausführliches Fachkonzept: `docs/Konzept_Berater-Cockpit.docx` (falls abgelegt)
   eingetragen ist – dann ist „Kosten Fachplanung/Baubegleitung“ gesperrt (0). Ergebnis: Zeile „Eigenanteil Planung/Begleitung“ je
   Szenario aus `angebotsweg.eigenanteil`, Hinweis bei `hoechstgrenze_greift`.
 
+## Beratungsbericht INIT (Stand 13.11.2026, Phase 2b)
+- **Weg A (Geschäftsführer 13.11.2026):** `init_foerderung(InitEingaben, kond)` → `{konditionen_version, saetze, werte}`, im Bericht als
+  `foerderung.rechenkern`. Rundung wie `Math.round` (gleich wie der Skill; Golden-Test `tests/test_init_foerderung.py`, 2.240 Fälle).
+  Der Generator entfernt `foerderung.saetze`/`uebersicht` und lehnt ohne `rechenkern` ab (422). Rechner `bericht-init` in `RECHNER`;
+  über die allgemeinen Routen `/projekte/{id}/berichte` und `/berichte/{id}/neue-version` **nicht** speicherbar (`NUR_UEBER_ENTWURF`).
+- **Konditionen ab Version 3:** Programme `kfw_458` und `steuer_35c`, dazu `beg_em.isfp_bonus_mindestbetrag`, `beg_wg.tilgungszuschuss_max`
+  (Startwerte `app/konditionen/ergaenzung_init_v3.json`). Pflicht in jeder neuen Version. Aktive Version ohne `kfw_458` → 422
+  „Konditionen ohne KfW 458 – Version 3 freigeben“. Einkommensbonus nur 0 oder eine Stufe aus `kfw_458.einkommensbonus_stufen`.
+  CLI: `konditionen-entwurf DATEI.json [DATEI2.json …]` ergänzt einzelne Felder der aktiven Version.
+- **Generator 0.4.0:** `POST /bericht/init` mit `{daten, bilder}`; Bildverweise immer `bilder/<name>`; Fotos verkleinert das Backend
+  (1600 px, JPEG 85 %, ohne EXIF/GPS). Pflicht: `kunde.name`, `berichtsnummer` (`<Projektnummer>-V<n>`), `objekt.wohneinheiten`, Rechenkern.
+- **Entwurf** (Migration 0006, Tabelle `bericht_entwuerfe`, je Projekt + Modul einer): `daten` (Formular + Texte), `foto_zuordnung`,
+  `abschnitte` (Status je Abschnitt `offen → vorschlag | bearbeitet → geprueft`, mit Fingerabdruck des Inhalts – jede Änderung nach
+  Freigabe setzt auf „bearbeitet“ zurück), `ki_laeufe` (Modell, Prompt-Version, Zeit, Benutzer, Rohantwort), `revision` (gleichzeitiges
+  Speichern → 409). Routen in `app/bericht_init.py`: `GET/PUT /projekte/{id}/bericht-init/entwurf`, `…/entwurf/ki-vorschlag`,
+  `…/entwurf/freigabe/{abschnitt}`, `…/entwurf/foerder-vorschau`, `…/entwurf/ki-laeufe/{nr}`, `POST …/bericht-init/erzeugen`.
+- **Rechte:** Lesen alle; bearbeiten, KI starten, **erzeugen: berater, verwaltung, admin** (Ausnahme zur Projektakte, Auftrag 2b);
+  **Abschnitte freigeben nur mit Rolle `berater`** (Admin allein genügt nicht).
+- **Erzeugen** nur, wenn alle 12 Abschnitte geprüft sind (leere nur als „bewusst leer“) und alle Pflichtangaben (`PFLICHT`) ausgefüllt
+  oder „bewusst leer“ sind. Ergebnis: neue Version in `berichte` (Snapshot, Freigaben, Foto-Nachweis, `word_datei_id`) + Word in den
+  Unterlagen, Kategorie `bericht` (nicht hochladbar). `GET /berichte/{id}/word` liefert für INIT die abgelegte Datei, nie neu erzeugt.
+- **Prüfregeln für Texte:** `[PRÜFEN` blockiert die Freigabe; Zahlen, die nicht in den Eingaben (Formular, Notizen, Projekt,
+  Programm-Abschnitte der aktiven Konditionen) vorkommen, werden markiert (Hinweis, kein Stopp). Programmnummern/EH-Stufen zählen nicht.
+- Protokoll: `bericht_entwurf_geaendert`, `bericht_ki_vorschlag`, `bericht_ki_fehlgeschlagen`, `bericht_abschnitt_freigegeben`,
+  `bericht_gespeichert`, `bericht_word_erzeugt`/`_fehlgeschlagen` – ohne Texte, Namen oder Anschriften.
+
+## KI-Textvorschläge (Stand 13.11.2026, Phase 2b)
+- `app/ki/` = austauschbare Schnittstelle (Regel 7; `anthropic` umgesetzt, `langdock` meldet „noch nicht angebunden“), offizielles SDK
+  `anthropic`, strukturierte Ausgabe per JSON-Schema (`ki_texte.SCHEMA`). Fachlogik in `app/ki_texte.py`; Systemprompt versioniert als
+  Datei `app/ki/prompts/init_v1.md` (erste Zeile `PROMPT-VERSION: init-1`; bei Änderung neue Datei/Version, nicht still ändern).
+- `.env`: `KI_AKTIV` (Standard **aus**), `KI_MODELL` (Standard `claude-sonnet-5-5`), `KI_ANBIETER`, `KI_MAX_LAEUFE_TAG` (10 je Entwurf und
+  Tag), `ANTHROPIC_API_KEY`. Zeitlimit 180 s, höchstens 20 Fotos (1024 px) je Lauf. Fehler kommen als Meldung, nie als Absturz.
+- **An die KI gehen nur:** Objekt-/Checklisten-/PV-/Verbrauchsangaben, Notizen, Förderwahl, die Programm-Abschnitte der aktiven
+  (freigegebenen) Konditionen, verkleinerte Fotos. **Nie:** Telefon, E-Mail, Kundenanschrift, Anwesende. Namen und Anschriften werden in allen
+  Texten durch Platzhalter (`[KUNDE]`, `[OBJEKTSTRASSE]` …) ersetzt und in der Antwort zurückgesetzt. Keine Webrecherche im Cockpit.
+- Die KI überschreibt nur Abschnitte im Status `offen`/`vorschlag` (andere nur, wenn ausdrücklich gewählt) und setzt nie Kosten,
+  Einsparungen oder Förderbeträge (Regel 4).
+- **Datenschutz:** Vor der ersten Verarbeitung echter Kundendaten müssen die kommerziellen API-Bedingungen und der AVV (Data Processing
+  Addendum) mit Anthropic vorliegen **und** der Geschäftsführer `KI_AKTIV` freigeben. Bis dahin nur Testdaten.
+
 ## Module (erweiterbar)
 Jede Berichtsart ist ein Modul mit Beschreibung unter `modules/<id>/module.yaml`: Felder, Pflichtangaben, Upload-Slots,
 Fachregeln, Rechenkern, Generator. Die Oberfläche soll Masken aus dieser Beschreibung erzeugen. Neue Berichtsart = neues Modul, kein Umbau.
@@ -175,7 +214,8 @@ Fachregeln, Rechenkern, Generator. Die Oberfläche soll Masken aus dieser Beschr
 - **Phase 1b (erledigt 12.11.2026):** Konditionen-Zentrale in PostgreSQL mit Versionen, Vier-Augen-Freigabe, Fachwerten und Fristen.
 - **Phase 2a (erledigt 13.11.2026):** Vor-Ort-Checklisten INIT/MEH/Kirche aus der Projektakte (siehe Abschnitt oben).
 - **Phase 2c (erledigt 13.11.2026):** Angebote A–D im Fördervergleich, Generator 0.3.0 (siehe Abschnitt oben).
-- **Phase 2:** INIT und MEH mit KI (Checklisten-Erkennung, Fotozuordnung) – vorhandene Generatoren `generate_report.js` aus den Skills einbinden.
+- **Phase 2b (umgesetzt 13.11.2026, Abnahme offen):** Beratungsbericht INIT mit KI-Textvorschlägen (siehe Abschnitte oben).
+- **Phase 2:** MEH (danach) und Kirche nach demselben Muster; INIT und MEH mit KI (Checklisten-Erkennung, Fotozuordnung) – vorhandene Generatoren `generate_report.js` aus den Skills einbinden.
 - **Phase 3:** Kirche. **Phase 4:** Änderungs-Monitor für Förderquellen, Freigabe-Workflow, Anbindung IR-Planer.
 
 ## Vor Produktivstart
@@ -197,8 +237,9 @@ vollständig erhalten und getestet. Bevor echte Nutzer oder Kundendaten ins Syst
 2. **`ZWEI_FAKTOR_PFLICHT=true`** in der `.env` setzen (oder den Eintrag entfernen – ohne Eintrag gilt `true`) und `cockpit-api` neu starten.
 3. **Option „Gerät 30 Tage vertrauen“ ergänzen** (nach erfolgreichem Code, eigenes HttpOnly-Cookie, serverseitig widerrufbar, mit Tests).
 4. **Erst danach Basic Auth entfernen** (`web/Caddyfile`, `COCKPIT_USER`/`COCKPIT_PASS_HASH`).
-5. **Kopie der Datensicherung außer Haus einrichten** (Ziel noch offen, siehe „Unterlagen, Papierkorb, Datensicherung“).
-6. **Erst danach echte Kundendaten zulassen.** Bis dahin nur neutrale Test- und Referenzfälle.
+5. **KI nur mit AVV:** `KI_AKTIV=true` erst, wenn API-Bedingungen + AVV mit Anthropic vorliegen und der Geschäftsführer freigibt.
+6. **Kopie der Datensicherung außer Haus einrichten** (Ziel noch offen, siehe „Unterlagen, Papierkorb, Datensicherung“).
+7. **Erst danach echte Kundendaten zulassen.** Bis dahin nur neutrale Test- und Referenzfälle.
 
 ## Arbeitsweise
 - Vor jeder Änderung: `cd backend && python -m pytest -q`. Neue Rechenlogik nur mit Tests.
@@ -215,4 +256,5 @@ vollständig erhalten und getestet. Bevor echte Nutzer oder Kundendaten ins Syst
   und erst bei „Sicherung fertig“ weitermachen. Neue Tabellen in `scripts/kennzahlen.sh` ergänzen; es überspringt Tabellen, die ein
   älterer Migrationsstand noch nicht hat, damit alte Sicherungen prüfbar bleiben.
 - Kleine, nachvollziehbare Commits mit deutscher Beschreibung.
+- **Nie pushen ohne ausdrückliche Freigabe im Chat** (gilt für jeden Auftrag; bei Phase 2c wurde ohne Freigabe gepusht). Commits nur lokal.
 - Oberfläche: barrierearm (echte Buttons/Labels, Kontrast ≥ 4,5:1, Klickflächen ≥ 44 px), tablet-tauglich.

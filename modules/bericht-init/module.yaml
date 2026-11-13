@@ -1,0 +1,36 @@
+# Modulbeschreibung Beratungsbericht INIT (Phase 2b). Umsetzung: backend/app/bericht_init.py, Oberfläche frontend/src/BerichtInit.jsx
+id: bericht-init
+titel: Beratungsbericht INIT (Vor-Ort)
+ci: serek
+rechenkern: app.rechenkern.init_foerderung.init_foerderung   # Kap. 7.5 + Förder-Anhang, Weg A (13.11.2026)
+konditionen: [beg_em, kfw_458, beg_wg, steuer_35c]            # ab Konditionen-Version 3
+generator: { typ: docx, route: /bericht/init, skill: energieberatungsbericht, version: 0.4.0 }
+ki: { prompt: app/ki/prompts/init_v1.md, nur_vorschlag: true, schalter: KI_AKTIV }
+
+ablauf: [daten, fotos, ki_vorschlag, pruefen_freigeben, erzeugen]
+freigabe: { je_abschnitt: true, rolle: berater, pruefen_markierung_blockiert: true }
+
+abschnitte: [zielsetzung, baulicher_zustand, anlagentechnik, auffaelligkeiten, zwischenfazit, massnahmen, bewertung,
+             foerderung, fazit, empfehlung_varianten, reihenfolge, fotos]
+
+pflicht:   # ausgefüllt oder „bewusst leer“ (Regel 5)
+  - objekt.gebaeudetyp
+  - objekt.baujahr
+  - objekt.wohnflaeche
+  - objekt.energietraeger
+  - termin.datum
+  - termin.anwesende
+  - verbrauch.tabelle
+  - foerder.kosten_einzel          # nur vom Berater (Goldene Regel 1 des Skills)
+  - foerder.kosten_effizienzhaus
+  - foerder.we                     # immer Pflicht (Förder-Übersicht)
+
+felder_foerder:
+  - { id: klimabonus, typ: ja_nein, hinweis: "Gasheizung nur, wenn Inbetriebnahme ≥ 20 Jahre zurückliegt" }
+  - { id: einkommensbonus, typ: auswahl, optionen: "kfw_458.einkommensbonus_stufen (Konditionen)" }
+  - { id: eh_stufe, typ: auswahl, optionen: "beg_wg.tilgungszuschuss (Konditionen)" }
+  - { id: eh_wpb, typ: ja_nein }
+
+uploads:
+  - { id: fotos, label: "Fotos", formate: [jpg, png, heic], hinweis: "Frontbild + Abschnitt + Bildunterschrift je Foto" }
+  - { id: checkliste, label: "Scan der ausgefüllten Checkliste", formate: [pdf, jpg, png], optional: true }
