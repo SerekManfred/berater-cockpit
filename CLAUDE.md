@@ -131,14 +131,16 @@ Ausführliches Fachkonzept: `docs/Konzept_Berater-Cockpit.docx` (falls abgelegt)
   (`app/konditionen/fachwerte_startbestand.json`, erzeugt aus `fachtexte.js`) – **noch nicht freigegeben**, wartet auf Einreichen und Prüfung.
 
 ## Vor-Ort-Checklisten (Stand 13.11.2026, Phase 2a)
-- Generator 0.2.0: `POST /checkliste/{init|meh|kirche}` (Skills unverändert unter `generator/skills/`, Skill läuft als
+- Generator 0.2.1 (Checklisten-Stand 13.11.2026): `POST /checkliste/{init|meh|kirche}` (Skills unverändert unter `generator/skills/`, Skill läuft als
   Kindprozess über stdin/stdout, Container bleibt `read_only`). Antwort .docx + Kopfzeile `X-Checkliste-Stand`.
 - Migration 0005: optionale Projektfelder `kunde_ansprechpartner`, `kunde_strasse/_plz/_ort` (nur falls abweichend vom Objekt),
   `kunde_telefon`, `kunde_email`, `objekt_bezeichnung`, `wohneinheiten`, `we_selbstgenutzt`, `we_vermietet`, `termin_am` (UTC;
   ohne Zone gesendet = Europe/Berlin); in `dateien` `quelle` (`upload` | `generator`) und `checkliste_stand`.
   Neue Kontaktfelder sind personenbezogen (Protokoll nur „geändert“).
 - `POST /projekte/{id}/checkliste?modul=…` (`app/checkliste.py`, berater/verwaltung/admin): Daten nach Datenvertrag
-  (`generator/README.md`), Kundenanschrift sonst Objektanschrift (nie gemischt), Berater = Zuständiger sonst Aufrufer.
+  (`generator/README.md`). **Kundenanschrift und Objektadresse getrennt** (Generator 0.2.1, Nachtrag 13.11.2026):
+  `kunde.strasse`/`plz_ort` nur aus den Kundenfeldern, nie mit der Objektadresse auffüllen (dann leer, Berater kreuzt
+  „Kundenanschrift = Objektadresse“ an); `objekt.strasse`/`plz_ort` plus `objekt.adresse` (für Kirche). Berater = Zuständiger sonst Aufrufer.
   Ablage als Datei `Checkliste_<INIT|MEH|Kirche>_<Projektnummer>.docx` (ohne Kundennamen), Kategorie `checkliste`,
   gleicher Inhalt wird **nicht** als Duplikat abgelehnt (jede Erzeugung = neue Fassung). Protokoll `checkliste_erzeugt` /
   `checkliste_fehlgeschlagen`, ohne Namen.
