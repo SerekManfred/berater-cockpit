@@ -34,7 +34,7 @@ Schutzprüfungen: alle vier Szenarien müssen vorhanden sein, und `ergebnis.kond
 `konditionen.version` entsprechen – sonst `422`.
 
 ## Vor-Ort-Checklisten (ab 0.2.0)
-Die Erfassungsbögen stammen **unverändert** aus den Claude-Skills (Ordner `skills/`, Stand 12.11.2026):
+Die Erfassungsbögen stammen **unverändert** aus den Claude-Skills (Ordner `skills/`, Checklisten-Stand 13.11.2026):
 `energieberatungsbericht` (INIT), `energieberatungsbericht-meh` (MEH), `energieberatungsbericht-kirche` (Kirche).
 `src/skill_runner.js` startet das Skill-Skript in einem eigenen Prozess, gibt die Projektdaten über stdin hinein und
 liefert die .docx über stdout zurück – es wird keine Datei geschrieben (Container bleibt `read_only`).
@@ -45,7 +45,10 @@ Datenvertrag (gleiche Schlüssel wie die `daten.json` der Skills; leere Felder b
 {
   "projekt_id": "2026-0001",                                   // Pflicht, steht in der Fußzeile jeder Seite
   "kunde":  { "name": "...", "ansprechpartner": "...", "strasse": "...", "plz_ort": "...", "telefon": "...", "email": "..." },
-  "objekt": { "adresse": "Straße Nr, PLZ Ort", "bezeichnung": "(nur Kirche)", "gebaeudetyp": "EFH",
+  // kunde.strasse/plz_ort = Anschrift des Auftraggebers – NIE mit der Objektadresse auffüllen (dann leer lassen)
+  "objekt": { "strasse": "Musterweg 7", "plz_ort": "89352 Ellzee",          // ab 0.2.1, getrennt von der Kundenanschrift
+              "adresse": "Straße Nr, PLZ Ort",                               // Kirche bzw. Ersatz, wenn strasse/plz_ort fehlen
+              "bezeichnung": "(nur Kirche)", "gebaeudetyp": "EFH",
               "wohneinheiten": "1", "we_eigennutz": "1", "we_vermietung": "0" },     // Zahlen als Text
   "termin": { "datum": "20.11.2026, 10:00 Uhr", "berater": "Manfred Serek" }
 }

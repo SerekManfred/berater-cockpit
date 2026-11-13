@@ -158,8 +158,11 @@ Argument eine JSON-Datei mit den bereits bekannten Projektdaten übergeben:
 node scripts/generate_checklist.js "Vor-Ort-Checkliste <Kunde>.docx" projekt.json
 ```
 `projekt.json` nutzt dieselben Schlüssel wie `daten.json` (`kunde`, `objekt`, `termin`) plus
-`projekt_id`. Bekannte Felder werden vorausgefüllt (Kunde, Kontakt, Objektadresse, Termin,
-Berater, Gebäudetyp, Wohneinheiten, selbstgenutzt/vermietet). Die Fußzeile jeder Seite trägt
+`projekt_id`. Bekannte Felder werden vorausgefüllt (Kunde, Kontakt, Termin, Berater, Gebäudetyp,
+Wohneinheiten, selbstgenutzt/vermietet). **Kundenanschrift und Objektadresse stehen in getrennten Blöcken:**
+`kunde.strasse`/`kunde.plz_ort` nur mit der echten Anschrift des Auftraggebers füllen (nie mit der
+Objektadresse auffüllen – sonst bleibt das Feld leer und der Berater kreuzt „Kundenanschrift = Objektadresse“ an);
+Objekt über `objekt.strasse` und `objekt.plz_ort` (ersatzweise `objekt.adresse` = „Straße Nr, PLZ Ort“). Die Fußzeile jeder Seite trägt
 **„Checkliste Stand <Datum>“** und ggf. die **Projekt-ID**. Beim Auslesen einer zurückgegebenen
 Checkliste beides prüfen: Fehlt der Stand oder ist er älter als der aktuelle Skill, auf
 veraltete Felder achten (z. B. Effizienzbonus) und den Nutzer darauf hinweisen. Passt die

@@ -158,7 +158,8 @@ node scripts/generate_kirchen_checkliste.js "Vor-Ort-Checkliste Kirchenheizung <
 ```
 `projekt.json` nutzt dieselben Schlüssel wie `daten.json` (`kunde`, `objekt`, `termin`) plus
 `projekt_id`. Vorausgefüllt werden Gemeinde, Ansprechpartner, Kontakt, Kirche/Bezeichnung,
-Adresse, Baujahr, Termin und Berater. Die Fußzeile trägt **„Checkliste Stand <Datum>“** und ggf.
+Baujahr, Termin und Berater. Anschrift der Gemeinde (`kunde.strasse`, `kunde.plz_ort`) und Adresse der Kirche
+(`objekt.adresse`) sind getrennte Felder; die Gemeindeanschrift nie mit der Kirchenadresse auffüllen. Die Fußzeile trägt **„Checkliste Stand <Datum>“** und ggf.
 die **Projekt-ID**; beim Auslesen beides prüfen und bei Abweichungen nachfragen.
 
 **Hinweis:** Das erste Argument muss der Ausgabepfad einer .docx-Datei sein. Andere Pfade, z. B. eine JSON-Datei, lehnt das Skript ab.

@@ -64,7 +64,8 @@ async function text(daten) {
     const stand = checklistenStand(m);
     assert(/^\d{2}\.\d{2}\.\d{4}$/.test(stand), `${m}: Checklisten-Stand fehlt`);
     const t = await alles(await erzeugeCheckliste(m, pd));
-    for (const z of [pd.kunde.name, pd.termin.datum, pd.termin.berater, "Projekt-ID " + pd.projekt_id, "Checkliste Stand " + stand])
+    const adr = m === "kirche" ? [pd.kunde.strasse, pd.kunde.plz_ort] : [pd.kunde.strasse, pd.kunde.plz_ort, pd.objekt.strasse, pd.objekt.plz_ort];
+    for (const z of [pd.kunde.name, pd.termin.datum, pd.termin.berater, "Projekt-ID " + pd.projekt_id, "Checkliste Stand " + stand, ...adr])
       assert(t.includes(z), `${m}: ${z} fehlt`);
     assert(!/undefined|NaN/.test(t), `${m}: undefined/NaN im Text`);
   }

@@ -39,7 +39,7 @@ if (!/\.docx$/i.test(outPath)) {
 // Stand dieser Checkliste (bei jeder inhaltlichen Änderung anpassen) und optionale Projektdaten.
 // Aufruf: node <skript> <ausgabe.docx> [projektdaten.json]
 // projektdaten.json: gleiche Schlüssel wie daten.json (kunde, objekt, termin) plus "projekt_id".
-const CHECKLISTE_STAND = "12.11.2026";
+const CHECKLISTE_STAND = "13.11.2026";
 let PRJ = {};
 if (process.argv[3]) {
   try { PRJ = JSON.parse(fs.readFileSync(process.argv[3], "utf8")); }
@@ -48,10 +48,15 @@ if (process.argv[3]) {
 const _k = PRJ.kunde || {}, _o = PRJ.objekt || {}, _t = PRJ.termin || {};
 const PROJEKT_ID = PRJ.projekt_id ? String(PRJ.projekt_id) : "";
 const FOOTER_INFO = "  ·  Checkliste Stand " + CHECKLISTE_STAND + (PROJEKT_ID ? "  ·  Projekt-ID " + PROJEKT_ID : "");
+// Objektadresse: eigene Felder (objekt.strasse / objekt.plz_ort), sonst aus "Strasse Nr, PLZ Ort" ableiten
+const _adrTeile = String(_o.adresse || "").split(",");
+const _objStrasse = _o.strasse || (_adrTeile.length > 1 ? _adrTeile.slice(0, -1).join(",").trim() : String(_o.adresse || "").trim());
+const _objPlzOrt = _o.plz_ort || (_adrTeile.length > 1 ? _adrTeile[_adrTeile.length - 1].trim() : "");
 const PREFILL = {
-  "Kunde / Auftraggeber": _k.name, "Datum / Uhrzeit": _t.datum, "Objektadresse": _o.adresse,
-  "Bearbeiter / Energieberater": _t.berater, "Name": _k.name, "Telefon": _k.telefon, "Strasse, Nr.": _k.strasse,
-  "E-Mail": _k.email, "PLZ / Ort": _k.plz_ort, "Gebaeudetyp (EFH, ZFH, DHH, MFH, ...)": _o.gebaeudetyp,
+  "Kunde / Auftraggeber": _k.name, "Datum / Uhrzeit": _t.datum,
+  "Bearbeiter / Energieberater": _t.berater, "Name": _k.name, "Telefon": _k.telefon,
+  "Strasse, Nr. (Kunde)": _k.strasse, "PLZ / Ort (Kunde)": _k.plz_ort, "E-Mail": _k.email,
+  "Strasse, Nr. (Objekt)": _objStrasse, "PLZ / Ort (Objekt)": _objPlzOrt, "Gebaeudetyp (EFH, ZFH, DHH, MFH, ...)": _o.gebaeudetyp,
   "Gebaeudetyp (EFH, DHH, MFH, ...)": _o.gebaeudetyp, "Baujahr": _o.baujahr, "Wohnflaeche (m²)": _o.wohnflaeche,
   "Anzahl Wohneinheiten (PFLICHT)": _o.wohneinheiten, "Beheizte Geschosse (EG/OG/DG)": _o.geschosse,
   "Energietraeger Bestand": _o.energietraeger, "Anzahl selbstgenutzte WE (für Boni)": _o.we_eigennutz,
@@ -123,16 +128,19 @@ rows.push(new TableRow({ cantSplit: true, children: [ new TableCell({ borders: {
   children: [ new Paragraph({ children: [ new TextRun({ text: "Vor-Ort-Checkliste / Erfassungsbogen", bold: true, size: 24, color: COL.anthracite, font: FONT }) ] }),
     new Paragraph({ spacing: { before: 20 }, children: [ new TextRun({ text: "Vom Berater beim Kunden auszufuellen – Grundlage fuer den Energieberatungsbericht.", italics: true, size: 15, color: COL.grey, font: FONT }) ] }) ] }) ] }));
 rows.push(row2("Kunde / Auftraggeber", "Datum / Uhrzeit"));
-rows.push(row2("Objektadresse", "Bearbeiter / Energieberater"));
+rows.push(row2("Anwesende Personen", "Bearbeiter / Energieberater"));
 
 // ---- 1. Anschrift- und Objektdaten ----
 rows.push(sectionRow("1", "Anschrift- und Objektdaten"));
+rows.push(subRow("Kunde / Auftraggeber  (Anschrift für Bericht und Rechnung)"));
 rows.push(row2("Name", "Telefon"));
-rows.push(row2("Strasse, Nr.", "E-Mail"));
-rows.push(row2("PLZ / Ort", "Gebaeudetyp (EFH, DHH, MFH, ...)"));
-rows.push(row2("Baujahr", "Wohnflaeche (m²)"));
-rows.push(row2("Anzahl Wohneinheiten (PFLICHT)", "Beheizte Geschosse (EG/OG/DG)"));
-rows.push(row2("Energietraeger Bestand", "Anwesende Personen"));
+rows.push(row2("Strasse, Nr. (Kunde)", "E-Mail"));
+rows.push(row2("PLZ / Ort (Kunde)", "Kundenanschrift = Objektadresse", {}, { checks: ["ja", "nein"] }));
+rows.push(subRow("Objekt  (Ort der Begehung)"));
+rows.push(row2("Strasse, Nr. (Objekt)", "PLZ / Ort (Objekt)"));
+rows.push(row2("Gebaeudetyp (EFH, DHH, MFH, ...)", "Baujahr"));
+rows.push(row2("Wohnflaeche (m²)", "Anzahl Wohneinheiten (PFLICHT)"));
+rows.push(row2("Beheizte Geschosse (EG/OG/DG)", "Energietraeger Bestand"));
 
 // ---- 2. Zielsetzung ----
 rows.push(sectionRow("2", "Zielsetzung des Kunden"));
@@ -156,9 +164,7 @@ rows.push(row1("Jaehrlicher Stromverbrauch (kWh/a) – fuer Eigenverbrauchsabsch
 rows.push(subRow("3.3 Auffaelligkeiten beim Rundgang (Maengel, Waermebruecken, Feuchte, ungedaemmte Leitungen)"));
 rows.push(row1("Notizen Auffaelligkeiten", { lines: 2 }));
 
-// ---- 4. Zwischenfazit ----
-rows.push(sectionRow("4", "Kurze Zwischenzusammenfassung"));
-rows.push(row1("Wesentliche Eindruecke, groesste Waermeverluste, Gespraechsnotizen", { lines: 4 }));
+// ---- 4. Zwischenfazit: auf Seite 2 nach den Verbraeuchen (Abschnitt 3), damit Seite 1 nicht ueberlaeuft ----
 
 // ---- 5. Massnahmen ----
 const formTable = new Table({ width: { size: CONTENT_W, type: WidthType.DXA }, layout: TableLayoutType.FIXED, columnWidths: [HALF, HALF2], rows });
@@ -190,12 +196,14 @@ const rows5 = [];
 rows5.push(subRow("Verbraeuche (Ist) – moeglichst aus letzter Abrechnung"));
 rows5.push(row2("Brennstoffverbrauch/Jahr (Erdgas/Heizoel/Holz)", "Energiekosten Brennstoff/Jahr"));
 rows5.push(row2("Stromverbrauch/Jahr (kWh)", "Stromkosten/Jahr"));
+rows5.push(sectionRow("4", "Kurze Zwischenzusammenfassung"));
+rows5.push(row1("Wesentliche Eindruecke, groesste Waermeverluste, Gespraechsnotizen", { lines: 4 }));
 rows5.push(sectionRow("5", "Besprochene und empfehlenswerte Massnahmen  (Zutreffendes ankreuzen)"));
 rows5.push(new TableRow({ cantSplit: true, children: [
   checkListCell("Stufe 1 – Quick Wins (gering investiv)", QUICKWINS, HALF),
   checkListCell("Stufe 2 – uebergreifende Sanierung", UEBERGREIFEND, HALF2),
 ] }));
-rows5.push(row1("Sonstige Notizen / Skizze / Reihenfolge", { lines: 10 }));
+rows5.push(row1("Sonstige Notizen / Skizze / Reihenfolge", { lines: 6 }));
 const formTable5 = new Table({ width: { size: CONTENT_W, type: WidthType.DXA }, layout: TableLayoutType.FIXED, columnWidths: [HALF, HALF2], rows: rows5 });
 
 // ---- KOPF / FUSS ----

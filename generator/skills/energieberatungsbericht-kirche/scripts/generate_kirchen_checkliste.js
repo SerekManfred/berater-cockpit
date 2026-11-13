@@ -39,7 +39,7 @@ if (!/\.docx$/i.test(outPath)) {
 // Stand dieser Checkliste (bei jeder inhaltlichen Änderung anpassen) und optionale Projektdaten.
 // Aufruf: node <skript> <ausgabe.docx> [projektdaten.json]
 // projektdaten.json: gleiche Schlüssel wie daten.json (kunde, objekt, termin) plus "projekt_id".
-const CHECKLISTE_STAND = "12.11.2026";
+const CHECKLISTE_STAND = "13.11.2026";
 let PRJ = {};
 if (process.argv[3]) {
   try { PRJ = JSON.parse(fs.readFileSync(process.argv[3], "utf8")); }
@@ -51,8 +51,8 @@ const FOOTER_INFO = "  ·  Checkliste Stand " + CHECKLISTE_STAND + (PROJEKT_ID ?
 const PREFILL = {
   "Kirchengemeinde": _k.name, "Datum / Uhrzeit": _t.datum, "Kirche / Bezeichnung": _o.bezeichnung,
   "Bearbeiter / Energieberater": _t.berater, "Ansprechpartner (Name, Funktion)": _k.ansprechpartner,
-  "Telefon": _k.telefon, "Anschrift der Gemeinde": _k.strasse, "E-Mail": _k.email, "PLZ / Ort": _k.plz_ort,
-  "Adresse der Kirche": _o.adresse, "Baujahr / Bauphasen": _o.baujahr,
+  "Telefon": _k.telefon, "Anschrift der Gemeinde (Strasse, Nr.)": _k.strasse, "E-Mail": _k.email,
+  "PLZ / Ort (Gemeinde)": _k.plz_ort, "Adresse der Kirche (Strasse, PLZ, Ort)": _o.adresse, "Baujahr / Bauphasen": _o.baujahr,
 };
 
 function resolveImg(p) { return fs.existsSync(p) ? p : null; }
@@ -195,8 +195,8 @@ rows.push(row2("Kirche / Bezeichnung", "Bearbeiter / Energieberater"));
 // ---- 1. Gemeinde- und Objektdaten ----
 rows.push(sectionRow("1", "Gemeinde- und Objektdaten"));
 rows.push(row2("Ansprechpartner (Name, Funktion)", "Telefon"));
-rows.push(row2("Anschrift der Gemeinde", "E-Mail"));
-rows.push(row2("PLZ / Ort", "Adresse der Kirche"));
+rows.push(row2("Anschrift der Gemeinde (Strasse, Nr.)", "E-Mail"));
+rows.push(row2("PLZ / Ort (Gemeinde)", "Adresse der Kirche (Strasse, PLZ, Ort)"));
 rows.push(row2("Baujahr / Bauphasen", "Bauweise (Mauerwerk, Naturstein, Holz ...)"));
 rows.push(new TableRow({ cantSplit: true, children: [
   fieldCell("Denkmalschutz", HALF, { checks: ["Einzeldenkmal", "Ensemble", "kein"] }),

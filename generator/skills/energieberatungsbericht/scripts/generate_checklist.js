@@ -39,7 +39,7 @@ if (!/\.docx$/i.test(outPath)) {
 // Stand dieser Checkliste (bei jeder inhaltlichen Änderung anpassen) und optionale Projektdaten.
 // Aufruf: node <skript> <ausgabe.docx> [projektdaten.json]
 // projektdaten.json: gleiche Schlüssel wie daten.json (kunde, objekt, termin) plus "projekt_id".
-const CHECKLISTE_STAND = "12.11.2026";
+const CHECKLISTE_STAND = "13.11.2026";
 let PRJ = {};
 if (process.argv[3]) {
   try { PRJ = JSON.parse(fs.readFileSync(process.argv[3], "utf8")); }
@@ -48,10 +48,15 @@ if (process.argv[3]) {
 const _k = PRJ.kunde || {}, _o = PRJ.objekt || {}, _t = PRJ.termin || {};
 const PROJEKT_ID = PRJ.projekt_id ? String(PRJ.projekt_id) : "";
 const FOOTER_INFO = "  ·  Checkliste Stand " + CHECKLISTE_STAND + (PROJEKT_ID ? "  ·  Projekt-ID " + PROJEKT_ID : "");
+// Objektadresse: eigene Felder (objekt.strasse / objekt.plz_ort), sonst aus "Strasse Nr, PLZ Ort" ableiten
+const _adrTeile = String(_o.adresse || "").split(",");
+const _objStrasse = _o.strasse || (_adrTeile.length > 1 ? _adrTeile.slice(0, -1).join(",").trim() : String(_o.adresse || "").trim());
+const _objPlzOrt = _o.plz_ort || (_adrTeile.length > 1 ? _adrTeile[_adrTeile.length - 1].trim() : "");
 const PREFILL = {
-  "Kunde / Auftraggeber": _k.name, "Datum / Uhrzeit": _t.datum, "Objektadresse": _o.adresse,
-  "Bearbeiter / Energieberater": _t.berater, "Name": _k.name, "Telefon": _k.telefon, "Strasse, Nr.": _k.strasse,
-  "E-Mail": _k.email, "PLZ / Ort": _k.plz_ort, "Gebaeudetyp (EFH, ZFH, DHH, MFH, ...)": _o.gebaeudetyp,
+  "Kunde / Auftraggeber": _k.name, "Datum / Uhrzeit": _t.datum,
+  "Bearbeiter / Energieberater": _t.berater, "Name": _k.name, "Telefon": _k.telefon,
+  "Strasse, Nr. (Kunde)": _k.strasse, "PLZ / Ort (Kunde)": _k.plz_ort, "E-Mail": _k.email,
+  "Strasse, Nr. (Objekt)": _objStrasse, "PLZ / Ort (Objekt)": _objPlzOrt, "Gebaeudetyp (EFH, ZFH, DHH, MFH, ...)": _o.gebaeudetyp,
   "Gebaeudetyp (EFH, DHH, MFH, ...)": _o.gebaeudetyp, "Baujahr": _o.baujahr, "Wohnflaeche (m²)": _o.wohnflaeche,
   "Anzahl Wohneinheiten (PFLICHT)": _o.wohneinheiten, "Beheizte Geschosse (EG/OG/DG)": _o.geschosse,
   "Energietraeger Bestand": _o.energietraeger, "Anzahl selbstgenutzte WE (für Boni)": _o.we_eigennutz,
@@ -127,7 +132,7 @@ function noteRow(text) {
 }
 function checkListCell(title, items, w) {
   const kids = [ new Paragraph({ spacing: { after: 30 }, children: [labelRun(title)] }) ];
-  items.forEach((t, i) => kids.push(new Paragraph({ spacing: { before: i === 0 ? 0 : 120, after: 0 },
+  items.forEach((t, i) => kids.push(new Paragraph({ spacing: { before: i === 0 ? 0 : 80, after: 0 },
     children: [ new TextRun({ text: "\u2610 " + t, size: 15, color: COL.anthracite, font: FONT }) ] })));
   for (let i = 0; i < 2; i++) kids.push(new Paragraph({ spacing: { before: 120, after: 0 },
     children: [ new TextRun({ text: "\u2610 ", size: 15, color: COL.anthracite, font: FONT }),
@@ -137,9 +142,9 @@ function checkListCell(title, items, w) {
 
 function checkCol(items, w, blanks) {
   const kids = [];
-  items.forEach((t, i) => kids.push(new Paragraph({ spacing: { before: i === 0 ? 0 : 120, after: 0 },
+  items.forEach((t, i) => kids.push(new Paragraph({ spacing: { before: i === 0 ? 0 : 80, after: 0 },
     children: [ new TextRun({ text: "\u2610  " + t, size: 15, color: COL.anthracite, font: FONT }) ] })));
-  for (let i = 0; i < (blanks || 0); i++) kids.push(new Paragraph({ spacing: { before: 120, after: 0 },
+  for (let i = 0; i < (blanks || 0); i++) kids.push(new Paragraph({ spacing: { before: 80, after: 0 },
     children: [ new TextRun({ text: "\u2610  ", size: 15, color: COL.anthracite, font: FONT }),
       new TextRun({ text: "\u2581".repeat(18), size: 15, color: COL.border, font: FONT }) ] }));
   return new TableCell({ borders: cellB, width: { size: w, type: WidthType.DXA }, margins: PAD, verticalAlign: VerticalAlign.TOP, children: kids });
@@ -176,16 +181,19 @@ rows.push(new TableRow({ cantSplit: true, children: [ new TableCell({ borders: {
   columnSpan: 2, width: { size: CONTENT_W, type: WidthType.DXA }, shading: { fill: "FFFFFF", type: ShadingType.CLEAR }, margins: { top: 30, bottom: 30, left: 100, right: 100 },
   children: [ new Paragraph({ children: [ new TextRun({ text: "Vor-Ort-Checkliste / Erfassungsbogen", bold: true, size: 24, color: COL.anthracite, font: FONT }) ] }) ] }) ] }));
 rows.push(row2("Kunde / Auftraggeber", "Datum / Uhrzeit"));
-rows.push(row2("Objektadresse", "Bearbeiter / Energieberater"));
+rows.push(row2("Anwesende Personen", "Bearbeiter / Energieberater"));
 
 // ---- 1. Anschrift- und Objektdaten ----
 rows.push(sectionRow("1", "Anschrift- und Objektdaten"));
+rows.push(subRow("Kunde / Auftraggeber  (Anschrift für Bericht und Rechnung)"));
 rows.push(row2("Name", "Telefon"));
-rows.push(row2("Strasse, Nr.", "E-Mail"));
-rows.push(row2("PLZ / Ort", "Gebaeudetyp (EFH, ZFH, DHH, MFH, ...)"));
-rows.push(row2("Baujahr", "Wohnflaeche (m²)"));
-rows.push(row2("Anzahl Wohneinheiten (PFLICHT)", "Beheizte Geschosse (EG/OG/DG)"));
-rows.push(row2("Energietraeger Bestand", "Anwesende Personen"));
+rows.push(row2("Strasse, Nr. (Kunde)", "E-Mail"));
+rows.push(row2("PLZ / Ort (Kunde)", "Kundenanschrift = Objektadresse", {}, { checks: ["ja", "nein"] }));
+rows.push(subRow("Objekt  (Ort der Begehung)"));
+rows.push(row2("Strasse, Nr. (Objekt)", "PLZ / Ort (Objekt)"));
+rows.push(row2("Gebaeudetyp (EFH, ZFH, DHH, MFH, ...)", "Baujahr"));
+rows.push(row2("Wohnflaeche (m²)", "Anzahl Wohneinheiten (PFLICHT)"));
+rows.push(row2("Beheizte Geschosse (EG/OG/DG)", "Energietraeger Bestand"));
 rows.push(new TableRow({ cantSplit: true, children: [ zielWeCell("Eigennutz", HALF), zielWeCell("Vermietung", HALF2) ] }));
 
 // ---- 2. Zielsetzung ----
@@ -206,8 +214,7 @@ rows.push(new TableRow({ cantSplit: true, children: [
   fieldCell("Glasbausteine", HALF, { checks: ["ja", "nein"] }),
   fieldCell("Fenster (Verglasung)", HALF2, { checks: ["1-fach", "2-fach", "Isolierglas", "3-fach"] }),
 ] }));
-rows.push(row2("Mauerwerk", "Kellerdecke"));
-rows.push(row1("Bodenplatte / Sonstiges", { lines: 1 }));
+rows.push(row2("Mauerwerk", "Kellerdecke / Bodenplatte / Sonstiges"));
 rows.push(subRow("3.2 Anlagentechnik"));
 rows.push(row2("Heizung / Waermeerzeuger (Typ, Bj., kW)", "Brauchwasser (Speicher, Zirkulation)"));
 rows.push(row2("Lueftung (Fenster / mechanisch)", "Sonstiges (Heizkoerper, Thermostate, Pumpen)"));
@@ -229,8 +236,7 @@ rows.push(new TableRow({ cantSplit: true, children: [
   fieldCell("Ausrichtung / Dachneigung", HALF2, {}),
 ] }));
 rows.push(row2("Jahresertrag (kWh/a)", "Alter der Anlage"));
-rows.push(row2("Laufzeit akt. Vertrag", "Einspeiseverguetung (ct/kWh)"));
-rows.push(row1("Einbindung Heizung (z. B. WP nutzt PV)", { checks: ["ja", "geplant", "nein"] }));
+rows.push(row2("Laufzeit akt. Vertrag  /  Einspeiseverguetung (ct/kWh)", "Einbindung Heizung (z. B. WP nutzt PV)", {}, { checks: ["ja", "geplant", "nein"] }));
 
 // ---- 5. Massnahmen ----
 const formTable = new Table({ width: { size: CONTENT_W, type: WidthType.DXA }, layout: TableLayoutType.FIXED, columnWidths: [HALF, HALF2], rows });
