@@ -114,3 +114,73 @@ export function Unterlagen({ ich, projektId, dateien, onGeaendert }) {
     </section>
   );
 }
+
+// ---------- Vor-Ort-Checkliste ----------
+
+export const CHECKLISTEN = [["init", "INIT", "INIT – Energieberatung Serek"], ["meh", "MEH", "MEH – Mein Energie Haus"], ["kirche", "Kirche", "Kirche – Heizungssanierung"]];
+const modulAusName = name => CHECKLISTEN.find(([, kurz]) => (name || "").startsWith(`Checkliste_${kurz}_`)) || null;
+
+/** Kasten in der Projektakte: vorausgefüllte Checkliste erzeugen (berater, verwaltung, admin) und erzeugte Fassungen. */
+export function VorOrtCheckliste({ projekt, onGeaendert }) {
+  const kirche = projekt.gebaeudeart === "Kirche";
+  const [modul, setModul] = useState(kirche ? "kirche" : "init");
+  const [laeuft, setLaeuft] = useState(false);
+  const [fehler, setFehler] = useState("");
+  const [meldung, setMeldung] = useState("");
+  const erzeugte = projekt.dateien.filter(d => d.quelle === "generator" && d.kategorie === "checkliste")
+    .sort((a, b) => new Date(b.hochgeladen_am) - new Date(a.hochgeladen_am) || b.id - a.id);
+  const aktuelleIds = new Set(CHECKLISTEN.map(([m, kurz]) => erzeugte.find(d => modulAusName(d.dateiname)?.[0] === m)?.id).filter(Boolean));
+  const schonDa = erzeugte.some(d => modulAusName(d.dateiname)?.[0] === modul);
+  const titel = Object.fromEntries(CHECKLISTEN.map(([m, , t]) => [m, t]))[modul];
+
+  async function erzeugen() {
+    setFehler(""); setMeldung(""); setLaeuft(true);
+    try {
+      const d = await api(`/projekte/${projekt.id}/checkliste?modul=${modul}`, { method: "POST" });
+      setMeldung(`Checkliste ${titel} erzeugt (Stand ${d.checkliste_stand || "unbekannt"}).`);
+      onGeaendert();
+    } catch (e) { setFehler(e.message); } finally { setLaeuft(false); }
+  }
+
+  return (
+    <section className="karte" aria-labelledby={`checkliste-${projekt.id}`}>
+      <h2 id={`checkliste-${projekt.id}`}>Vor-Ort-Checkliste</h2>
+      <p className="hinweis" style={{ marginBottom: 12 }}>Vorausgefüllt mit den Projektdaten. Projektnummer und Stand stehen in der Fußzeile.</p>
+      {!kirche && projekt.wohneinheiten == null &&
+        <div className="info" role="status" style={{ marginBottom: 12 }}>Wohneinheiten fehlen – die Checkliste bleibt dort leer.</div>}
+      <div className="checkliste-zeile">
+        <label>Checkliste für
+          <select value={modul} onChange={e => setModul(e.target.value)} disabled={laeuft}>
+            {CHECKLISTEN.map(([m, , t]) => <option key={m} value={m}>{t}</option>)}
+          </select>
+        </label>
+        <button className="btn" onClick={erzeugen} disabled={laeuft} aria-busy={laeuft}>
+          {laeuft ? "Wird erzeugt …" : schonDa ? "Neu erzeugen" : "Checkliste erzeugen"}
+        </button>
+      </div>
+      <div aria-live="polite">{meldung && <p className="klein">{meldung}</p>}</div>
+      {fehler && <div className="fehler" role="alert">{fehler}</div>}
+
+      {erzeugte.length === 0 ? <p className="hinweis" style={{ marginTop: 14, marginBottom: 0 }}>Noch keine Checkliste erzeugt.</p> : (
+        <div className="tabelle" style={{ marginTop: 14 }}>
+          <table>
+            <thead><tr><th>Checkliste</th><th>Stand</th><th>Erstellt von</th><th>Erstellt am</th><th><span className="sr">Aktion</span></th></tr></thead>
+            <tbody>
+              {erzeugte.map(d => {
+                const m = modulAusName(d.dateiname);
+                return (
+                  <tr key={d.id}>
+                    <td>{m ? m[1] : d.dateiname}{aktuelleIds.has(d.id) && <span className="status status-offen" style={{ marginLeft: 8 }}>aktuell</span>}</td>
+                    <td>{d.checkliste_stand || "–"}</td><td>{d.hochgeladen_von || "–"}</td><td>{zeit(d.hochgeladen_am)}</td>
+                    <td><a className="btn2" href={`/api/dateien/${d.id}/inhalt`} download
+                      aria-label={`Checkliste ${m ? m[1] : ""} vom ${zeit(d.hochgeladen_am)} herunterladen`}>Herunterladen</a></td>
+                  </tr>
+                );
+              })}
+            </tbody>
+          </table>
+        </div>
+      )}
+    </section>
+  );
+}

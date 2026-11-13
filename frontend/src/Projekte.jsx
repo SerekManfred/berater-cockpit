@@ -1,7 +1,7 @@
 import React, { useEffect, useState } from "react";
 import { api, hatRolle, wordHerunterladen, zeit } from "./api.js";
 import { eur, Ergebnis, Foerdervergleich, KATEGORIEN } from "./Foerdervergleich.jsx";
-import { Unterlagen } from "./Unterlagen.jsx";
+import { Unterlagen, VorOrtCheckliste } from "./Unterlagen.jsx";
 
 export const GEBAEUDEARTEN = [["EFH", "Einfamilienhaus (EFH)"], ["ZFH", "Zweifamilienhaus (ZFH)"], ["MFH", "Mehrfamilienhaus (MFH)"],
   ["Nichtwohngebaeude", "Nichtwohngebäude"], ["Kirche", "Kirche"]];
@@ -12,6 +12,11 @@ const WORD_MODULE = ["foerderung-em-eh"];
 const text = (liste, wert) => Object.fromEntries(liste)[wert] || wert;
 const datum = t => t ? new Date(t).toLocaleDateString("de-DE") : "–";
 const adresse = p => [p.objekt_strasse, [p.objekt_plz, p.objekt_ort].filter(Boolean).join(" ")].filter(Boolean).join(", ");
+const kundenAnschrift = p => [p.kunde_strasse, [p.kunde_plz, p.kunde_ort].filter(Boolean).join(" ")].filter(Boolean).join(", ");
+const terminText = t => t ? new Date(t).toLocaleString("de-DE", { dateStyle: "medium", timeStyle: "short" }) + " Uhr" : "–";
+// <input type="datetime-local"> arbeitet in Ortszeit ohne Zone: ISO-Zeitpunkt ↔ "JJJJ-MM-TTTHH:MM"
+const zuLokal = t => { if (!t) return ""; const d = new Date(t); return new Date(d.getTime() - d.getTimezoneOffset() * 60000).toISOString().slice(0, 16); };
+const vonLokal = v => v ? new Date(v).toISOString() : null;
 
 function useBenutzerAuswahl() {
   const [liste, setListe] = useState([]);
@@ -141,19 +146,36 @@ export function MeineProjekte({ onOeffnen }) {
 
 // ---------- Anlegen / Bearbeiten ----------
 
-const LEERES_PROJEKT = { kunde_name: "", objekt_strasse: "", objekt_plz: "", objekt_ort: "", gebaeudeart: "EFH", zustaendig_id: null, status: "offen", notiz: "" };
+const LEERES_PROJEKT = { kunde_name: "", objekt_strasse: "", objekt_plz: "", objekt_ort: "", gebaeudeart: "EFH", zustaendig_id: null, status: "offen", notiz: "",
+  kunde_ansprechpartner: "", objekt_bezeichnung: "", kunde_telefon: "", kunde_email: "", kunde_strasse: "", kunde_plz: "", kunde_ort: "",
+  wohneinheiten: null, we_selbstgenutzt: null, we_vermietet: null, termin_am: null };
+const ZAHLEN = ["wohneinheiten", "we_selbstgenutzt", "we_vermietet"];
 
 function ProjektFormular({ start, onSpeichern, onAbbrechen, knopf }) {
-  const [p, setP] = useState({ ...LEERES_PROJEKT, ...start });
+  const [p, setP] = useState(() => {
+    const s = { ...LEERES_PROJEKT, ...start };
+    return { ...s, termin_am: zuLokal(s.termin_am), ...Object.fromEntries(ZAHLEN.map(k => [k, s[k] ?? ""])) };
+  });
   const [fehler, setFehler] = useState("");
   const [laeuft, setLaeuft] = useState(false);
   const personen = useBenutzerAuswahl();
   const set = (k, v) => setP({ ...p, [k]: v });
+  const kirche = p.gebaeudeart === "Kirche";
+  const weZuViel = !kirche && p.wohneinheiten !== "" && Number(p.we_selbstgenutzt || 0) + Number(p.we_vermietet || 0) > Number(p.wohneinheiten);
   async function senden(e) {
-    e.preventDefault(); setFehler(""); setLaeuft(true);
-    const daten = Object.fromEntries(Object.keys(LEERES_PROJEKT).map(k => [k, typeof p[k] === "string" && k !== "kunde_name" ? (p[k].trim() || null) : p[k]]));
+    e.preventDefault(); setFehler("");
+    if (weZuViel) { setFehler("Selbstgenutzte und vermietete Wohneinheiten sind zusammen mehr als die Wohneinheiten insgesamt."); return; }
+    setLaeuft(true);
+    const daten = Object.fromEntries(Object.keys(LEERES_PROJEKT).map(k => [k,
+      ZAHLEN.includes(k) ? (p[k] === "" || p[k] === null ? null : Number(p[k]))
+        : k === "termin_am" ? vonLokal(p[k])
+          : typeof p[k] === "string" && k !== "kunde_name" ? (p[k].trim() || null) : p[k]]));
     try { await onSpeichern(daten); } catch (err) { setFehler(err.message); } finally { setLaeuft(false); }
   }
+  const zahlFeld = (k, titel) => (
+    <label>{titel}<input type="number" inputMode="numeric" min={0} max={9999} step={1} value={p[k]}
+      aria-invalid={weZuViel || undefined} onChange={e => set(k, e.target.value)} /></label>
+  );
   return (
     <form onSubmit={senden}>
       <div className="felder">
@@ -178,6 +200,42 @@ function ProjektFormular({ start, onSpeichern, onAbbrechen, knopf }) {
           </select>
         </label>
       </div>
+
+      <fieldset className="gruppe">
+        <legend>Kontakt</legend>
+        <div className="felder">
+          {kirche && <label>Ansprechpartner<input maxLength={200} value={p.kunde_ansprechpartner || ""} onChange={e => set("kunde_ansprechpartner", e.target.value)} /></label>}
+          {kirche && <label>Kirche / Bezeichnung<input maxLength={200} value={p.objekt_bezeichnung || ""} onChange={e => set("objekt_bezeichnung", e.target.value)} /></label>}
+          <label>Telefon<input type="tel" autoComplete="off" maxLength={50} value={p.kunde_telefon || ""} onChange={e => set("kunde_telefon", e.target.value)} /></label>
+          <label>E-Mail<input type="email" autoComplete="off" maxLength={200} value={p.kunde_email || ""} onChange={e => set("kunde_email", e.target.value)} /></label>
+        </div>
+        <p className="klein">Anschrift des Auftraggebers nur ausfüllen, wenn sie von der Objektanschrift abweicht.</p>
+        <div className="felder">
+          <label>Straße und Hausnummer (Auftraggeber)<input maxLength={200} value={p.kunde_strasse || ""} onChange={e => set("kunde_strasse", e.target.value)} /></label>
+          <label>PLZ (Auftraggeber)<input inputMode="numeric" maxLength={10} value={p.kunde_plz || ""} onChange={e => set("kunde_plz", e.target.value)} /></label>
+          <label>Ort (Auftraggeber)<input maxLength={100} value={p.kunde_ort || ""} onChange={e => set("kunde_ort", e.target.value)} /></label>
+        </div>
+      </fieldset>
+
+      {!kirche && (
+        <fieldset className="gruppe">
+          <legend>Wohneinheiten</legend>
+          <div className="felder">
+            {zahlFeld("wohneinheiten", "Wohneinheiten insgesamt")}
+            {zahlFeld("we_selbstgenutzt", "davon selbstgenutzt")}
+            {zahlFeld("we_vermietet", "davon vermietet")}
+          </div>
+          {weZuViel && <p className="frist-aus" role="alert">Selbstgenutzt und vermietet sind zusammen mehr als die Wohneinheiten insgesamt.</p>}
+        </fieldset>
+      )}
+
+      <fieldset className="gruppe">
+        <legend>Vor-Ort-Termin</legend>
+        <div className="felder">
+          <label>Datum und Uhrzeit<input type="datetime-local" value={p.termin_am || ""} onChange={e => set("termin_am", e.target.value)} /></label>
+        </div>
+      </fieldset>
+
       <label style={{ marginTop: 14 }}>Notiz<textarea rows={4} maxLength={10000} value={p.notiz || ""} onChange={e => set("notiz", e.target.value)} /></label>
       <Fehler text={fehler} />
       <div className="aktionen">
@@ -235,6 +293,14 @@ function ProjektAkte({ ich, id, onZurueck, onGehe }) {
               <dt>Kunde</dt><dd>{p.kunde_name}</dd>
               <dt>Objekt</dt><dd>{adresse(p) || "–"}</dd>
               <dt>Gebäudeart</dt><dd>{text(GEBAEUDEARTEN, p.gebaeudeart)}</dd>
+              {p.gebaeudeart === "Kirche" && <><dt>Kirche / Bezeichnung</dt><dd>{p.objekt_bezeichnung || "–"}</dd>
+                <dt>Ansprechpartner</dt><dd>{p.kunde_ansprechpartner || "–"}</dd></>}
+              <dt>Telefon</dt><dd>{p.kunde_telefon || "–"}</dd>
+              <dt>E-Mail</dt><dd>{p.kunde_email ? <a href={`mailto:${p.kunde_email}`}>{p.kunde_email}</a> : "–"}</dd>
+              {kundenAnschrift(p) && <><dt>Anschrift Auftraggeber</dt><dd>{kundenAnschrift(p)}</dd></>}
+              {p.gebaeudeart !== "Kirche" && <><dt>Wohneinheiten</dt><dd>{p.wohneinheiten == null ? "–"
+                : `${p.wohneinheiten} (selbstgenutzt ${p.we_selbstgenutzt ?? "–"}, vermietet ${p.we_vermietet ?? "–"})`}</dd></>}
+              <dt>Vor-Ort-Termin</dt><dd>{terminText(p.termin_am)}</dd>
               <dt>Status</dt><dd><span className={"status status-" + p.status}>{text(PROJEKT_STATUS, p.status)}</span></dd>
               <dt>Zuständig</dt><dd>{p.zustaendig || "nicht zugewiesen"}</dd>
               <dt>Notiz</dt><dd className="notiz">{p.notiz || "–"}</dd>
@@ -246,6 +312,8 @@ function ProjektAkte({ ich, id, onZurueck, onGehe }) {
           </>
         )}
       </section>
+
+      {darfBearbeiten && <VorOrtCheckliste key={p.gebaeudeart} projekt={p} onGeaendert={laden} />}
 
       <Unterlagen ich={ich} projektId={p.id} dateien={p.dateien} onGeaendert={laden} />
 
