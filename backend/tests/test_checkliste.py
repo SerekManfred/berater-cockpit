@@ -110,9 +110,10 @@ def test_daten_an_generator_und_ablage(generator):
     assert len(generator) == 1 and generator[0]["url"] == config.GENERATOR_URL + "/checkliste/meh"
     assert generator[0]["daten"] == {
         "projekt_id": p["projektnummer"],
-        "kunde": {"name": KUNDE, "strasse": "Testweg 1", "plz_ort": "12345 Teststadt",  # keine Kundenanschrift → Objekt
-                  "telefon": "0123 456789", "email": "test@example.org"},
-        "objekt": {"adresse": "Testweg 1, 12345 Teststadt", "gebaeudetyp": "Nichtwohngebäude",
+        # ohne Kundenanschrift: keine kunde.strasse/plz_ort – nie mit der Objektadresse auffüllen
+        "kunde": {"name": KUNDE, "telefon": "0123 456789", "email": "test@example.org"},
+        "objekt": {"strasse": "Testweg 1", "plz_ort": "12345 Teststadt", "adresse": "Testweg 1, 12345 Teststadt",
+                   "gebaeudetyp": "Nichtwohngebäude",
                    "wohneinheiten": "2", "we_eigennutz": "1", "we_vermietung": "0"},  # Zahlen als Text, 0 bleibt
         "termin": {"datum": "20.07.2026, 10:00 Uhr", "berater": "berater"},  # Sommerzeit, Zuständiger
     }
@@ -140,6 +141,16 @@ def test_daten_an_generator_und_ablage(generator):
     assert "dateiname" not in eintrag.details
 
 
+def test_abweichende_kundenanschrift_getrennt_von_objekt(generator):
+    c = nutzer("berater")
+    p = projekt(c, gebaeudeart="EFH", kunde_strasse="Hauptstr. 1", kunde_plz="89073", kunde_ort="Ulm")
+    assert checkliste(c, p["id"], "init").status_code == 201
+    d = generator[0]["daten"]
+    assert d["kunde"] == {"name": KUNDE, "strasse": "Hauptstr. 1", "plz_ort": "89073 Ulm"}
+    assert d["objekt"] == {"strasse": "Testweg 1", "plz_ort": "12345 Teststadt", "adresse": "Testweg 1, 12345 Teststadt",
+                           "gebaeudetyp": "EFH"}
+
+
 def test_kundenanschrift_kirche_und_leere_felder(generator):
     c = nutzer("berater")
     p = projekt(c, gebaeudeart="Kirche", objekt_bezeichnung="St. Test", kunde_ansprechpartner="Herr Test, Kirchenpfleger",
@@ -147,13 +158,18 @@ def test_kundenanschrift_kirche_und_leere_felder(generator):
     assert checkliste(c, p["id"], "kirche").status_code == 201
     d = generator[0]["daten"]
     assert d["kunde"] == {"name": KUNDE, "ansprechpartner": "Herr Test, Kirchenpfleger", "strasse": "Pfarrgasse 2",
-                          "plz_ort": "Testdorf"}  # Kundenanschrift statt Objekt, nicht gemischt
-    assert d["objekt"] == {"adresse": "Testweg 1, 12345 Teststadt", "bezeichnung": "St. Test", "gebaeudetyp": "Kirche"}
+                          "plz_ort": "Testdorf"}  # nur die gepflegten Teile, nichts aus dem Objekt ergänzt
+    assert d["objekt"] == {"strasse": "Testweg 1", "plz_ort": "12345 Teststadt", "adresse": "Testweg 1, 12345 Teststadt",
+                           "bezeichnung": "St. Test", "gebaeudetyp": "Kirche"}
     assert d["termin"] == {"berater": "berater"}  # ohne Zuständigen: Aufrufer; ohne Termin kein Datum
+
+    nur_ort = projekt(c, kunde_ort="Ulm")  # unvollständige Kundenanschrift: Straße bleibt frei, kein Objekt-Ersatz
+    assert checkliste(c, nur_ort["id"]).status_code == 201
+    assert generator[1]["daten"]["kunde"] == {"name": KUNDE, "plz_ort": "Ulm"}
 
     nackt = projekt(c, objekt_strasse=None, objekt_plz=None, objekt_ort=None, gebaeudeart="EFH")
     assert checkliste(c, nackt["id"]).status_code == 201
-    d = generator[1]["daten"]
+    d = generator[2]["daten"]
     assert d["kunde"] == {"name": KUNDE} and d["objekt"] == {"gebaeudetyp": "EFH"}
 
 
@@ -294,6 +310,12 @@ def test_migration_0005_hoch_und_runter(leere_datenbank):
 
 # ---------- echter Generator (nur mit GENERATOR_TEST_URL) ----------
 
+def _docx_text(inhalt: bytes) -> str:
+    with zipfile.ZipFile(io.BytesIO(inhalt)) as z:
+        return "".join(re.sub(r"<[^>]+>", "", z.read(n).decode()) for n in z.namelist()
+                       if n.startswith("word/") and n.endswith(".xml"))
+
+
 @pytest.mark.skipif(not os.environ.get("GENERATOR_TEST_URL"), reason="kein Generator-Container (läuft mit scripts/test-postgres.sh)")
 @pytest.mark.parametrize("modul, gebaeudeart", [("init", "EFH"), ("meh", "MFH"), ("kirche", "Kirche")])
 def test_echter_generator_erzeugt_checkliste(monkeypatch, modul, gebaeudeart):
@@ -301,16 +323,34 @@ def test_echter_generator_erzeugt_checkliste(monkeypatch, modul, gebaeudeart):
     monkeypatch.setattr(word, "TRANSPORT", None)
     c = nutzer("verwaltung")
     p = projekt(c, gebaeudeart=gebaeudeart, kunde_telefon="0123 456789", wohneinheiten=1, we_selbstgenutzt=1,
+                kunde_strasse="Hauptstr. 1", kunde_plz="89073", kunde_ort="Ulm",
                 termin_am="2026-11-20T10:00", objekt_bezeichnung="St. Test" if modul == "kirche" else None)
     r = checkliste(c, p["id"], modul)
     assert r.status_code == 201, r.text
-    assert re.fullmatch(r"\d{2}\.\d{2}\.\d{4}", r.json()["checkliste_stand"])
+    assert r.json()["checkliste_stand"] == "13.11.2026"
     [d] = dateien_db(p["id"])
     inhalt = c.get(f"/dateien/{d.id}/inhalt").content
     assert dateien.typ_erkennen(dateien.inhalt_pfad(d.speichername)) is dateien.TYPEN["docx"]
-    with zipfile.ZipFile(io.BytesIO(inhalt)) as z:
-        alles = "".join(re.sub(r"<[^>]+>", "", z.read(n).decode()) for n in z.namelist()
-                        if n.startswith("word/") and n.endswith(".xml"))
-    for teil in (p["projektnummer"], "Projekt-ID " + p["projektnummer"], "Checkliste Stand " + r.json()["checkliste_stand"],
-                 KUNDE, "20.11.2026, 10:00 Uhr", "verwaltung"):
+    alles = _docx_text(inhalt)
+    # beide Anschriften getrennt im Bogen: Kunde (bei Kirche: Gemeinde) und Objekt (bei Kirche: Adresse der Kirche)
+    objekt = ("Testweg 1, 12345 Teststadt",) if modul == "kirche" else ("Testweg 1", "12345 Teststadt")
+    for teil in (p["projektnummer"], "Projekt-ID " + p["projektnummer"], "Checkliste Stand 13.11.2026",
+                 KUNDE, "20.11.2026, 10:00 Uhr", "verwaltung", "Hauptstr. 1", "89073 Ulm", *objekt):
         assert teil in alles, teil
+    if modul != "kirche":
+        assert "Kundenanschrift = Objektadresse" in alles
+
+
+@pytest.mark.skipif(not os.environ.get("GENERATOR_TEST_URL"), reason="kein Generator-Container (läuft mit scripts/test-postgres.sh)")
+@pytest.mark.parametrize("modul", ["init", "meh"])
+def test_echter_generator_ohne_kundenanschrift(monkeypatch, modul):
+    # ohne Kundenanschrift steht die Objektadresse nur im Objekt-Block – der Kunde-Block bleibt frei zum Ankreuzen
+    monkeypatch.setattr(config, "GENERATOR_URL", os.environ["GENERATOR_TEST_URL"].rstrip("/"))
+    monkeypatch.setattr(word, "TRANSPORT", None)
+    c = nutzer("berater")
+    p = projekt(c, gebaeudeart="EFH")
+    assert checkliste(c, p["id"], modul).status_code == 201
+    [d] = dateien_db(p["id"])
+    alles = _docx_text(c.get(f"/dateien/{d.id}/inhalt").content)
+    assert alles.count("Testweg 1") == 1 and alles.count("12345 Teststadt") == 1
+    assert "Kundenanschrift = Objektadresse" in alles

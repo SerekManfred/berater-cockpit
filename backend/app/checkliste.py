@@ -1,4 +1,4 @@
-"""Vor-Ort-Checklisten (INIT, MEH, Kirche): Projektdaten nach dem Datenvertrag des Generators zusammenstellen
+"""Vor-Ort-Checklisten (INIT, MEH, Kirche): Projektdaten nach dem Datenvertrag des Generators (ab 0.2.1) zusammenstellen
 (generator/README.md, „Vor-Ort-Checklisten“), Erfassungsbogen erzeugen lassen und als Datei in der Projektakte ablegen.
 
 Rechte: berater, verwaltung, admin. Jede Erzeugung ist eine neue Fassung – ältere bleiben erhalten.
@@ -39,21 +39,21 @@ def _plz_ort(plz: str | None, ort: str | None) -> str:
 def checkliste_daten(p: Projekt, berater: str | None) -> dict:
     """Datenvertrag POST /checkliste/{modul}. Leere Felder werden weggelassen (bleiben im Bogen frei), Zahlen als Text."""
     objekt_plz_ort = _plz_ort(p.objekt_plz, p.objekt_ort)
-    # Anschrift des Auftraggebers, falls gepflegt – sonst die Objektanschrift (nie gemischt)
-    if p.kunde_strasse or p.kunde_plz or p.kunde_ort:
-        strasse, plz_ort = p.kunde_strasse, _plz_ort(p.kunde_plz, p.kunde_ort)
-    else:
-        strasse, plz_ort = p.objekt_strasse, objekt_plz_ort
+    # Kundenanschrift und Objektadresse getrennt (Generator 0.2.1): die Kundenanschrift nur, wenn gepflegt –
+    # nie mit der Objektadresse auffüllen; sonst bleibt der Kunde-Block leer („Kundenanschrift = Objektadresse“).
     zahl = lambda w: None if w is None else str(w)  # noqa: E731
     termin = (p.termin_am.astimezone(ZoneInfo("Europe/Berlin")).strftime("%d.%m.%Y, %H:%M Uhr")
               if p.termin_am else None)
     daten = {
         "projekt_id": p.projektnummer,
         "kunde": _ohne_leere({
-            "name": p.kunde_name, "ansprechpartner": p.kunde_ansprechpartner, "strasse": strasse, "plz_ort": plz_ort,
+            "name": p.kunde_name, "ansprechpartner": p.kunde_ansprechpartner,
+            "strasse": p.kunde_strasse, "plz_ort": _plz_ort(p.kunde_plz, p.kunde_ort),
             "telefon": p.kunde_telefon, "email": p.kunde_email,
         }),
         "objekt": _ohne_leere({
+            "strasse": p.objekt_strasse, "plz_ort": objekt_plz_ort,
+            # zusammengesetzt weiter mitsenden – die Kirchen-Checkliste nutzt es
             "adresse": ", ".join(t for t in (p.objekt_strasse, objekt_plz_ort) if t),
             "bezeichnung": p.objekt_bezeichnung,
             "gebaeudetyp": GEBAEUDEART_TEXT.get(p.gebaeudeart, p.gebaeudeart),
