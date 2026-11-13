@@ -130,6 +130,22 @@ Ausführliches Fachkonzept: `docs/Konzept_Berater-Cockpit.docx` (falls abgelegt)
   Abschnitten der Datei an (Ersteller „Kommandozeile“). So entstand am 12.11.2026 **Entwurf Version 2** mit den Fachwerten
   (`app/konditionen/fachwerte_startbestand.json`, erzeugt aus `fachtexte.js`) – **noch nicht freigegeben**, wartet auf Einreichen und Prüfung.
 
+## Vor-Ort-Checklisten (Stand 13.11.2026, Phase 2a)
+- Generator 0.2.0: `POST /checkliste/{init|meh|kirche}` (Skills unverändert unter `generator/skills/`, Skill läuft als
+  Kindprozess über stdin/stdout, Container bleibt `read_only`). Antwort .docx + Kopfzeile `X-Checkliste-Stand`.
+- Migration 0005: optionale Projektfelder `kunde_ansprechpartner`, `kunde_strasse/_plz/_ort` (nur falls abweichend vom Objekt),
+  `kunde_telefon`, `kunde_email`, `objekt_bezeichnung`, `wohneinheiten`, `we_selbstgenutzt`, `we_vermietet`, `termin_am` (UTC;
+  ohne Zone gesendet = Europe/Berlin); in `dateien` `quelle` (`upload` | `generator`) und `checkliste_stand`.
+  Neue Kontaktfelder sind personenbezogen (Protokoll nur „geändert“).
+- `POST /projekte/{id}/checkliste?modul=…` (`app/checkliste.py`, berater/verwaltung/admin): Daten nach Datenvertrag
+  (`generator/README.md`), Kundenanschrift sonst Objektanschrift (nie gemischt), Berater = Zuständiger sonst Aufrufer.
+  Ablage als Datei `Checkliste_<INIT|MEH|Kirche>_<Projektnummer>.docx` (ohne Kundennamen), Kategorie `checkliste`,
+  gleicher Inhalt wird **nicht** als Duplikat abgelehnt (jede Erzeugung = neue Fassung). Protokoll `checkliste_erzeugt` /
+  `checkliste_fehlgeschlagen`, ohne Namen.
+- **Offen vor Phase 2b:** Die Bericht-Generatoren der Skills (`generate_report.js` INIT/MEH) rechnen Förderbeträge selbst
+  (widerspricht Regel 1). Entscheidung A (Rechenkern `app/rechenkern/vorort.py`) oder B (Sätze aus dem Snapshot, dokumentierte
+  Ausnahme) steht aus. Bis dahin **keine** Berichtserzeugung INIT/MEH/Kirche im Cockpit.
+
 ## Module (erweiterbar)
 Jede Berichtsart ist ein Modul mit Beschreibung unter `modules/<id>/module.yaml`: Felder, Pflichtangaben, Upload-Slots,
 Fachregeln, Rechenkern, Generator. Die Oberfläche soll Masken aus dieser Beschreibung erzeugen. Neue Berichtsart = neues Modul, kein Umbau.
@@ -141,6 +157,7 @@ Fachregeln, Rechenkern, Generator. Die Oberfläche soll Masken aus dieser Beschr
   Projektakte ist umgesetzt (Teilauftrag 2, Phase 0b). Datei-Upload, Papierkorb und Datensicherung sind umgesetzt (Teilauftrag 3).
 - **Phase 1a (erledigt 12.11.2026):** Word-Bericht Fördervergleich aus gespeicherten Berichten (siehe Abschnitt oben).
 - **Phase 1b (erledigt 12.11.2026):** Konditionen-Zentrale in PostgreSQL mit Versionen, Vier-Augen-Freigabe, Fachwerten und Fristen.
+- **Phase 2a (erledigt 13.11.2026):** Vor-Ort-Checklisten INIT/MEH/Kirche aus der Projektakte (siehe Abschnitt oben).
 - **Phase 2:** INIT und MEH mit KI (Checklisten-Erkennung, Fotozuordnung) – vorhandene Generatoren `generate_report.js` aus den Skills einbinden.
 - **Phase 3:** Kirche. **Phase 4:** Änderungs-Monitor für Förderquellen, Freigabe-Workflow, Anbindung IR-Planer.
 
