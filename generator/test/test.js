@@ -51,5 +51,24 @@ async function text(daten) {
     assert(tm.includes(z), "mit fachwerte: " + z);
   assert(!tm.includes(FT.haftung) && !tm.includes(FT.tma_em[0][1]), "mit fachwerte: keine Texte aus fachtexte.js");
   for (const z of ["163.600 €", "169.155 €", "144.355 €", "173.065 €"]) assert(tm.includes(z), "mit fachwerte, Beträge: " + z);
-  console.log(`OK – ${n} Beispiele + Referenzzahlen + Schutzprüfungen + Fachwerte mit/ohne`);
+  // Vor-Ort-Checklisten (Skills INIT, MEH, Kirche): vorausgefüllt, Projekt-ID und Stand in der Fußzeile
+  const { erzeugeCheckliste, checklistenStand, MODULE } = require("../src/checkliste");
+  const JSZip = require("jszip");
+  const alles = async buf => {
+    const z = await JSZip.loadAsync(buf); let t = "";
+    for (const name of Object.keys(z.files).filter(n => /^word\/(document|footer\d*)\.xml$/.test(n))) t += await z.file(name).async("string");
+    return t.replace(/<[^>]+>/g, "");
+  };
+  const pd = JSON.parse(fs.readFileSync(path.join(__dirname, "checkliste_projektdaten.json"), "utf8"));
+  for (const m of MODULE) {
+    const stand = checklistenStand(m);
+    assert(/^\d{2}\.\d{2}\.\d{4}$/.test(stand), `${m}: Checklisten-Stand fehlt`);
+    const t = await alles(await erzeugeCheckliste(m, pd));
+    for (const z of [pd.kunde.name, pd.termin.datum, pd.termin.berater, "Projekt-ID " + pd.projekt_id, "Checkliste Stand " + stand])
+      assert(t.includes(z), `${m}: ${z} fehlt`);
+    assert(!/undefined|NaN/.test(t), `${m}: undefined/NaN im Text`);
+  }
+  await assert.rejects(() => erzeugeCheckliste("init", { ...pd, projekt_id: "" }), /projekt_id fehlt/);
+  await assert.rejects(() => erzeugeCheckliste("xyz", pd), /Unbekanntes Modul/);
+  console.log(`OK – ${n} Beispiele + Referenzzahlen + Schutzprüfungen + Fachwerte mit/ohne + ${MODULE.length} Checklisten`);
 })().catch(e => { console.error("FEHLER:", e.message); process.exit(1); });

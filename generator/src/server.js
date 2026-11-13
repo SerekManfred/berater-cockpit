@@ -1,10 +1,15 @@
-// Kleiner interner HTTP-Dienst: POST /foerdervergleich (JSON) -> .docx
-// Nur im internen Docker-Netz erreichbar, kein Port nach außen.
+// Kleiner interner HTTP-Dienst. Nur im internen Docker-Netz erreichbar, kein Port nach außen.
+//   POST /foerdervergleich            (JSON) -> .docx
+//   POST /checkliste/{init|meh|kirche} (JSON Projektdaten) -> .docx, Kopfzeile X-Checkliste-Stand
 const http = require("http");
 const { Packer } = require("docx");
 const { erstelleFoerdervergleich } = require("./foerdervergleich");
+const { erzeugeCheckliste, checklistenStand, MODULE } = require("./checkliste");
 
-const BERICHTE = { "/foerdervergleich": erstelleFoerdervergleich };
+const DOCX = "application/vnd.openxmlformats-officedocument.wordprocessingml.document";
+const BERICHTE = { "/foerdervergleich": async d => Packer.toBuffer(erstelleFoerdervergleich(d)) };
+for (const m of MODULE) BERICHTE["/checkliste/" + m] = d => erzeugeCheckliste(m, d);
+const STAND = Object.fromEntries(MODULE.map(m => ["/checkliste/" + m, checklistenStand(m)]));
 const MAX = 2 * 1024 * 1024;
 
 http.createServer((req, res) => {
@@ -16,9 +21,10 @@ http.createServer((req, res) => {
   req.on("end", async () => {
     if (zuGross) return;
     try {
-      const doc = bau(JSON.parse(body));
-      const buf = await Packer.toBuffer(doc);
-      res.writeHead(200, { "Content-Type": "application/vnd.openxmlformats-officedocument.wordprocessingml.document" });
+      const buf = await bau(JSON.parse(body));
+      const kopf = { "Content-Type": DOCX };
+      if (STAND[req.url]) kopf["X-Checkliste-Stand"] = STAND[req.url];
+      res.writeHead(200, kopf);
       res.end(buf);
     } catch (err) {
       res.writeHead(422, { "Content-Type": "application/json" });

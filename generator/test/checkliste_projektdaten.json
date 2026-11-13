@@ -1,0 +1,8 @@
+{
+  "projekt_id": "2026-0099",
+  "kunde": { "name": "Testkunde Mustermann", "ansprechpartner": "Herr Muster, Kirchenpfleger", "strasse": "Musterweg 7",
+             "plz_ort": "89352 Ellzee", "telefon": "0123 456789", "email": "test@example.org" },
+  "objekt": { "adresse": "Musterweg 7, 89352 Ellzee", "bezeichnung": "St. Muster", "gebaeudetyp": "EFH",
+              "wohneinheiten": "1", "we_eigennutz": "1", "we_vermietung": "0" },
+  "termin": { "datum": "20.11.2026, 10:00 Uhr", "berater": "Manfred Serek" }
+}
