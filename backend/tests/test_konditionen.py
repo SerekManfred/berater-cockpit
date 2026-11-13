@@ -21,6 +21,16 @@ from tests.test_anmeldung import PW
 KOND_DIR = Path(__file__).parents[1] / "app" / "konditionen"
 V1_DATEI = json.loads((KOND_DIR / "v1.json").read_text(encoding="utf-8"))
 FACHWERTE = json.loads((KOND_DIR / "fachwerte_startbestand.json").read_text(encoding="utf-8"))
+# Ab Phase 2b Pflicht in jeder neuen Version: KfW 458, § 35c und zwei Ergänzungen (Startwerte aus dem INIT-Skill)
+ERGAENZUNG = json.loads((KOND_DIR / "ergaenzung_init_v3.json").read_text(encoding="utf-8"))
+
+
+def mit_ergaenzung(daten: dict) -> dict:
+    """Konditionen-Daten um die Abschnitte aus ergaenzung_init_v3.json ergänzen (tief, ohne „_hinweis“)."""
+    for teil, werte in ERGAENZUNG.items():
+        if not teil.startswith("_"):
+            daten.setdefault(teil, {}).update(copy.deepcopy(werte))
+    return daten
 OHNE_266 = {**REFERENZFALL, "kfw266": False, "we_neu": 0, "umbaukosten_neue_we": 0}
 
 
@@ -47,6 +57,7 @@ def entwurf_mit(admin, **pfade):
     v = admin.post("/konditionen/versionen", json={}).json()
     daten = copy.deepcopy(v["daten"])
     daten.update(copy.deepcopy(FACHWERTE))
+    mit_ergaenzung(daten)
     for pfad, wert in pfade.items():
         ziel = daten
         teile = pfad.split("__")
@@ -161,9 +172,16 @@ def test_berater_und_verwaltung_ohne_prueferrolle_koennen_nicht_freigeben():
     ("kfw_266.mindeststufe", "EH100", "Ungültige Auswahl"),
     ("fachwerte.haftung.text", " ", "Pflichtfeld"),
     ("fachwerte.tma_em.bauteile.0.anforderung", "", "Pflichtfeld"),
+    ("kfw_458.quelle", "", "Pflichtfeld"),
+    ("kfw_458.grundfoerderung", "viel", "zwischen 0 und 100 %"),
+    ("kfw_458.einkommensbonus_stufen", [0.2], "Ungültige Auswahl"),
+    ("kfw_458.deckel_einkommensbonus_40", 0.6, "mindestens so hoch sein wie der normale"),
+    ("steuer_35c.max_ermaessigung_objekt", 300000, "nicht höher"),
+    ("beg_em.isfp_bonus_mindestbetrag", None, "Pflichtfeld"),
+    ("beg_wg.tilgungszuschuss_max", 0.08, "unter dem Tilgungszuschuss EH 40 EE"),
 ])
 def test_pruefregeln(pfad, wert, meldung):
-    daten = {**copy.deepcopy(V1_DATEI), **copy.deepcopy(FACHWERTE)}
+    daten = mit_ergaenzung({**copy.deepcopy(V1_DATEI), **copy.deepcopy(FACHWERTE)})
     assert pruefen(daten, "Notiz") == []
     ziel, teile = daten, pfad.split(".")
     for t in teile[:-1]:
@@ -178,7 +196,7 @@ def test_einreichen_nur_ohne_fehler_mit_meldungen_je_feld():
     v = admin.post("/konditionen/versionen", json={}).json()
     pfade = {f["pfad"] for f in v["fehler"]}
     assert "fachwerte.haftung.text" in pfade and "aenderungsnotiz" in pfade  # v1 hat noch keine Fachwerte
-    daten = {**v["daten"], **copy.deepcopy(FACHWERTE)}
+    daten = mit_ergaenzung({**v["daten"], **copy.deepcopy(FACHWERTE)})
     daten["beg_em"]["foerdersatz"] = 15  # Prozent statt Anteil eingetragen → Prüfregel greift
     v = admin.put(f"/konditionen/versionen/{v['id']}", json={"daten": daten, "aenderungsnotiz": "Fachwerte"}).json()
     assert [f["pfad"] for f in v["fehler"]] == ["beg_em.foerdersatz"]
@@ -310,11 +328,14 @@ def test_vergleich_tabellenzeilen():
 # ---------- Kommandozeile: Entwurf mit Fachwerten ----------
 
 def test_cli_entwurf_fachwerte_ist_einreichbar(capsys):
-    assert cli.main(["konditionen-entwurf", str(KOND_DIR / "fachwerte_startbestand.json"), "--notiz", "Fachwerte aufnehmen"]) == 0
+    assert cli.main(["konditionen-entwurf", str(KOND_DIR / "fachwerte_startbestand.json"), str(KOND_DIR / "ergaenzung_init_v3.json"),
+                     "--notiz", "Fachwerte und INIT-Ergänzung aufnehmen"]) == 0
     assert "Alle Prüfregeln erfüllt" in capsys.readouterr().out
     with SessionLocal() as db:
         v = db.scalar(select(KonditionenVersion).where(KonditionenVersion.version == 2))
     assert v.status == "entwurf" and v.erstellt_von_id is None and v.daten["fachwerte"] == FACHWERTE["fachwerte"]
+    assert v.daten["kfw_458"] == ERGAENZUNG["kfw_458"] and v.daten["beg_em"]["isfp_bonus_mindestbetrag"] == 30000
+    assert v.daten["beg_em"]["foerdersatz"] == 0.15  # Ergänzung ersetzt nur die genannten Felder
     assert pruefen(v.daten, v.aenderungsnotiz) == []
     assert "konditionen_entwurf_angelegt" in aktionen()
     assert cli.main(["konditionen-entwurf", str(KOND_DIR / "fachwerte_startbestand.json"), "--notiz", "x"]) == 1  # schon offen

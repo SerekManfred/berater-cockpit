@@ -8,6 +8,7 @@ from sqlalchemy.orm import Session
 
 from app import fristen
 from app.rechenkern.foerdervergleich import Angebote, Eingaben, Massnahme, vergleich
+from app.rechenkern.init_foerderung import InitEingaben, init_foerderung
 
 FREIGEGEBEN = ("aktiv", "abgeloest")
 
@@ -120,7 +121,47 @@ def foerdervergleich_rechnen(daten: FoerdervergleichEingaben, kond: dict) -> dic
     return vergleich(e, kond)
 
 
+# ---------- Beratungsbericht INIT: Förder-Übersicht (Kap. 7.5 und Förder-Anhang) ----------
+
+OHNE_KFW_458 = "Konditionen ohne KfW 458 – Version 3 freigeben (Konditionen-Zentrale), dann den Bericht erzeugen."
+
+
+class InitFoerderEingaben(BaseModel):
+    """Eingaben der Förder-Übersicht im INIT-Bericht. Die Sätze kommen ausschließlich aus den Konditionen."""
+    we: int = Field(ge=1, le=9999)
+    we_eigen: int | None = Field(None, ge=0, le=9999)   # beide leer = alle WE selbstgenutzt (wie der Skill)
+    we_verm: int | None = Field(None, ge=0, le=9999)
+    klimabonus: bool = False                            # Klimageschwindigkeitsbonus (Berater prüft das Heizungsalter)
+    einkommensbonus: float = 0.0                        # 0 oder eine Stufe aus kfw_458.einkommensbonus_stufen
+    eh_stufe: str | None = None                         # z. B. "EH55EE"; leer = kein Effizienzhaus-Ziel
+    eh_wpb: bool = False
+
+    @model_validator(mode="after")
+    def _we(self):
+        if (self.we_eigen or 0) + (self.we_verm or 0) > self.we:
+            raise ValueError("Selbstgenutzte und vermietete Wohneinheiten sind zusammen mehr als die Wohneinheiten insgesamt.")
+        return self
+
+
+def init_rechnen(daten: InitFoerderEingaben, kond: dict) -> dict:
+    if "kfw_458" not in kond or "steuer_35c" not in kond:
+        raise HTTPException(422, OHNE_KFW_458)
+    stufen = [0.0, *kond["kfw_458"].get("einkommensbonus_stufen", [])]
+    if not any(abs(daten.einkommensbonus - s) < 1e-9 for s in stufen):
+        raise HTTPException(422, "Einkommensbonus: nur 0 oder eine Stufe aus den Konditionen ("
+                                 + ", ".join(f"{s * 100:.0f} %" for s in stufen[1:]) + ")")
+    if daten.eh_stufe and daten.eh_stufe not in kond["beg_wg"]["tilgungszuschuss"]:
+        raise HTTPException(422, f"Unbekannte EH-Stufe {daten.eh_stufe}")
+    try:
+        return init_foerderung(InitEingaben(**daten.model_dump()), kond)
+    except (KeyError, ValueError) as fehler:
+        raise HTTPException(422, f"Förder-Übersicht nicht berechenbar: {fehler}") from None
+
+
 # Module, deren Berichte in der Projektakte gespeichert werden können: id -> (Eingabe-Schema, Rechenfunktion)
 RECHNER = {
     "foerderung-em-eh": (FoerdervergleichEingaben, foerdervergleich_rechnen),
+    "bericht-init": (InitFoerderEingaben, init_rechnen),
 }
+# Diese Module entstehen nur über den Bericht-Assistenten (Entwurf → Freigabe → Erzeugen), nie über /berichte direkt
+NUR_UEBER_ENTWURF = {"bericht-init"}

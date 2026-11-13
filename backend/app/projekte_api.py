@@ -23,7 +23,7 @@ from app.dateien_api import dateien_des_projekts
 from app.db import get_db
 from app.modelle import Benutzer, Bericht, Projekt, ProjektnummerZaehler, jetzt
 from app.protokoll import protokollieren
-from app.rechnen import RECHNER, lade_konditionen
+from app.rechnen import NUR_UEBER_ENTWURF, RECHNER, lade_konditionen
 
 router = APIRouter(tags=["Projektakte"])
 
@@ -239,6 +239,12 @@ def _bericht_speichern(db: Session, request: Request, p: Projekt, modul: str, ei
     return b
 
 
+def _nicht_ueber_entwurf(modul: str):
+    if modul in NUR_UEBER_ENTWURF:
+        raise HTTPException(422, "Dieser Bericht entsteht nur über den Bericht-Assistenten der Projektakte "
+                                 "(Entwurf, Freigabe der Abschnitte, Erzeugen).")
+
+
 # ---------- Routen: Projekte ----------
 
 @router.get("/benutzer-auswahl")
@@ -354,6 +360,7 @@ def projekt_loeschen(projekt_id: int, request: Request, ich: Benutzer = Depends(
 def bericht_speichern(projekt_id: int, daten: BerichtNeu, request: Request, ich: Benutzer = Depends(berichten),
                       db: Session = Depends(get_db)):
     """Neuen Bericht speichern. Das Ergebnis rechnet immer der Rechenkern – nie die Oberfläche."""
+    _nicht_ueber_entwurf(daten.modul)
     p = _projekt_laden(db, projekt_id, sperren=True)
     kond = lade_konditionen(daten.konditionen_version, db=db)
     if daten.konditionen_version is not None and kond["version"] != lade_konditionen(db=db)["version"]:
@@ -382,6 +389,7 @@ def bericht_vorschau(bericht_id: int, daten: NeuRechnen, _: Benutzer = Depends(b
                      db: Session = Depends(get_db)):
     """Vorschau für „Als neue Version bearbeiten“ – speichert nichts."""
     b, _p = _bericht_laden(db, bericht_id)
+    _nicht_ueber_entwurf(b.modul)
     return _rechnen(b.modul, daten.eingaben, _kond_fuer_neu(b, daten.aktuelle_konditionen, db))[1]
 
 
@@ -390,6 +398,7 @@ def bericht_neu_rechnen(bericht_id: int, daten: NeuRechnen, request: Request, ic
                         db: Session = Depends(get_db)):
     """„Neu rechnen“: legt immer eine neue Version an, der alte Bericht bleibt unverändert."""
     b, _p = _bericht_laden(db, bericht_id)
+    _nicht_ueber_entwurf(b.modul)
     p = _projekt_laden(db, b.projekt_id, sperren=True)
     kond = _kond_fuer_neu(b, daten.aktuelle_konditionen, db)
     neu = _bericht_speichern(db, request, p, b.modul, daten.eingaben, kond, ich, basis_bericht_id=b.id,

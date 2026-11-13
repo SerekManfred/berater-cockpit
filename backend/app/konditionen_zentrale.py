@@ -79,6 +79,7 @@ PROGRAMME = [
         F("beg_em.wpb_bonus_ab", "WPB-Bonus gilt für Anträge ab", "datum"),
         *hoechstgrenzen("beg_em", False), *hoechstgrenzen("beg_em", True),
         F("beg_em.hoechstgrenze_bezug", "Bezug der Höchstgrenzen", "text"),
+        F("beg_em.isfp_bonus_mindestbetrag", "iSFP-Bonus – Mindestbetrag (Schwelle, ab Version 3)", "euro", kern=True),
         *baubegleitung("beg_em"),
         F("beg_em.ergaenzungskredit.programm", "Ergänzungskredit – Programm", "text"),
         F("beg_em.ergaenzungskredit.je_we", "Ergänzungskredit – Kreditrahmen je WE", "euro"),
@@ -104,6 +105,7 @@ PROGRAMME = [
         F("beg_wg.wpb_bonus", "WPB-Bonus", "prozent", kern=True),
         F("beg_wg.wpb_bonus_stufen", "WPB-Bonus für die Stufen", "mehrfach", optionen=STUFEN_OPTIONEN),
         F("beg_wg.kredit_je_we", "Kreditrahmen je WE", "euro", kern=True),
+        F("beg_wg.tilgungszuschuss_max", "Tilgungszuschuss – Höchstsatz inkl. Boni (ab Version 3)", "prozent", kern=True),
         *baubegleitung("beg_wg"),
         F("beg_wg.kombination_mit_beg_em", "Kombination mit BEG EM", "text_lang"),
         frist("beg_wg"),
@@ -115,6 +117,28 @@ PROGRAMME = [
         F("kfw_266.mindeststufe", "Mindeststandard", "auswahl", optionen=STUFEN_OPTIONEN, kern=True),
         F("kfw_266.ee_ausnahme", "Ausnahme von der EE-Klasse", "text_lang"),
         frist("kfw_266"),
+    ]},
+    {"id": "kfw_458", "titel": "KfW 458 – Heizungsförderung (Zuschuss)", "felder": [
+        *quelle("kfw_458"),
+        F("kfw_458.hoechstkosten.erste_we", "Förderfähige Kosten – 1. WE", "euro", kern=True),
+        F("kfw_458.hoechstkosten.we_2_bis_6", "Förderfähige Kosten – 2. bis 6. WE", "euro", kern=True),
+        F("kfw_458.hoechstkosten.ab_we_7", "Förderfähige Kosten – ab 7. WE", "euro", kern=True),
+        F("kfw_458.hoechstkosten_hinweis", "Hinweis zu den förderfähigen Kosten", "text", pflicht=False),
+        F("kfw_458.grundfoerderung", "Grundförderung", "prozent", kern=True),
+        F("kfw_458.klimabonus", "Klimageschwindigkeitsbonus", "prozent", kern=True),
+        F("kfw_458.klimabonus_hinweis", "Regel Klimageschwindigkeitsbonus", "text_lang", pflicht=False),
+        F("kfw_458.einkommensbonus_stufen", "Einkommensbonus – Stufen", "mehrfach", kern=True,
+          optionen=[[0.10, "10 %"], [0.30, "30 %"], [0.40, "40 %"]]),
+        F("kfw_458.deckel", "Höchstsatz (Deckel)", "prozent", kern=True),
+        F("kfw_458.deckel_einkommensbonus_40", "Höchstsatz bei Einkommensbonus 40 %", "prozent", kern=True),
+        frist("kfw_458"),
+    ]},
+    {"id": "steuer_35c", "titel": "§ 35c EStG – Steuerermäßigung", "felder": [
+        *quelle("steuer_35c"),
+        F("steuer_35c.quote_text", "Quote (Text im Bericht, z. B. „20 % / 3 J.“)", "text", kern=True),
+        F("steuer_35c.max_kosten_objekt", "Max. Aufwendungen je Objekt", "euro", kern=True),
+        F("steuer_35c.max_ermaessigung_objekt", "Max. Steuerermäßigung je Objekt", "euro", kern=True),
+        frist("steuer_35c"),
     ]},
     {"id": "fachwerte", "titel": "Fachwerte für den Bericht", "quelle_pflicht": False, "felder": [
         *quelle("fachwerte.tma_em", kern=False, gruppe="U-Werte BEG EM (Technische Mindestanforderungen)"),
@@ -225,6 +249,21 @@ def pruefen(daten: dict, aenderungsnotiz: str | None = None) -> list[dict]:
         mit = lesen_pfad(daten, f"beg_em.hoechstgrenze_mit_isfp.{teil}")
         if _ist_zahl(ohne) and _ist_zahl(mit) and mit < ohne:
             f(f"beg_em.hoechstgrenze_mit_isfp.{teil}", "Höchstgrenze mit iSFP muss mindestens so hoch sein wie ohne iSFP")
+    grund, deckel, deckel40 = (lesen_pfad(daten, f"kfw_458.{t}") for t in ("grundfoerderung", "deckel", "deckel_einkommensbonus_40"))
+    if _ist_zahl(grund) and _ist_zahl(deckel) and deckel < grund:
+        f("kfw_458.deckel", "Höchstsatz muss mindestens so hoch sein wie die Grundförderung")
+    if _ist_zahl(deckel) and _ist_zahl(deckel40) and deckel40 < deckel:
+        f("kfw_458.deckel_einkommensbonus_40", "Höchstsatz bei Einkommensbonus 40 % muss mindestens so hoch sein wie der normale Höchstsatz")
+    kosten, ermaessigung = lesen_pfad(daten, "steuer_35c.max_kosten_objekt"), lesen_pfad(daten, "steuer_35c.max_ermaessigung_objekt")
+    if _ist_zahl(kosten) and _ist_zahl(ermaessigung) and ermaessigung > kosten:
+        f("steuer_35c.max_ermaessigung_objekt", "Steuerermäßigung kann nicht höher sein als die Aufwendungen")
+    tmax = lesen_pfad(daten, "beg_wg.tilgungszuschuss_max")
+    if _ist_zahl(tmax):
+        for s in EH:
+            t = lesen_pfad(daten, f"beg_wg.tilgungszuschuss.{s}")
+            if _ist_zahl(t) and t > tmax:
+                f("beg_wg.tilgungszuschuss_max", f"Höchstsatz liegt unter dem Tilgungszuschuss {EH_TEXT[s]}")
+                break
     if aenderungsnotiz is not None and not aenderungsnotiz.strip():
         f("aenderungsnotiz", "Bitte kurz beschreiben, was sich ändert und warum")
     return fehler

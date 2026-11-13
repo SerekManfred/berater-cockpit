@@ -46,9 +46,22 @@ def admin_anlegen() -> int:
     return 0
 
 
-def konditionen_entwurf(datei: str, notiz: str) -> int:
-    """Entwurf als Kopie der aktiven Version anlegen und die Abschnitte aus einer JSON-Datei einsetzen.
+def _zusammenfuehren(ziel: dict, quelle: dict):
+    """Abschnitte tief zusammenführen: Werte aus späteren Dateien ergänzen bzw. ersetzen frühere."""
+    for k, v in quelle.items():
+        if k.startswith("_"):
+            continue  # Hinweise in der Datei (z. B. „_hinweis“) sind keine Konditionen
+        if isinstance(v, dict) and isinstance(ziel.get(k), dict):
+            _zusammenfuehren(ziel[k], v)
+        else:
+            ziel[k] = v
+
+
+def konditionen_entwurf(dateien: list[str] | str, notiz: str) -> int:
+    """Entwurf als Kopie der aktiven Version anlegen und die Abschnitte aus einer oder mehreren JSON-Dateien einsetzen
+    (z. B. app/konditionen/ergaenzung_init_v3.json – ergänzt einzelne Felder, der Rest bleibt wie in der aktiven Version).
     Ersteller bleibt leer („Kommandozeile“) – freigeben muss eine Person mit Rolle pruefer/admin über die Oberfläche."""
+    import copy
     import json
     from pathlib import Path
 
@@ -57,9 +70,13 @@ def konditionen_entwurf(datei: str, notiz: str) -> int:
     from app.konditionen_zentrale import entwurf_anlegen, pruefen
     from app.modelle import KonditionenVersion
 
-    aenderungen = json.loads(Path(datei).read_text(encoding="utf-8"))
+    if isinstance(dateien, str):
+        dateien = [dateien]
     with SessionLocal() as db:
         basis = db.scalar(select(KonditionenVersion).where(KonditionenVersion.status == "aktiv"))
+        aenderungen = copy.deepcopy(basis.daten)
+        for datei in dateien:
+            _zusammenfuehren(aenderungen, json.loads(Path(datei).read_text(encoding="utf-8")))
         try:
             v = entwurf_anlegen(db, None, None, basis, aenderungen, notiz)
         except HTTPException as fehler:
@@ -78,7 +95,8 @@ def main(argv=None) -> int:
     befehle = parser.add_subparsers(dest="befehl", required=True)
     befehle.add_parser("admin-anlegen", help="Admin-Konto anlegen (Passwort wird abgefragt)")
     k = befehle.add_parser("konditionen-entwurf", help="Konditionen-Entwurf aus aktiver Version + JSON-Datei anlegen")
-    k.add_argument("datei", help="JSON mit den zu setzenden Abschnitten, z. B. app/konditionen/fachwerte_startbestand.json")
+    k.add_argument("datei", nargs="+", help="JSON-Datei(en) mit den zu setzenden Abschnitten, "
+                   "z. B. app/konditionen/ergaenzung_init_v3.json")
     k.add_argument("--notiz", required=True, help="Änderungsnotiz für die Prüfung")
     args = parser.parse_args(argv)
     if args.befehl == "admin-anlegen":

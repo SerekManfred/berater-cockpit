@@ -1,0 +1,24 @@
+{
+ "_hinweis": "Ergänzung für Konditionen-Version 3 (Phase 2b, INIT/MEH-Bericht). Werte = bisherige Standardwerte des INIT-Skills nach BEG-Reform 21.07.2026. Vor Freigabe im Vier-Augen-Prinzip gegen die Quellen prüfen.",
+ "beg_em": { "isfp_bonus_mindestbetrag": 30000 },
+ "beg_wg": { "tilgungszuschuss_max": 0.40 },
+ "kfw_458": {
+  "quelle": "KfW-Produktseite 458 und Hausbankenmitteilung 61/2026; Ökozentrum NRW Zusammenfassung BEG-Reform 18.08.2026",
+  "geprueft_am": "2026-11-12",
+  "hoechstkosten": { "erste_we": 28000, "we_2_bis_6": 15000, "ab_we_7": 8000 },
+  "hoechstkosten_hinweis": "1. WE ab 01.02.2027 halbjährlich -750 EUR",
+  "grundfoerderung": 0.30,
+  "klimabonus": 0.16,
+  "klimabonus_hinweis": "ab 01.02.2027 12 %, 01.08.2027 8 %, 01.02.2028 4 %, ab 01.08.2028 0 %; bei Gasheizung nur, wenn Inbetriebnahme mind. 20 Jahre zurückliegt",
+  "einkommensbonus_stufen": [0.10, 0.30, 0.40],
+  "deckel": 0.70,
+  "deckel_einkommensbonus_40": 0.80
+ },
+ "steuer_35c": {
+  "quelle": "§ 35c EStG (gesetze-im-internet.de)",
+  "geprueft_am": "2026-11-12",
+  "quote_text": "20 % / 3 J.",
+  "max_kosten_objekt": 200000,
+  "max_ermaessigung_objekt": 40000
+ }
+}
