@@ -1,7 +1,8 @@
 """Tabellen benutzer, sitzung, protokoll. Änderungen nur zusammen mit einer Alembic-Migration."""
 from datetime import UTC, date, datetime
 
-from sqlalchemy import JSON, BigInteger, Boolean, Date, DateTime, ForeignKey, Index, Integer, String, Text, UniqueConstraint, text
+from sqlalchemy import (JSON, BigInteger, Boolean, Date, DateTime, ForeignKey, Index, Integer, SmallInteger, String, Text,
+                        UniqueConstraint, text)
 from sqlalchemy.dialects.postgresql import ARRAY, JSONB
 from sqlalchemy.orm import Mapped, mapped_column
 from sqlalchemy.types import TypeDecorator
@@ -94,6 +95,18 @@ class Projekt(Base):
     zustaendig_id: Mapped[int | None] = mapped_column(ForeignKey("benutzer.id", ondelete="SET NULL"), index=True)
     status: Mapped[str] = mapped_column(String(20), nullable=False, default="offen")
     notiz: Mapped[str | None] = mapped_column(Text)
+    # Optionale Angaben für die Vor-Ort-Checkliste (Migration 0005)
+    kunde_ansprechpartner: Mapped[str | None] = mapped_column(String(200))
+    kunde_strasse: Mapped[str | None] = mapped_column(String(200))  # Anschrift des Auftraggebers, falls abweichend
+    kunde_plz: Mapped[str | None] = mapped_column(String(10))
+    kunde_ort: Mapped[str | None] = mapped_column(String(100))
+    kunde_telefon: Mapped[str | None] = mapped_column(String(50))
+    kunde_email: Mapped[str | None] = mapped_column(String(200))
+    objekt_bezeichnung: Mapped[str | None] = mapped_column(String(200))  # z. B. Name der Kirche
+    wohneinheiten: Mapped[int | None] = mapped_column(SmallInteger)
+    we_selbstgenutzt: Mapped[int | None] = mapped_column(SmallInteger)
+    we_vermietet: Mapped[int | None] = mapped_column(SmallInteger)
+    termin_am: Mapped[datetime | None] = mapped_column(UTCZeit)  # Vor-Ort-Termin
     erstellt_von_id: Mapped[int | None] = mapped_column(ForeignKey("benutzer.id", ondelete="SET NULL"))
     erstellt_am: Mapped[datetime] = mapped_column(UTCZeit, nullable=False, default=jetzt)
     geaendert_am: Mapped[datetime] = mapped_column(UTCZeit, nullable=False, default=jetzt, index=True)
@@ -129,7 +142,7 @@ DATEI_KATEGORIEN = ("kostenschaetzung", "energieausweis", "plaene", "fotos", "ch
 
 
 class Datei(Base):
-    """Hochgeladene Unterlage. Der Inhalt liegt im Datei-Volume unter speichername (zufällig, nie der Originalname)."""
+    """Unterlage (hochgeladen oder vom Generator erzeugt). Der Inhalt liegt im Datei-Volume unter speichername (zufällig, nie der Originalname)."""
     __tablename__ = "dateien"
     id: Mapped[int] = mapped_column(Integer, primary_key=True)
     projekt_id: Mapped[int] = mapped_column(ForeignKey("projekte.id"), nullable=False, index=True)
@@ -140,6 +153,8 @@ class Datei(Base):
     groesse: Mapped[int] = mapped_column(BigInteger, nullable=False)
     sha256: Mapped[str] = mapped_column(String(64), nullable=False, index=True)
     hat_vorschau: Mapped[bool] = mapped_column(Boolean, nullable=False, default=False)
+    quelle: Mapped[str] = mapped_column(String(20), nullable=False, default="upload", server_default="upload")  # upload | generator
+    checkliste_stand: Mapped[str | None] = mapped_column(String(20))  # Stand des Erfassungsbogens (nur erzeugte Checklisten)
     hochgeladen_von_id: Mapped[int | None] = mapped_column(ForeignKey("benutzer.id", ondelete="SET NULL"))
     hochgeladen_am: Mapped[datetime] = mapped_column(UTCZeit, nullable=False, default=jetzt)
     geloescht_am: Mapped[datetime | None] = mapped_column(UTCZeit)

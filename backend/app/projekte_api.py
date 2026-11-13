@@ -6,13 +6,14 @@ Rechte (geprüft an jeder Route):
 - Projekte löschen (weich): nur admin
 - Berichte rechnen und speichern: berater, admin
 """
-from datetime import datetime
+import re
+from datetime import UTC, datetime
 from typing import Literal
 from zoneinfo import ZoneInfo
 
 from fastapi import APIRouter, Depends, HTTPException, Request
 from fastapi.exceptions import RequestValidationError
-from pydantic import BaseModel, Field, ValidationError
+from pydantic import BaseModel, Field, ValidationError, field_validator, model_validator
 from sqlalchemy import func, or_, select
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session
@@ -36,12 +37,66 @@ ProjektStatus = Literal["offen", "in_bearbeitung", "abgeschlossen"]
 Modul = Literal[tuple(RECHNER)]  # type: ignore[valid-type]
 
 # Personenbezogene Felder: im Protokoll nur der Feldname, nicht der Inhalt
-PERSONENBEZOGEN = {"kunde_name", "objekt_strasse", "objekt_plz", "objekt_ort", "notiz"}
+PERSONENBEZOGEN = {"kunde_name", "objekt_strasse", "objekt_plz", "objekt_ort", "notiz",
+                   "kunde_ansprechpartner", "kunde_strasse", "kunde_plz", "kunde_ort", "kunde_telefon", "kunde_email",
+                   "objekt_bezeichnung"}
+BERLIN = ZoneInfo("Europe/Berlin")
+EMAIL_MUSTER = re.compile(r"^[^@\s]+@[^@\s]+\.[^@\s]+$")
+WE_FELDER = ("wohneinheiten", "we_selbstgenutzt", "we_vermietet")
 
 
 # ---------- Schemas ----------
 
-class ProjektDaten(BaseModel):
+class ProjektZusatz(BaseModel):
+    """Optionale Angaben (u. a. für die Vor-Ort-Checkliste). Leere Texte gelten als „nicht angegeben“."""
+    kunde_ansprechpartner: str | None = Field(None, max_length=200)
+    kunde_strasse: str | None = Field(None, max_length=200)
+    kunde_plz: str | None = Field(None, max_length=10)
+    kunde_ort: str | None = Field(None, max_length=100)
+    kunde_telefon: str | None = Field(None, max_length=50)
+    kunde_email: str | None = Field(None, max_length=200)
+    objekt_bezeichnung: str | None = Field(None, max_length=200)
+    wohneinheiten: int | None = Field(None, ge=0, le=9999)
+    we_selbstgenutzt: int | None = Field(None, ge=0, le=9999)
+    we_vermietet: int | None = Field(None, ge=0, le=9999)
+    termin_am: datetime | None = None  # ohne Zeitzone = Ortszeit Europe/Berlin
+
+    @field_validator("kunde_ansprechpartner", "kunde_strasse", "kunde_plz", "kunde_ort", "kunde_telefon", "kunde_email",
+                     "objekt_bezeichnung", mode="before")
+    @classmethod
+    def _leer_ist_none(cls, wert):
+        if isinstance(wert, str):
+            wert = wert.strip()
+            return wert or None
+        return wert
+
+    @field_validator("kunde_email")
+    @classmethod
+    def _email(cls, wert):
+        if wert is not None and not EMAIL_MUSTER.match(wert):
+            raise ValueError("Bitte eine gültige E-Mail-Adresse angeben (z. B. name@beispiel.de).")
+        return wert
+
+    @field_validator("termin_am")
+    @classmethod
+    def _termin(cls, wert):
+        if wert is None:
+            return None
+        if wert.tzinfo is None:
+            wert = wert.replace(tzinfo=BERLIN)
+        if not 2000 <= wert.astimezone(BERLIN).year <= 2100:
+            raise ValueError("Der Termin liegt außerhalb des gültigen Zeitraums.")
+        return wert.astimezone(UTC)  # gespeichert und ausgegeben immer in UTC
+
+
+def _we_pruefen(werte: dict):
+    """Selbstgenutzte und vermietete Wohneinheiten zusammen höchstens so viele wie Wohneinheiten insgesamt."""
+    gesamt = werte.get("wohneinheiten")
+    if gesamt is not None and (werte.get("we_selbstgenutzt") or 0) + (werte.get("we_vermietet") or 0) > gesamt:
+        raise ValueError("Selbstgenutzte und vermietete Wohneinheiten sind zusammen mehr als die Wohneinheiten insgesamt.")
+
+
+class ProjektDaten(ProjektZusatz):
     kunde_name: str = Field(min_length=1, max_length=200)
     objekt_strasse: str | None = Field(None, max_length=200)
     objekt_plz: str | None = Field(None, max_length=10)
@@ -51,8 +106,13 @@ class ProjektDaten(BaseModel):
     status: ProjektStatus = "offen"
     notiz: str | None = Field(None, max_length=10000)
 
+    @model_validator(mode="after")
+    def _wohneinheiten(self):
+        _we_pruefen(self.model_dump(include=set(WE_FELDER)))
+        return self
 
-class ProjektAenderung(BaseModel):
+
+class ProjektAenderung(ProjektZusatz):
     kunde_name: str | None = Field(None, min_length=1, max_length=200)
     objekt_strasse: str | None = Field(None, max_length=200)
     objekt_plz: str | None = Field(None, max_length=10)
@@ -88,10 +148,18 @@ def _projekt_aus(p: Projekt, namen: dict[int, str]) -> dict:
         "id": p.id, "projektnummer": p.projektnummer, "kunde_name": p.kunde_name,
         "objekt_strasse": p.objekt_strasse, "objekt_plz": p.objekt_plz, "objekt_ort": p.objekt_ort,
         "gebaeudeart": p.gebaeudeart, "status": p.status, "notiz": p.notiz,
+        "kunde_ansprechpartner": p.kunde_ansprechpartner, "kunde_strasse": p.kunde_strasse, "kunde_plz": p.kunde_plz,
+        "kunde_ort": p.kunde_ort, "kunde_telefon": p.kunde_telefon, "kunde_email": p.kunde_email,
+        "objekt_bezeichnung": p.objekt_bezeichnung, "wohneinheiten": p.wohneinheiten,
+        "we_selbstgenutzt": p.we_selbstgenutzt, "we_vermietet": p.we_vermietet, "termin_am": p.termin_am,
         "zustaendig_id": p.zustaendig_id, "zustaendig": namen.get(p.zustaendig_id),
         "erstellt_von_id": p.erstellt_von_id, "erstellt_von": namen.get(p.erstellt_von_id),
         "erstellt_am": p.erstellt_am, "geaendert_am": p.geaendert_am,
     }
+
+
+def _protokollwert(wert):
+    return wert.isoformat() if isinstance(wert, datetime) else wert
 
 
 def _bericht_kurz(b: Bericht, namen: dict[int, str]) -> dict:
@@ -251,11 +319,15 @@ def projekt_bearbeiten(projekt_id: int, daten: ProjektAenderung, request: Reques
     for pflicht in ("kunde_name", "gebaeudeart", "status"):
         if pflicht in werte and werte[pflicht] is None:
             raise HTTPException(422, f"{pflicht} darf nicht leer sein")
+    try:  # Wohneinheiten zusammen mit den gespeicherten Werten prüfen (Änderung kann nur ein Feld betreffen)
+        _we_pruefen({f: werte.get(f, getattr(p, f)) for f in WE_FELDER})
+    except ValueError as fehler:
+        raise HTTPException(422, str(fehler)) from None
     aenderungen = {}
     for feld, neu in werte.items():
         alt = getattr(p, feld)
         if neu != alt:
-            aenderungen[feld] = "geändert" if feld in PERSONENBEZOGEN else {"alt": alt, "neu": neu}
+            aenderungen[feld] = "geändert" if feld in PERSONENBEZOGEN else {"alt": _protokollwert(alt), "neu": _protokollwert(neu)}
             setattr(p, feld, neu)
     if aenderungen:
         p.geaendert_am = jetzt()
