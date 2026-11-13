@@ -18,6 +18,10 @@ felder:
   - { id: we_neu, label: "Davon neue WE", typ: zahl, sichtbar_wenn: kfw266 }
   - { id: umbaukosten_neue_we, label: "Umbaukosten neue WE (nicht energetisch)", typ: euro, sichtbar_wenn: kfw266 }
   - { id: massnahmen, label: "Maßnahmen und Kosten", typ: tabelle, pflicht: true }
+  # Optional (Phase 2c): unsere Angebote; ersetzen kosten_baubegleitung (beides zusammen → 422), C nur mit kfw266
+  - { id: angebote, label: "Unsere Angebote (optional)", typ: gruppe,
+      teile: { a: "Modellierung Gebäude", b: "BAFA Einzelmaßnahmen", c: "KfW 266 Umnutzung", d: "KfW Effizienzhaus 261" },
+      je_teil: [betrag, titel, leistungen], schalter: { anrechnung_a_in_d: true } }
 
 uploads:
   - { id: kostenschaetzung, label: "Kostenschätzung", formate: [pdf, xlsx] }

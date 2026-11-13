@@ -128,7 +128,7 @@ Ausführliches Fachkonzept: `docs/Konzept_Berater-Cockpit.docx` (falls abgelegt)
 - **Protokoll:** `konditionen_entwurf_angelegt`, `_entwurf_geaendert`, `_zur_pruefung`, `_zurueckgezogen`, `_freigegeben`, `_zurueckgewiesen`.
 - **Kommandozeile:** `python -m app.cli konditionen-entwurf DATEI.json --notiz "…"` legt einen Entwurf aus der aktiven Version plus den
   Abschnitten der Datei an (Ersteller „Kommandozeile“). So entstand am 12.11.2026 **Entwurf Version 2** mit den Fachwerten
-  (`app/konditionen/fachwerte_startbestand.json`, erzeugt aus `fachtexte.js`) – **noch nicht freigegeben**, wartet auf Einreichen und Prüfung.
+  (`app/konditionen/fachwerte_startbestand.json`, erzeugt aus `fachtexte.js`). Version 2 ist inzwischen freigegeben und aktiv (Stand 13.11.2026).
 
 ## Vor-Ort-Checklisten (Stand 13.11.2026, Phase 2a)
 - Generator 0.2.1 (Checklisten-Stand 13.11.2026): `POST /checkliste/{init|meh|kirche}` (Skills unverändert unter `generator/skills/`, Skill läuft als
@@ -148,6 +148,20 @@ Ausführliches Fachkonzept: `docs/Konzept_Berater-Cockpit.docx` (falls abgelegt)
   (widerspricht Regel 1). Entscheidung A (Rechenkern `app/rechenkern/vorort.py`) oder B (Sätze aus dem Snapshot, dokumentierte
   Ausnahme) steht aus. Bis dahin **keine** Berichtserzeugung INIT/MEH/Kirche im Cockpit.
 
+## Angebote A–D im Fördervergleich (Stand 13.11.2026, Phase 2c)
+- Optionale Eingabe `angebote` (`AngeboteIn` in `app/rechnen.py`): `a`, `b`, `d` Pflicht, `c` optional, je `betrag` (≥ 0),
+  `titel` (≤ 80), `leistungen` (≤ 300); `anrechnung_a_in_d` (Standard `true`, dann muss D ≥ A sein). Titel/Leistungen sind
+  Anzeigetexte, der Rechenkern bekommt nur die Beträge. Angebote **und** `kosten_baubegleitung > 0` zusammen → 422.
+- Rechenkern (`Angebote` in `app/rechenkern/foerdervergleich.py`): Kosten Fachplanung/Baubegleitung je Weg – EM = A + B,
+  EH = A + (D − A bei Anrechnung). Jedes Szenario liefert `angebotsweg` (Posten A/B bzw. A/D, dazu C nur bei `kfw266`, nicht
+  gefördert; Zuschuss anteilig nach Betrag; `eigenanteil`, `anrechnung_a`, `hoechstgrenze_greift`). Ohne Angebote `null` – der
+  Referenzfall rechnet unverändert. Tests: `tests/test_angebotsweg.py` (Rechenkern), `tests/test_angebote_api.py` (API,
+  Speichern, Generator, Abnahmefall 4 WE / Gegenprobe 1 WE mit echtem Generator).
+- Generator 0.3.0: Kapitel 9 „Unsere Leistungen auf Ihrem Weg“ nur mit `angebotsweg`, „Empfohlenes Vorgehen“ wird dann 10.
+- Oberfläche: aufklappbarer Abschnitt „Unsere Angebote (optional)“; Angebote gelten, sobald ein Betrag (A, B, D bzw. C bei KfW 266)
+  eingetragen ist – dann ist „Kosten Fachplanung/Baubegleitung“ gesperrt (0). Ergebnis: Zeile „Eigenanteil Planung/Begleitung“ je
+  Szenario aus `angebotsweg.eigenanteil`, Hinweis bei `hoechstgrenze_greift`.
+
 ## Module (erweiterbar)
 Jede Berichtsart ist ein Modul mit Beschreibung unter `modules/<id>/module.yaml`: Felder, Pflichtangaben, Upload-Slots,
 Fachregeln, Rechenkern, Generator. Die Oberfläche soll Masken aus dieser Beschreibung erzeugen. Neue Berichtsart = neues Modul, kein Umbau.
@@ -160,6 +174,7 @@ Fachregeln, Rechenkern, Generator. Die Oberfläche soll Masken aus dieser Beschr
 - **Phase 1a (erledigt 12.11.2026):** Word-Bericht Fördervergleich aus gespeicherten Berichten (siehe Abschnitt oben).
 - **Phase 1b (erledigt 12.11.2026):** Konditionen-Zentrale in PostgreSQL mit Versionen, Vier-Augen-Freigabe, Fachwerten und Fristen.
 - **Phase 2a (erledigt 13.11.2026):** Vor-Ort-Checklisten INIT/MEH/Kirche aus der Projektakte (siehe Abschnitt oben).
+- **Phase 2c (erledigt 13.11.2026):** Angebote A–D im Fördervergleich, Generator 0.3.0 (siehe Abschnitt oben).
 - **Phase 2:** INIT und MEH mit KI (Checklisten-Erkennung, Fotozuordnung) – vorhandene Generatoren `generate_report.js` aus den Skills einbinden.
 - **Phase 3:** Kirche. **Phase 4:** Änderungs-Monitor für Förderquellen, Freigabe-Workflow, Anbindung IR-Planer.
 
