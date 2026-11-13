@@ -2,12 +2,12 @@
 from typing import Literal
 
 from fastapi import HTTPException
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, Field, model_validator
 from sqlalchemy import select
 from sqlalchemy.orm import Session
 
 from app import fristen
-from app.rechenkern.foerdervergleich import Eingaben, Massnahme, vergleich
+from app.rechenkern.foerdervergleich import Angebote, Eingaben, Massnahme, vergleich
 
 FREIGEGEBEN = ("aktiv", "abgeloest")
 
@@ -48,6 +48,33 @@ class MassnahmeIn(BaseModel):
     eh_foerderfaehig: bool = True
 
 
+class AngebotIn(BaseModel):
+    betrag: float = Field(ge=0)
+    # Anzeigetexte für den Word-Bericht, z. B. Titel "Gebäudemodell und WPB-Prüfung". Der Rechenkern bekommt sie nicht.
+    titel: str | None = Field(None, max_length=80)
+    # Anzeigetext für den Word-Bericht, z. B. "3D-Erfassung, Prüfung WPB". Der Rechenkern bekommt ihn nicht.
+    leistungen: str | None = Field(None, max_length=300)
+
+
+class AngeboteIn(BaseModel):
+    """Unsere Angebote: A immer, B Einzelmaßnahmen, C nur bei KfW 266 (nicht gefördert), D Effizienzhaus."""
+    a: AngebotIn
+    b: AngebotIn
+    d: AngebotIn
+    c: AngebotIn | None = None
+    anrechnung_a_in_d: bool = True
+
+    @model_validator(mode="after")
+    def _d_mindestens_a(self):
+        if self.anrechnung_a_in_d and self.d.betrag < self.a.betrag:
+            raise ValueError("Angebot D muss mindestens so hoch sein wie A, weil A in D angerechnet wird")
+        return self
+
+    def fuer_rechenkern(self) -> Angebote:
+        return Angebote(a=self.a.betrag, b=self.b.betrag, d=self.d.betrag, c=self.c.betrag if self.c else 0.0,
+                        anrechnung_a_in_d=self.anrechnung_a_in_d)
+
+
 class FoerdervergleichEingaben(BaseModel):
     """Eingaben des Fördervergleichs – so werden sie auch im Bericht gespeichert."""
     we_nach_sanierung: int = Field(ge=1)
@@ -60,6 +87,8 @@ class FoerdervergleichEingaben(BaseModel):
     kfw266: bool = False
     we_neu: int = Field(0, ge=0)
     umbaukosten_neue_we: float = Field(0, ge=0)
+    # Optional: unsere Angebote A–D. Ersetzen kosten_baubegleitung und liefern den Ablauf im Bericht.
+    angebote: AngeboteIn | None = None
     # Anzeigefelder für den Word-Bericht (optional). Der Rechenkern bekommt sie nicht.
     # Auswahlwerte wie in modules/foerderung-em-eh/module.yaml.
     we_vor_sanierung: int | None = Field(None, ge=0)
@@ -83,8 +112,11 @@ def foerdervergleich_rechnen(daten: FoerdervergleichEingaben, kond: dict) -> dic
         if getattr(daten, schalter, False):
             raise HTTPException(422, f"Antragsfrist abgelaufen ({frist[8:10]}.{frist[5:7]}.{frist[:4]}): "
                                      f"{schalter.replace('kfw', 'KfW ')} kann nicht mehr gewählt werden.")
-    werte = daten.model_dump(exclude={"massnahmen", "konditionen_version"} | ANZEIGEFELDER)
-    e = Eingaben(**werte, massnahmen=[Massnahme(**m.model_dump()) for m in daten.massnahmen])
+    if daten.angebote and daten.kosten_baubegleitung:
+        raise HTTPException(422, "Bitte entweder Angebote A–D oder pauschale Kosten Baubegleitung angeben, nicht beides.")
+    werte = daten.model_dump(exclude={"massnahmen", "konditionen_version", "angebote"} | ANZEIGEFELDER)
+    e = Eingaben(**werte, massnahmen=[Massnahme(**m.model_dump()) for m in daten.massnahmen],
+                 angebote=daten.angebote.fuer_rechenkern() if daten.angebote else None)
     return vergleich(e, kond)
 
 
