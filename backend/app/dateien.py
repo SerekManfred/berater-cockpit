@@ -151,3 +151,15 @@ async def empfangen(stream, ziel: Path) -> tuple[int, str]:
 def entfernen(speichername: str):
     inhalt_pfad(speichername).unlink(missing_ok=True)
     vorschau_pfad(speichername).unlink(missing_ok=True)
+
+
+def bild_verkleinert(speichername: str, kante: int, qualitaet: int = 85) -> bytes:
+    """Foto für Bericht oder KI: höchstens `kante` Pixel an der längsten Seite, gedreht nach EXIF, als JPEG.
+    Metadaten (EXIF, GPS-Position) werden dabei nicht übernommen."""
+    import io
+    with Image.open(inhalt_pfad(speichername)) as bild:
+        bild = ImageOps.exif_transpose(bild)
+        bild.thumbnail((kante, kante))
+        puffer = io.BytesIO()
+        bild.convert("RGB").save(puffer, "JPEG", quality=qualitaet, optimize=True)
+    return puffer.getvalue()

@@ -14,6 +14,7 @@ projekte projekte id
 berichte berichte id
 dateien dateien id
 konditionen konditionen_versionen id
+entwuerfe bericht_entwuerfe id
 zaehler projektnummer_zaehler jahr"
 
 sql() { docker exec -i "$CONTAINER" psql -X -q -v ON_ERROR_STOP=1 -U "$BENUTZER" -d "$DB" -At -F' ' "$@"; }

@@ -4,7 +4,7 @@ from contextlib import asynccontextmanager
 from fastapi import Depends, FastAPI
 from sqlalchemy.orm import Session
 
-from app import auth, benutzer_api, checkliste, dateien_api, konditionen_zentrale, projekte_api, word
+from app import auth, bericht_init, benutzer_api, checkliste, dateien_api, konditionen_zentrale, projekte_api, word
 from app.auth import aktueller_benutzer, rolle
 from app.db import get_db
 from app.rechnen import FoerdervergleichIn, foerdervergleich_rechnen, lade_konditionen
@@ -25,6 +25,7 @@ app.include_router(dateien_api.router)
 app.include_router(word.router)
 app.include_router(checkliste.router)
 app.include_router(konditionen_zentrale.router)
+app.include_router(bericht_init.router)
 
 
 @app.get("/health")
@@ -36,7 +37,7 @@ def health():
 def module():
     return [
         {"id": "foerderung-em-eh", "titel": "Fördervergleich EM/EH", "ci": "Serek", "status": "aktiv"},
-        {"id": "init", "titel": "Vor-Ort-Bericht INIT", "ci": "Serek", "status": "geplant"},
+        {"id": "init", "titel": "Vor-Ort-Bericht INIT", "ci": "Serek", "status": "aktiv"},
         {"id": "meh", "titel": "Vor-Ort-Bericht MEH", "ci": "MEH", "status": "geplant"},
         {"id": "kirche", "titel": "Kirche", "ci": "Serek", "status": "geplant"},
     ]

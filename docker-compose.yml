@@ -19,6 +19,13 @@ services:
       SECRET_KEY: ${SECRET_KEY:?SECRET_KEY fehlt in der .env}   # Sitzungen und Verschlüsselung des 2FA-Geheimnisses
       ZWEI_FAKTOR_PFLICHT: ${ZWEI_FAKTOR_PFLICHT:-true}         # nur in der Entwicklung false
       GENERATOR_URL: http://cockpit-generator:3000
+      # KI-Textvorschläge (Phase 2b): Standard AUS. Erst einschalten, wenn API-Bedingungen und AVV vorliegen und der
+      # Geschäftsführer freigegeben hat (CLAUDE.md). Schlüssel nur in der .env, nie im Repository.
+      KI_AKTIV: ${KI_AKTIV:-false}
+      KI_ANBIETER: ${KI_ANBIETER:-anthropic}
+      KI_MODELL: ${KI_MODELL:-claude-sonnet-5-5}
+      KI_MAX_LAEUFE_TAG: ${KI_MAX_LAEUFE_TAG:-10}
+      ANTHROPIC_API_KEY: ${ANTHROPIC_API_KEY:-}
     networks: [default, cockpit-intern]
     depends_on:
       cockpit-db: { condition: service_healthy }   # Migrationen laufen beim Start der API

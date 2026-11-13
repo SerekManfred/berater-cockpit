@@ -48,10 +48,10 @@ def generator_senden(pfad: str, daten: dict, was: str = "Der Word-Bericht") -> b
     return generator_anfrage(pfad, daten, was).content
 
 
-def generator_anfrage(pfad: str, daten: dict, was: str = "Der Word-Bericht") -> httpx.Response:
+def generator_anfrage(pfad: str, daten: dict, was: str = "Der Word-Bericht", timeout: float | None = None) -> httpx.Response:
     """Wie generator_senden, liefert aber die ganze Antwort (z. B. für die Kopfzeile X-Checkliste-Stand)."""
     try:
-        with httpx.Client(transport=TRANSPORT, timeout=config.GENERATOR_TIMEOUT) as client:
+        with httpx.Client(transport=TRANSPORT, timeout=timeout or config.GENERATOR_TIMEOUT) as client:
             r = client.post(config.GENERATOR_URL + pfad, json=daten)
     except httpx.HTTPError:
         raise HTTPException(503, NICHT_ERREICHBAR) from None
@@ -71,6 +71,8 @@ def bericht_word(bericht_id: int, request: Request, ich: Benutzer = Depends(aktu
                  db: Session = Depends(get_db)):
     """Word-Bericht herunterladen – alle angemeldeten Rollen (auch Verwaltung, für den Versand)."""
     b, p = _bericht_laden(db, bericht_id)
+    if b.modul == "bericht-init":
+        return _gespeichertes_word(b, p, request, ich, db)
     if b.modul not in GENERATOR_PFAD:
         raise HTTPException(422, "Für diese Berichtsart gibt es noch keine Word-Ausgabe.")
     ersteller = _namen(db, [b.erstellt_von_id]).get(b.erstellt_von_id)
@@ -88,5 +90,22 @@ def bericht_word(bericht_id: int, request: Request, ich: Benutzer = Depends(aktu
     db.commit()
     return Response(inhalt, media_type=DOCX, headers={
         "Content-Disposition": f'attachment; filename="{dateiname}"',
+        "Cache-Control": "private, no-store", "X-Content-Type-Options": "nosniff",
+    })
+
+
+def _gespeichertes_word(b: Bericht, p: Projekt, request: Request, ich: Benutzer, db: Session) -> Response:
+    """Beratungsbericht INIT: das beim Erzeugen abgelegte Word-Dokument (Unterlagen, Kategorie „bericht“) ausliefern.
+    Es wird nicht neu erzeugt – Texte, Fotos und Zahlen bleiben genau so, wie sie freigegeben wurden."""
+    from app import dateien
+    from app.modelle import Datei
+    d = db.get(Datei, (b.eingaben or {}).get("word_datei_id"))
+    if d is None or d.geloescht_am is not None or not dateien.inhalt_pfad(d.speichername).exists():
+        raise HTTPException(404, "Das Word-Dokument dieses Berichts liegt nicht mehr in den Unterlagen (Papierkorb?).")
+    inhalt = dateien.inhalt_pfad(d.speichername).read_bytes()
+    protokollieren(db, request, "datei_heruntergeladen", ich.id, projekt_id=p.id, datei_id=d.id, bericht_id=b.id)
+    db.commit()
+    return Response(inhalt, media_type=DOCX, headers={
+        "Content-Disposition": f'attachment; filename="{d.dateiname_original}"',
         "Cache-Control": "private, no-store", "X-Content-Type-Options": "nosniff",
     })

@@ -18,7 +18,7 @@ from sqlalchemy.orm import Session
 from app import config, dateien
 from app.auth import aktueller_benutzer, rolle
 from app.db import get_db
-from app.modelle import Benutzer, Bericht, Datei, Projekt, jetzt
+from app.modelle import Benutzer, Bericht, BerichtEntwurf, Datei, Projekt, jetzt
 from app.protokoll import protokollieren
 
 router = APIRouter(tags=["Unterlagen und Papierkorb"])
@@ -249,6 +249,7 @@ def projekt_endgueltig_loeschen(projekt_id: int, daten: Bestaetigung, request: R
     if daten.bestaetigung.strip() != p.projektnummer:
         raise HTTPException(422, f"Zur Bestätigung bitte die Projektnummer {p.projektnummer} eingeben.")
     speichernamen = list(db.scalars(select(Datei.speichername).where(Datei.projekt_id == p.id)))
+    db.execute(delete(BerichtEntwurf).where(BerichtEntwurf.projekt_id == p.id))  # verweist auf Berichte → zuerst
     anzahl_berichte = db.execute(delete(Bericht).where(Bericht.projekt_id == p.id)).rowcount
     db.execute(delete(Datei).where(Datei.projekt_id == p.id))
     db.delete(p)

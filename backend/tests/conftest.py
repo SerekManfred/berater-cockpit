@@ -57,11 +57,11 @@ def _leere_tabellen():
     yield
     from app.db import SessionLocal
     from sqlalchemy import update
-    from app.modelle import Benutzer, Bericht, Datei, KonditionenVersion, Projekt, ProjektnummerZaehler, Protokoll, Sitzung
+    from app.modelle import Benutzer, Bericht, BerichtEntwurf, Datei, KonditionenVersion, Projekt, ProjektnummerZaehler, Protokoll, Sitzung
     with SessionLocal() as db:
         # Konditionen: nur der Startbestand (Version 1, aktiv) bleibt
         db.execute(delete(KonditionenVersion).where(KonditionenVersion.version != 1))
         db.execute(update(KonditionenVersion).where(KonditionenVersion.version == 1).values(status="aktiv"))
-        for tabelle in (Datei, Bericht, Projekt, ProjektnummerZaehler, Protokoll, Sitzung, Benutzer):
+        for tabelle in (BerichtEntwurf, Datei, Bericht, Projekt, ProjektnummerZaehler, Protokoll, Sitzung, Benutzer):
             db.execute(delete(tabelle))
         db.commit()

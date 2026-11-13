@@ -138,7 +138,7 @@ class Bericht(Base):
     erstellt_am: Mapped[datetime] = mapped_column(UTCZeit, nullable=False, default=jetzt)
 
 
-DATEI_KATEGORIEN = ("kostenschaetzung", "energieausweis", "plaene", "fotos", "checkliste", "angebote", "sonstiges")
+DATEI_KATEGORIEN = ("kostenschaetzung", "energieausweis", "plaene", "fotos", "checkliste", "angebote", "bericht", "sonstiges")
 
 
 class Datei(Base):
@@ -187,3 +187,27 @@ class KonditionenVersion(Base):
     geprueft_von_id: Mapped[int | None] = mapped_column(ForeignKey("benutzer.id", ondelete="SET NULL"))
     geprueft_am: Mapped[datetime | None] = mapped_column(UTCZeit)
     pruefnotiz: Mapped[str | None] = mapped_column(Text)
+
+
+# ---------- Bericht-Entwürfe (Phase 2b) ----------
+
+class BerichtEntwurf(Base):
+    """Arbeitsstand eines Beratungsberichts (z. B. INIT) über mehrere Sitzungen: Formular, Texte, Fotozuordnung,
+    Status je Abschnitt und KI-Läufe. Je Projekt und Modul genau ein Entwurf. Fertige Berichte entstehen daraus als
+    neue Version in „berichte“ (nie überschrieben); der Entwurf bleibt für die nächste Version erhalten."""
+    __tablename__ = "bericht_entwuerfe"
+    __table_args__ = (UniqueConstraint("projekt_id", "modul", name="uq_bericht_entwuerfe_projekt_modul"),)
+    id: Mapped[int] = mapped_column(Integer, primary_key=True)
+    projekt_id: Mapped[int] = mapped_column(ForeignKey("projekte.id"), nullable=False, index=True)
+    modul: Mapped[str] = mapped_column(String(50), nullable=False)
+    daten: Mapped[dict] = mapped_column(DETAILS_TYP, nullable=False, default=dict)          # Formular und Texte
+    foto_zuordnung: Mapped[dict] = mapped_column(DETAILS_TYP, nullable=False, default=dict)  # Datei-ID → Abschnitt/Unterschrift
+    abschnitte: Mapped[dict] = mapped_column(DETAILS_TYP, nullable=False, default=dict)      # Status je Abschnitt
+    ki_laeufe: Mapped[list] = mapped_column(DETAILS_TYP, nullable=False, default=list)       # Modell, Prompt, Rohantwort …
+    status: Mapped[str] = mapped_column(String(20), nullable=False, default="offen")
+    revision: Mapped[int] = mapped_column(Integer, nullable=False, default=1)  # gegen gleichzeitiges Überschreiben
+    letzter_bericht_id: Mapped[int | None] = mapped_column(ForeignKey("berichte.id", ondelete="SET NULL"))
+    erstellt_von_id: Mapped[int | None] = mapped_column(ForeignKey("benutzer.id", ondelete="SET NULL"))
+    erstellt_am: Mapped[datetime] = mapped_column(UTCZeit, nullable=False, default=jetzt)
+    bearbeitet_von_id: Mapped[int | None] = mapped_column(ForeignKey("benutzer.id", ondelete="SET NULL"))
+    bearbeitet_am: Mapped[datetime] = mapped_column(UTCZeit, nullable=False, default=jetzt)
