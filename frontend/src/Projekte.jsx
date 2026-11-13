@@ -1,6 +1,6 @@
 import React, { useEffect, useState } from "react";
 import { api, hatRolle, wordHerunterladen, zeit } from "./api.js";
-import { eur, Ergebnis, Foerdervergleich, KATEGORIEN } from "./Foerdervergleich.jsx";
+import { ANGEBOTE, eur, Ergebnis, Foerdervergleich, KATEGORIEN } from "./Foerdervergleich.jsx";
 import { Unterlagen, VorOrtCheckliste } from "./Unterlagen.jsx";
 
 export const GEBAEUDEARTEN = [["EFH", "Einfamilienhaus (EFH)"], ["ZFH", "Zweifamilienhaus (ZFH)"], ["MFH", "Mehrfamilienhaus (MFH)"],
@@ -407,7 +407,10 @@ function BerichtAnsicht({ ich, id, onZurueck, onGehe }) {
         <h2>Eingaben</h2>
         <dl className="daten">
           <dt>Wohneinheiten nach Sanierung</dt><dd>{e.we_nach_sanierung}</dd>
-          <dt>Fachplanung/Baubegleitung</dt><dd>{eur(e.kosten_baubegleitung)}</dd>
+          <dt>Fachplanung/Baubegleitung</dt><dd>{e.angebote ? "aus den Angeboten berechnet" : eur(e.kosten_baubegleitung)}</dd>
+          {e.angebote && <><dt>Unsere Angebote</dt><dd>{ANGEBOTE.filter(([k]) => e.angebote[k]).map(([k, titel]) =>
+            <div key={k}>{k.toUpperCase()} {e.angebote[k].titel || titel}: {eur(e.angebote[k].betrag)}{e.angebote[k].leistungen ? ` – ${e.angebote[k].leistungen}` : ""}</div>)}
+            <div className="klein">{e.angebote.anrechnung_a_in_d ? "A ist in D enthalten (angerechnet)" : "A wird nicht auf D angerechnet"}</div></dd></>}
           <dt>Honorar iSFP</dt><dd>{eur(e.kosten_isfp)}</dd>
           <dt>Effizienzhaus-Stufe</dt><dd>{e.eh_stufe}</dd>
           <dt>iSFP wird erstellt</dt><dd>{e.isfp ? "ja" : "nein"}</dd>

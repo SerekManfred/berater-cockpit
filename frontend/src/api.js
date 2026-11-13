@@ -5,7 +5,7 @@ function fehlertext(daten) {
   const d = daten?.detail;
   if (typeof d === "string") return d;
   if (d && typeof d === "object" && !Array.isArray(d) && d.meldung) return d.meldung;
-  if (Array.isArray(d)) return d.map(f => (f.loc?.at(-1) === "neu" && f.type === "string_too_short") ? "Das neue Passwort braucht mindestens 12 Zeichen." : f.msg).join(" ");
+  if (Array.isArray(d)) return d.map(f => (f.loc?.at(-1) === "neu" && f.type === "string_too_short") ? "Das neue Passwort braucht mindestens 12 Zeichen." : String(f.msg).replace(/^Value error, /, "")).join(" ");
   return "";
 }
 

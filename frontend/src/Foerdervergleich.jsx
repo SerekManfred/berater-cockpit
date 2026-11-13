@@ -32,8 +32,47 @@ export const BESTANDSHEIZUNG = ["fossil, älter als 5 Jahre", "neu in den letzte
 export const NUTZUNG = ["komplett vermietet", "teilweise selbstgenutzt", "komplett selbstgenutzt"];
 export const WPB_STATUS = ["ja", "nein", "unbekannt"];
 
-function Feld({ label, value, onChange, type = "number" }) {
-  return <label>{label}<input type={type} value={value} onChange={e => onChange(type === "number" ? Number(e.target.value) : e.target.value)} /></label>;
+// Unsere Angebote A–D: [Kennung, vorbelegter Titel, Hinweis]. Beträge, Zuschüsse und Eigenanteile rechnet nur der Rechenkern.
+export const ANGEBOTE = [
+  ["a", "Modellierung Gebäude", "immer – gefördert als Fachplanung/Baubegleitung", "z. B. 3D-Erfassung, Prüfung WPB"],
+  ["b", "BAFA Einzelmaßnahmen", "Weg Einzelmaßnahmen – gefördert", "z. B. Fachplanung und Baubegleitung BAFA"],
+  ["c", "KfW 266 Umnutzung", "nur mit KfW 266 – nicht gefördert", "z. B. Nachweise KfW 266"],
+  ["d", "KfW Effizienzhaus 261", "Weg Effizienzhaus – gefördert", "z. B. Effizienzhaus-Nachweis, Baubegleitung KfW"],
+];
+
+// Gespeicherte Angebote → Formularzustand (Beträge als Text, damit ein leeres Feld „nicht ausgefüllt“ bedeutet)
+function angeboteFormular(a) {
+  const f = { anrechnung_a_in_d: a?.anrechnung_a_in_d ?? true };
+  for (const [k, titel] of ANGEBOTE)
+    f[k] = { betrag: a?.[k]?.betrag !== undefined ? String(a[k].betrag) : "", titel: a?.[k]?.titel ?? titel, leistungen: a?.[k]?.leistungen ?? "" };
+  return f;
+}
+
+// Formularzustand → Eingaben. Keine Angebote, solange kein Betrag eingetragen ist. C nur mit KfW 266.
+function angeboteDaten(f, kfw266) {
+  const kennungen = ["a", "b", "d", ...(kfw266 ? ["c"] : [])];
+  if (!kennungen.some(k => f[k].betrag.trim() !== "")) return null;
+  const eintrag = k => {
+    const x = { betrag: Number(f[k].betrag.replace(",", ".")) || 0 };
+    if (f[k].titel.trim()) x.titel = f[k].titel.trim();
+    if (f[k].leistungen.trim()) x.leistungen = f[k].leistungen.trim();
+    return x;
+  };
+  const r = { a: eintrag("a"), b: eintrag("b"), d: eintrag("d"), anrechnung_a_in_d: f.anrechnung_a_in_d };
+  if (kfw266 && f.c.betrag.trim() !== "") r.c = eintrag("c");
+  return r;
+}
+
+// Eingaben mit den Angeboten aus dem Formular; mit Angeboten gibt es keine pauschalen Kosten Baubegleitung
+function mitAngeboten(n, f) {
+  const a = angeboteDaten(f, n.kfw266);
+  const r = { ...n };
+  if (a) { r.angebote = a; r.kosten_baubegleitung = 0; } else delete r.angebote;
+  return r;
+}
+
+function Feld({ label, value, onChange, type = "number", disabled }) {
+  return <label>{label}<input type={type} value={value} disabled={disabled} onChange={e => onChange(type === "number" ? Number(e.target.value) : e.target.value)} /></label>;
 }
 
 const schnellrechnung = d => api("/module/foerderung-em-eh/berechnen", { method: "POST", body: d });
@@ -52,6 +91,9 @@ export function Foerdervergleich({ titel = "Fördervergleich Einzelmaßnahmen / 
   const set = (k, v) => setD({ ...d, [k]: v });
   const setOpt = (k, v) => { const n = { ...d }; if (v === "" || v === null || v === undefined) delete n[k]; else n[k] = v; setD(n); };
   const setM = (i, k, v) => set("massnahmen", d.massnahmen.map((m, j) => j === i ? { ...m, [k]: v } : m));
+  const [ang, setAng] = useState(() => angeboteFormular(start.angebote));
+  const setA = (k, feld, v) => { const f = { ...ang, [k]: { ...ang[k], [feld]: v } }; setAng(f); setD(mitAngeboten(d, f)); };
+  const setAnrechnung = v => { const f = { ...ang, anrechnung_a_in_d: v }; setAng(f); setD(mitAngeboten(d, f)); };
   useEffect(() => { setErg(null); setBerechnetMit(null); }, [rechenSchluessel]);
   const aktuell = erg && berechnetMit === JSON.stringify(d);
   const [fristen, setFristen] = useState([]);
@@ -83,7 +125,12 @@ export function Foerdervergleich({ titel = "Fördervergleich Einzelmaßnahmen / 
         <h2>Eckparameter</h2>
         <div className="felder">
           <Feld label="Wohneinheiten nach Sanierung" value={d.we_nach_sanierung} onChange={v => set("we_nach_sanierung", v)} />
-          <Feld label="Kosten Fachplanung/Baubegleitung (€)" value={d.kosten_baubegleitung} onChange={v => set("kosten_baubegleitung", v)} />
+          {d.angebote
+            ? <label>Kosten Fachplanung/Baubegleitung (€)
+                <input type="text" value="aus den Angeboten" disabled aria-describedby="bb-aus-angeboten" />
+                <span id="bb-aus-angeboten" className="klein" style={{ fontWeight: "normal" }}>wird aus den Angeboten berechnet (je Weg)</span>
+              </label>
+            : <Feld label="Kosten Fachplanung/Baubegleitung (€)" value={d.kosten_baubegleitung} onChange={v => set("kosten_baubegleitung", v)} />}
           <Feld label="Honorar iSFP (€)" value={d.kosten_isfp} onChange={v => set("kosten_isfp", v)} />
           <label>Effizienzhaus-Stufe
             <select value={d.eh_stufe} onChange={e => set("eh_stufe", e.target.value)}>
@@ -95,7 +142,7 @@ export function Foerdervergleich({ titel = "Fördervergleich Einzelmaßnahmen / 
           <label><input type="checkbox" checked={d.isfp} onChange={e => set("isfp", e.target.checked)} /> iSFP wird erstellt</label>
           <label><input type="checkbox" checked={d.ee_klasse_erreichbar} onChange={e => set("ee_klasse_erreichbar", e.target.checked)} /> EE-Klasse rechnerisch erreichbar</label>
           <label><input type="checkbox" checked={d.kfw266} disabled={frist266?.status === "abgelaufen" && !d.kfw266}
-            onChange={e => set("kfw266", e.target.checked)} /> KfW 266 (Umnutzung zu Wohnraum)
+            onChange={e => setD(mitAngeboten({ ...d, kfw266: e.target.checked }, ang))} /> KfW 266 (Umnutzung zu Wohnraum)
             {frist266?.status === "abgelaufen" && <span className="frist-aus"> – Antragsfrist abgelaufen</span>}</label>
         </div>
         {frist266 && frist266.status !== "ok" && (d.kfw266 || frist266.status === "abgelaufen") && (
@@ -109,6 +156,34 @@ export function Foerdervergleich({ titel = "Fördervergleich Einzelmaßnahmen / 
           </div>
         )}
       </section>
+
+      <details className="karte programm-form" open={!!start.angebote}>
+        <summary><h2>Unsere Angebote (optional)</h2>{d.angebote && <span className="okzahl">wird berechnet</span>}</summary>
+        <p className="klein">Mit Angeboten rechnet der Fördervergleich die Kosten Fachplanung/Baubegleitung je Weg
+          (Einzelmaßnahmen: A + B, Effizienzhaus: A + D) und zeigt im Word-Bericht das Kapitel „Unsere Leistungen auf Ihrem Weg“.
+          Ohne Betrag bleiben die Angebote unberücksichtigt.</p>
+        {ANGEBOTE.filter(([k]) => k !== "c" || d.kfw266).map(([k, , hinweis, beispiel]) => (
+          <fieldset key={k} className="gruppe">
+            <legend>Angebot {k.toUpperCase()} <span style={{ fontWeight: "normal" }}>({hinweis})</span></legend>
+            <div className="felder">
+              <label>Betrag brutto (€)
+                <input type="number" min="0" step="0.01" value={ang[k].betrag} onChange={e => setA(k, "betrag", e.target.value)} />
+              </label>
+              <label>Titel
+                <input type="text" maxLength={80} value={ang[k].titel} onChange={e => setA(k, "titel", e.target.value)} />
+              </label>
+              <label style={{ gridColumn: "1 / -1" }}>Leistungen
+                <input type="text" maxLength={300} value={ang[k].leistungen} placeholder={beispiel} onChange={e => setA(k, "leistungen", e.target.value)} />
+              </label>
+            </div>
+          </fieldset>
+        ))}
+        <div className="schalter">
+          <label><input type="checkbox" checked={ang.anrechnung_a_in_d} onChange={e => setAnrechnung(e.target.checked)} />
+            A ist in D enthalten (wird angerechnet)</label>
+        </div>
+        {d.angebote && ang.anrechnung_a_in_d && <p className="klein">Im Weg Effizienzhaus wird D abzüglich A berechnet – A wird nur einmal bezahlt.</p>}
+      </details>
 
       {onSpeichern && (
         <section className="karte">
@@ -164,7 +239,7 @@ export function Foerdervergleich({ titel = "Fördervergleich Einzelmaßnahmen / 
         </div>
         <div className="aktionen">
           <button className="btn2" onClick={() => set("massnahmen", [...d.massnahmen, { name: "", kosten: 0, em_kategorie: "daemmung", eh_foerderfaehig: true }])}>Maßnahme hinzufügen</button>
-          <button className="btn2" onClick={() => { setD(BEISPIEL_REFERENZFALL); setErg(null); }}>Referenzfall MFH-Umnutzung (6 WE) laden</button>
+          <button className="btn2" onClick={() => { setD(BEISPIEL_REFERENZFALL); setAng(angeboteFormular()); setErg(null); }}>Referenzfall MFH-Umnutzung (6 WE) laden</button>
           <button className="btn" onClick={berechnen}>Berechnen</button>
         </div>
         {fehler && <div className="fehler">{fehler}</div>}
@@ -190,6 +265,9 @@ export function Ergebnis({ erg }) {
   const reihe = ["EM_ohne_WPB", "EM_WPB", "EH_ohne_WPB", "EH_WPB"];
   const beste = new Set(Object.values(erg.beste_wahl));
   const z = (k, f) => reihe.map(r => <td key={r} className={"z" + (k === "summe" && beste.has(r) ? " beste" : "")}>{s[r].foerderfaehig ? f(s[r]) : "–"}</td>);
+  const mitAngebot = reihe.some(r => s[r].angebotsweg);
+  const grenze = [["EM", "Einzelmaßnahmen"], ["EH", "Effizienzhaus"]]
+    .filter(([w]) => reihe.some(r => r.startsWith(w) && s[r].angebotsweg?.hoechstgrenze_greift)).map(([, t]) => t);
   const posten = [["beg_em", "BAFA Gebäudehülle + Lüftung"], ["isfp_bonus", "iSFP-Bonus"], ["wpb_bonus", "WPB-Bonus"], ["tilgungszuschuss", "Tilgungszuschuss KfW 261"], ["baubegleitung", "Fachplanung / Baubegleitung"], ["isfp_beratung", "iSFP-Beratung"]];
   return (
     <section className="karte">
@@ -214,10 +292,14 @@ export function Ergebnis({ erg }) {
             <tr className="summe"><td>Zuschüsse gesamt</td>{z("summe", x => eur(x.summe_zuschuesse_gesamt))}</tr>
             <tr><td>Eigenanteil energetisch</td>{z("k", x => eur(x.eigenanteil_energetisch))}</tr>
             <tr><td>Förderquote energetisch</td>{z("k", x => pct(x.foerderquote_energetisch))}</tr>
+            {mitAngebot && <tr><td>Eigenanteil Planung/Begleitung (unsere Angebote{reihe.some(r => s[r].angebotsweg?.posten.some(p => p.kennung === "C")) ? " inkl. C" : ""})</td>
+              {reihe.map(r => <td key={r} className="z">{s[r].angebotsweg ? eur(s[r].angebotsweg.eigenanteil) : "–"}</td>)}</tr>}
             <tr><td>Bewertung</td>{reihe.map(r => <td key={r} className="z">{beste.has(r) ? <span className="marke">beste Wahl {r.endsWith("ohne_WPB") ? "ohne" : "mit"} WPB</span> : ""}</td>)}</tr>
           </tbody>
         </table>
       </div>
+      {grenze.length > 0 && <div className="info">Zuschuss für Fachplanung/Baubegleitung durch die Höchstgrenze begrenzt
+        ({grenze.join(" und ")}) – der Eigenanteil der Angebote ist entsprechend höher.</div>}
       {[...new Set(erg.szenarien.flatMap(x => x.hinweise))].map(h => <div key={h} className="info">{h}</div>)}
       <p className="klein" style={{ marginTop: 12 }}>Berechnet mit Konditionen-Version {erg.konditionen_version}. Word-Ausgabe folgt in Phase 1.</p>
     </section>
