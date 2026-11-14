@@ -45,7 +45,8 @@ Datenvertrag (gleiche Schlüssel wie die `daten.json` der Skills; leere Felder b
 {
   "projekt_id": "2026-0001",                                   // Pflicht, steht in der Fußzeile jeder Seite
   "kunde":  { "name": "...", "ansprechpartner": "...", "strasse": "...", "plz_ort": "...", "telefon": "...", "email": "..." },
-  // kunde.strasse/plz_ort = Anschrift des Auftraggebers – NIE mit der Objektadresse auffüllen (dann leer lassen)
+  // kunde.* = die Partei, an die Berichte adressiert sind (Cockpit: app/parteien.py – Kunde/Eigentümer oder Auftraggeber).
+  // kunde.strasse/plz_ort = deren Anschrift – NIE mit der Objektadresse auffüllen (dann leer lassen)
   "objekt": { "strasse": "Musterweg 7", "plz_ort": "89352 Ellzee",          // ab 0.2.1, getrennt von der Kundenanschrift
               "adresse": "Straße Nr, PLZ Ort",                               // Kirche bzw. Ersatz, wenn strasse/plz_ort fehlen
               "bezeichnung": "(nur Kirche)", "gebaeudetyp": "EFH",
