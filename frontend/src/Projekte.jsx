@@ -4,6 +4,7 @@ import { ANGEBOTE, eur, Ergebnis, Foerdervergleich, KATEGORIEN } from "./Foerder
 import { Unterlagen, VorOrtCheckliste } from "./Unterlagen.jsx";
 import { BerichtInit } from "./BerichtInit.jsx";
 import { ZahlFeld } from "./ZahlFeld.jsx";
+import { Angebotsweg } from "./Angebotsweg.jsx";
 import { zahlUngueltig } from "./zahl.js";
 
 export const GEBAEUDEARTEN = [["EFH", "Einfamilienhaus (EFH)"], ["ZFH", "Zweifamilienhaus (ZFH)"], ["MFH", "Mehrfamilienhaus (MFH)"],
@@ -16,7 +17,9 @@ const NUR_ASSISTENT = ["bericht-init"]; // entstehen über den Bericht-Assistent
 const text = (liste, wert) => Object.fromEntries(liste)[wert] || wert;
 const datum = t => t ? new Date(t).toLocaleDateString("de-DE") : "–";
 const adresse = p => [p.objekt_strasse, [p.objekt_plz, p.objekt_ort].filter(Boolean).join(" ")].filter(Boolean).join(", ");
-const kundenAnschrift = p => [p.kunde_strasse, [p.kunde_plz, p.kunde_ort].filter(Boolean).join(" ")].filter(Boolean).join(", ");
+// Anschrift aus einem Feld-Präfix („auftraggeber“, „kunde“)
+const anschrift = (p, vor) => [p[vor + "_strasse"], [p[vor + "_plz"], p[vor + "_ort"]].filter(Boolean).join(" ")].filter(Boolean).join(", ");
+export const projektTitel = p => `${p.projektnummer} · ${p.projektname}`;
 const terminText = t => t ? new Date(t).toLocaleString("de-DE", { dateStyle: "medium", timeStyle: "short" }) + " Uhr" : "–";
 // <input type="datetime-local"> arbeitet in Ortszeit ohne Zone: ISO-Zeitpunkt ↔ "JJJJ-MM-TTTHH:MM"
 const zuLokal = t => { if (!t) return ""; const d = new Date(t); return new Date(d.getTime() - d.getTimezoneOffset() * 60000).toISOString().slice(0, 16); };
@@ -90,7 +93,7 @@ function ProjektListe({ ich, onOeffnen, onNeu }) {
       <p className="hinweis">Alle Projekte, zuletzt geänderte zuerst.</p>
       <section className="karte">
         <div className="felder">
-          <label>Suche (Kunde, Ort, Projektnummer)<input type="search" value={suche} onChange={e => setSuche(e.target.value)} /></label>
+          <label>Suche (Projektname, Auftraggeber, Kunde, Ort, Projektnummer)<input type="search" value={suche} onChange={e => setSuche(e.target.value)} /></label>
           <label>Status
             <select value={status} onChange={e => setStatus(e.target.value)}>
               <option value="">alle</option>
@@ -117,12 +120,12 @@ function ProjektTabelle({ liste, onOeffnen, kurz = false }) {
   return (
     <div className="karte tabelle">
       <table>
-        <thead><tr><th>Projektnummer</th><th>Kunde</th><th>Objekt</th>{!kurz && <th>Gebäudeart</th>}<th>Status</th>{!kurz && <th>Zuständig</th>}<th>Geändert</th></tr></thead>
+        <thead><tr><th>Projektnummer</th><th>Projekt</th><th>Kunde</th><th>Objekt</th>{!kurz && <th>Gebäudeart</th>}<th>Status</th>{!kurz && <th>Zuständig</th>}<th>Geändert</th></tr></thead>
         <tbody>
           {liste.map(p => (
             <tr key={p.id}>
               <td><button className="link-btn" onClick={() => onOeffnen(p.id)} aria-label={`Projekt ${p.projektnummer} öffnen`}>{p.projektnummer}</button></td>
-              <td>{p.kunde_name}</td><td>{adresse(p) || "–"}</td>
+              <td>{p.projektname}</td><td>{p.berichtskunde}</td><td>{adresse(p) || "–"}</td>
               {!kurz && <td>{text(GEBAEUDEARTEN, p.gebaeudeart)}</td>}
               <td><span className={"status status-" + p.status}>{text(PROJEKT_STATUS, p.status)}</span></td>
               {!kurz && <td>{p.zustaendig || "–"}</td>}
@@ -151,10 +154,39 @@ export function MeineProjekte({ onOeffnen }) {
 
 // ---------- Anlegen / Bearbeiten ----------
 
-const LEERES_PROJEKT = { kunde_name: "", objekt_strasse: "", objekt_plz: "", objekt_ort: "", gebaeudeart: "EFH", zustaendig_id: null, status: "offen", notiz: "",
-  kunde_ansprechpartner: "", objekt_bezeichnung: "", kunde_telefon: "", kunde_email: "", kunde_strasse: "", kunde_plz: "", kunde_ort: "",
-  wohneinheiten: null, we_selbstgenutzt: null, we_vermietet: null, termin_am: null };
+const LEERES_PROJEKT = { projektname: "", status: "offen", zustaendig_id: null, termin_am: null, notiz: "",
+  auftraggeber_name: "", auftraggeber_ansprechpartner: "", auftraggeber_strasse: "", auftraggeber_plz: "", auftraggeber_ort: "",
+  auftraggeber_telefon: "", auftraggeber_email: "",
+  kunde_ist_auftraggeber: true, kunde_name: "", kunde_strasse: "", kunde_plz: "", kunde_ort: "", kunde_telefon: "", kunde_email: "",
+  objekt_bezeichnung: "", objekt_strasse: "", objekt_plz: "", objekt_ort: "", gebaeudeart: "EFH",
+  wohneinheiten: null, we_selbstgenutzt: null, we_vermietet: null, berichte_an: "kunde" };
 const ZAHLEN = ["wohneinheiten", "we_selbstgenutzt", "we_vermietet"];
+const PFLICHT_TEXT = ["projektname", "auftraggeber_name"]; // werden nicht zu null, das Backend prüft „nicht leer“
+const KUNDE_FELDER = ["kunde_name", "kunde_strasse", "kunde_plz", "kunde_ort", "kunde_telefon", "kunde_email"];
+
+/** Formularzustand → Daten für POST/PATCH. Leere Texte = nicht angegeben; Kunden-Block nur ohne „zugleich Auftraggeber“. */
+export function projektDaten(p) {
+  const d = Object.fromEntries(Object.keys(LEERES_PROJEKT).map(k => [k,
+    ZAHLEN.includes(k) ? (p[k] ?? null)
+      : k === "termin_am" ? vonLokal(p[k])
+        : typeof p[k] === "string" ? (PFLICHT_TEXT.includes(k) ? p[k].trim() : (p[k].trim() || null)) : p[k]]));
+  if (d.kunde_ist_auftraggeber) for (const k of KUNDE_FELDER) d[k] = null;
+  return d;
+}
+
+function Textfeld({ label, feld, p, set, max = 200, ...rest }) {
+  return <label>{label}<input maxLength={max} value={p[feld] || ""} onChange={e => set(feld, e.target.value)} {...rest} /></label>;
+}
+
+function AnschriftFelder({ vor, p, set, hinweisId }) {
+  return <>
+    <Textfeld label="Straße und Hausnummer" feld={vor + "_strasse"} p={p} set={set} aria-describedby={hinweisId} />
+    <Textfeld label="PLZ" feld={vor + "_plz"} p={p} set={set} max={10} inputMode="numeric" aria-describedby={hinweisId} />
+    <Textfeld label="Ort" feld={vor + "_ort"} p={p} set={set} max={100} aria-describedby={hinweisId} />
+    <Textfeld label="Telefon" feld={vor + "_telefon"} p={p} set={set} max={50} type="tel" autoComplete="off" />
+    <Textfeld label="E-Mail" feld={vor + "_email"} p={p} set={set} type="email" autoComplete="off" />
+  </>;
+}
 
 function ProjektFormular({ start, onSpeichern, onAbbrechen, knopf }) {
   const [p, setP] = useState(() => {
@@ -174,73 +206,91 @@ function ProjektFormular({ start, onSpeichern, onAbbrechen, knopf }) {
     if (zahlFalsch) { setFehler("Wohneinheiten bitte als ganze Zahl eingeben (oder leer lassen)."); return; }
     if (weZuViel) { setFehler("Selbstgenutzte und vermietete Wohneinheiten sind zusammen mehr als die Wohneinheiten insgesamt."); return; }
     setLaeuft(true);
-    const daten = Object.fromEntries(Object.keys(LEERES_PROJEKT).map(k => [k,
-      ZAHLEN.includes(k) ? (p[k] ?? null)
-        : k === "termin_am" ? vonLokal(p[k])
-          : typeof p[k] === "string" && k !== "kunde_name" ? (p[k].trim() || null) : p[k]]));
-    try { await onSpeichern(daten); } catch (err) { setFehler(err.message); } finally { setLaeuft(false); }
+    try { await onSpeichern(projektDaten(p)); } catch (err) { setFehler(err.message); } finally { setLaeuft(false); }
   }
   const zahlFeld = (k, titel) => (
     <ZahlFeld label={titel} ganzzahl maxLength={5} wert={p[k]} aria-invalid={weZuViel || undefined} onChange={v => set(k, v)} />
   );
+  const nameKunde = p.kunde_ist_auftraggeber ? p.auftraggeber_name : p.kunde_name;
   return (
     <form onSubmit={senden}>
-      <div className="felder">
-        <label>Kunde (Name)<input required maxLength={200} value={p.kunde_name} onChange={e => set("kunde_name", e.target.value)} /></label>
-        <label>Straße und Hausnummer (Objekt)<input maxLength={200} value={p.objekt_strasse || ""} onChange={e => set("objekt_strasse", e.target.value)} /></label>
-        <label>PLZ<input inputMode="numeric" maxLength={10} value={p.objekt_plz || ""} onChange={e => set("objekt_plz", e.target.value)} /></label>
-        <label>Ort<input maxLength={100} value={p.objekt_ort || ""} onChange={e => set("objekt_ort", e.target.value)} /></label>
-        <label>Gebäudeart
-          <select value={p.gebaeudeart} onChange={e => set("gebaeudeart", e.target.value)}>
-            {GEBAEUDEARTEN.map(([k, t]) => <option key={k} value={k}>{t}</option>)}
-          </select>
-        </label>
-        <label>Zuständig
-          <select value={p.zustaendig_id ?? ""} onChange={e => set("zustaendig_id", e.target.value ? Number(e.target.value) : null)}>
-            <option value="">nicht zugewiesen</option>
-            {personen.map(b => <option key={b.id} value={b.id}>{b.name}</option>)}
-          </select>
-        </label>
-        <label>Status
-          <select value={p.status} onChange={e => set("status", e.target.value)}>
-            {PROJEKT_STATUS.map(([k, t]) => <option key={k} value={k}>{t}</option>)}
-          </select>
-        </label>
-      </div>
-
       <fieldset className="gruppe">
-        <legend>Kontakt</legend>
+        <legend>Projekt</legend>
         <div className="felder">
-          {kirche && <label>Ansprechpartner<input maxLength={200} value={p.kunde_ansprechpartner || ""} onChange={e => set("kunde_ansprechpartner", e.target.value)} /></label>}
-          {kirche && <label>Kirche / Bezeichnung<input maxLength={200} value={p.objekt_bezeichnung || ""} onChange={e => set("objekt_bezeichnung", e.target.value)} /></label>}
-          <label>Telefon<input type="tel" autoComplete="off" maxLength={50} value={p.kunde_telefon || ""} onChange={e => set("kunde_telefon", e.target.value)} /></label>
-          <label>E-Mail<input type="email" autoComplete="off" maxLength={200} value={p.kunde_email || ""} onChange={e => set("kunde_email", e.target.value)} /></label>
-        </div>
-        <p className="klein" id="hinweis-kundenanschrift">Nur ausfüllen, wenn die Anschrift des Auftraggebers von der Objektadresse abweicht.</p>
-        <div className="felder">
-          <label>Straße und Hausnummer (Auftraggeber)<input maxLength={200} aria-describedby="hinweis-kundenanschrift" value={p.kunde_strasse || ""} onChange={e => set("kunde_strasse", e.target.value)} /></label>
-          <label>PLZ (Auftraggeber)<input inputMode="numeric" maxLength={10} aria-describedby="hinweis-kundenanschrift" value={p.kunde_plz || ""} onChange={e => set("kunde_plz", e.target.value)} /></label>
-          <label>Ort (Auftraggeber)<input maxLength={100} aria-describedby="hinweis-kundenanschrift" value={p.kunde_ort || ""} onChange={e => set("kunde_ort", e.target.value)} /></label>
+          <label>Projektname<input required maxLength={120} value={p.projektname} placeholder="z. B. Umnutzung Arndtstraße 41"
+            onChange={e => set("projektname", e.target.value)} /></label>
+          <label>Status
+            <select value={p.status} onChange={e => set("status", e.target.value)}>
+              {PROJEKT_STATUS.map(([k, t]) => <option key={k} value={k}>{t}</option>)}
+            </select>
+          </label>
+          <label>Zuständig
+            <select value={p.zustaendig_id ?? ""} onChange={e => set("zustaendig_id", e.target.value ? Number(e.target.value) : null)}>
+              <option value="">nicht zugewiesen</option>
+              {personen.map(b => <option key={b.id} value={b.id}>{b.name}</option>)}
+            </select>
+          </label>
+          <label>Vor-Ort-Termin<input type="datetime-local" value={p.termin_am || ""} onChange={e => set("termin_am", e.target.value)} /></label>
         </div>
       </fieldset>
 
-      {!kirche && (
-        <fieldset className="gruppe">
-          <legend>Wohneinheiten</legend>
-          <div className="felder">
+      <fieldset className="gruppe">
+        <legend>Auftraggeber</legend>
+        <p className="klein" id="hinweis-anschrift">Anschriften nur eintragen, wenn bekannt – sie werden nie aus der Objektanschrift übernommen.</p>
+        <div className="felder">
+          <label>Name<input required maxLength={200} value={p.auftraggeber_name} onChange={e => set("auftraggeber_name", e.target.value)} /></label>
+          <Textfeld label="Ansprechpartner" feld="auftraggeber_ansprechpartner" p={p} set={set} />
+          <AnschriftFelder vor="auftraggeber" p={p} set={set} hinweisId="hinweis-anschrift" />
+        </div>
+      </fieldset>
+
+      <fieldset className="gruppe">
+        <legend>Kunde / Eigentümer</legend>
+        <div className="schalter">
+          <label><input type="checkbox" checked={p.kunde_ist_auftraggeber} onChange={e => set("kunde_ist_auftraggeber", e.target.checked)} />
+            Kunde ist zugleich Auftraggeber</label>
+        </div>
+        {!p.kunde_ist_auftraggeber && (
+          <div className="felder" style={{ marginTop: 12 }}>
+            <label>Name<input required maxLength={200} value={p.kunde_name || ""} onChange={e => set("kunde_name", e.target.value)} /></label>
+            <AnschriftFelder vor="kunde" p={p} set={set} hinweisId="hinweis-anschrift" />
+          </div>
+        )}
+      </fieldset>
+
+      <fieldset className="gruppe">
+        <legend>Objekt</legend>
+        <div className="felder">
+          <Textfeld label={kirche ? "Kirche / Bezeichnung" : "Objektbezeichnung (optional)"} feld="objekt_bezeichnung" p={p} set={set} />
+          <Textfeld label="Straße und Hausnummer" feld="objekt_strasse" p={p} set={set} />
+          <Textfeld label="PLZ" feld="objekt_plz" p={p} set={set} max={10} inputMode="numeric" />
+          <Textfeld label="Ort" feld="objekt_ort" p={p} set={set} max={100} />
+          <label>Gebäudeart
+            <select value={p.gebaeudeart} onChange={e => set("gebaeudeart", e.target.value)}>
+              {GEBAEUDEARTEN.map(([k, t]) => <option key={k} value={k}>{t}</option>)}
+            </select>
+          </label>
+        </div>
+        {!kirche && (
+          <div className="felder" style={{ marginTop: 12 }}>
             {zahlFeld("wohneinheiten", "Wohneinheiten insgesamt")}
             {zahlFeld("we_selbstgenutzt", "davon selbstgenutzt")}
             {zahlFeld("we_vermietet", "davon vermietet")}
           </div>
-          {weZuViel && <p className="frist-aus" role="alert">Selbstgenutzt und vermietet sind zusammen mehr als die Wohneinheiten insgesamt.</p>}
-        </fieldset>
-      )}
+        )}
+        {weZuViel && <p className="frist-aus" role="alert">Selbstgenutzt und vermietet sind zusammen mehr als die Wohneinheiten insgesamt.</p>}
+      </fieldset>
 
       <fieldset className="gruppe">
-        <legend>Vor-Ort-Termin</legend>
-        <div className="felder">
-          <label>Datum und Uhrzeit<input type="datetime-local" value={p.termin_am || ""} onChange={e => set("termin_am", e.target.value)} /></label>
+        <legend>Berichte adressiert an</legend>
+        <div className="schalter">
+          <label><input type="radio" name="berichte_an" value="kunde" checked={p.berichte_an === "kunde"}
+            onChange={() => set("berichte_an", "kunde")} /> Kunde / Eigentümer{nameKunde ? ` (${nameKunde})` : ""}</label>
+          <label><input type="radio" name="berichte_an" value="auftraggeber" checked={p.berichte_an === "auftraggeber"}
+            onChange={() => set("berichte_an", "auftraggeber")} /> Auftraggeber{p.auftraggeber_name ? ` (${p.auftraggeber_name})` : ""}</label>
         </div>
+        <p className="klein">Name und Anschrift erscheinen als „Kunde“ in Checkliste, Beratungsbericht und Fördervergleich.
+          Die Objektanschrift bleibt immer die des Objekts.</p>
       </fieldset>
 
       <label style={{ marginTop: 14 }}>Notiz<textarea rows={4} maxLength={10000} value={p.notiz || ""} onChange={e => set("notiz", e.target.value)} /></label>
@@ -268,6 +318,15 @@ function ProjektNeu({ onFertig, onAbbrechen }) {
 
 // ---------- Projektakte ----------
 
+/** Name, Ansprechpartner, Anschrift, Telefon, E-Mail eines Blocks („auftraggeber“ | „kunde“). */
+function Partei({ p, vor }) {
+  const mail = p[vor + "_email"];
+  const zeilen = [p[vor + "_name"], p[vor + "_ansprechpartner"] && `Ansprechpartner: ${p[vor + "_ansprechpartner"]}`,
+    anschrift(p, vor), p[vor + "_telefon"] && `Tel. ${p[vor + "_telefon"]}`].filter(Boolean);
+  return <>{zeilen.map((z, i) => <div key={i}>{z}</div>)}
+    {mail && <div><a href={`mailto:${mail}`}>{mail}</a></div>}</>;
+}
+
 function ProjektAkte({ ich, id, onZurueck, onGehe }) {
   const [p, setP] = useState(null);
   const [fehler, setFehler] = useState("");
@@ -285,7 +344,7 @@ function ProjektAkte({ ich, id, onZurueck, onGehe }) {
   return (
     <>
       <div className="aktionen" style={{ marginTop: 0, marginBottom: 12 }}><button className="btn2" onClick={onZurueck}>← Alle Projekte</button></div>
-      <h1>{p.projektnummer} · {p.kunde_name}</h1>
+      <h1>{projektTitel(p)}</h1>
       <p className="hinweis">Angelegt am {datum(p.erstellt_am)} von {p.erstellt_von || "–"} · zuletzt geändert {zeit(p.geaendert_am)}</p>
       <Fehler text={fehler} />
 
@@ -297,14 +356,12 @@ function ProjektAkte({ ich, id, onZurueck, onGehe }) {
         ) : (
           <>
             <dl className="daten">
-              <dt>Kunde</dt><dd>{p.kunde_name}</dd>
-              <dt>Objekt</dt><dd>{adresse(p) || "–"}</dd>
+              <dt>Projektname</dt><dd>{p.projektname}</dd>
+              <dt>Auftraggeber</dt><dd><Partei p={p} vor="auftraggeber" /></dd>
+              <dt>Kunde / Eigentümer</dt><dd>{p.kunde_ist_auftraggeber ? "zugleich Auftraggeber" : <Partei p={p} vor="kunde" />}</dd>
+              <dt>Berichte adressiert an</dt><dd>{p.berichte_an === "auftraggeber" ? "Auftraggeber" : "Kunde / Eigentümer"} ({p.berichtskunde})</dd>
+              <dt>Objekt</dt><dd>{[p.objekt_bezeichnung, adresse(p)].filter(Boolean).join(" – ") || "–"}</dd>
               <dt>Gebäudeart</dt><dd>{text(GEBAEUDEARTEN, p.gebaeudeart)}</dd>
-              {p.gebaeudeart === "Kirche" && <><dt>Kirche / Bezeichnung</dt><dd>{p.objekt_bezeichnung || "–"}</dd>
-                <dt>Ansprechpartner</dt><dd>{p.kunde_ansprechpartner || "–"}</dd></>}
-              <dt>Telefon</dt><dd>{p.kunde_telefon || "–"}</dd>
-              <dt>E-Mail</dt><dd>{p.kunde_email ? <a href={`mailto:${p.kunde_email}`}>{p.kunde_email}</a> : "–"}</dd>
-              {kundenAnschrift(p) && <><dt>Anschrift Auftraggeber</dt><dd>{kundenAnschrift(p)}</dd></>}
               {p.gebaeudeart !== "Kirche" && <><dt>Wohneinheiten</dt><dd>{p.wohneinheiten == null ? "–"
                 : `${p.wohneinheiten} (selbstgenutzt ${p.we_selbstgenutzt ?? "–"}, vermietet ${p.we_vermietet ?? "–"})`}</dd></>}
               <dt>Vor-Ort-Termin</dt><dd>{terminText(p.termin_am)}</dd>
@@ -370,7 +427,7 @@ function ProjektAkte({ ich, id, onZurueck, onGehe }) {
 function BerichtRechnen({ projektId, projekt, basis = null, onFertig, onAbbrechen }) {
   const [aktuelle, setAktuelle] = useState(false);
   const titel = basis ? `Fördervergleich – neue Version (bisher V${basis.versionsnummer})` : "Neuer Fördervergleich";
-  const kopf = projekt ? `${projekt.projektnummer} · ${projekt.kunde_name}` : basis ? basis.projektnummer : "";
+  const kopf = projekt ? projektTitel(projekt) : basis ? basis.projektnummer : "";
 
   const rechnen = basis
     ? d => api(`/berichte/${basis.id}/berechnen`, { method: "POST", body: { eingaben: d, aktuelle_konditionen: aktuelle } })
@@ -447,6 +504,7 @@ function BerichtAnsicht({ ich, id, onZurueck, onGehe }) {
         </div>
       </section>
       <Ergebnis erg={b.ergebnis} />
+      <Angebotsweg erg={b.ergebnis} eingaben={b.eingaben} />
     </>
   );
 }

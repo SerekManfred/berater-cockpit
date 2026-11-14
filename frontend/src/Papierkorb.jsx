@@ -38,10 +38,10 @@ export function Papierkorb() {
             <h2>Projekte ({korb.projekte.length})</h2>
             {korb.projekte.length === 0 ? <p className="hinweis">Keine gelöschten Projekte.</p> : (
               <div className="tabelle"><table>
-                <thead><tr><th>Projekt</th><th>Kunde</th><th>Inhalt</th><th>Gelöscht von</th><th>Gelöscht am</th><th><span className="sr">Aktionen</span></th></tr></thead>
+                <thead><tr><th>Projekt</th><th>Projektname / Auftraggeber</th><th>Inhalt</th><th>Gelöscht von</th><th>Gelöscht am</th><th><span className="sr">Aktionen</span></th></tr></thead>
                 <tbody>{korb.projekte.map(p => (
                   <tr key={p.id}>
-                    <td>{p.projektnummer}</td><td>{p.kunde_name}{p.objekt_ort ? `, ${p.objekt_ort}` : ""}</td>
+                    <td>{p.projektnummer}</td><td>{p.projektname}<div className="klein">{p.auftraggeber_name}{p.objekt_ort ? `, ${p.objekt_ort}` : ""}</div></td>
                     <td>{p.berichte} Bericht(e), {p.dateien} Datei(en)</td><td>{p.geloescht_von || "unbekannt"}</td><td>{zeit(p.geloescht_am)}</td>
                     <td><div className="zeilen-aktionen">
                       <button className="btn2" onClick={() => ausfuehren(() => api(`/papierkorb/projekte/${p.id}/wiederherstellen`, { method: "POST" }), `Projekt ${p.projektnummer} wiederhergestellt.`)}>Wiederherstellen</button>

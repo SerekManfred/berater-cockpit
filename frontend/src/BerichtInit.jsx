@@ -109,7 +109,7 @@ export function BerichtInit({ ich, projekt, onZurueck }) {
     <>
       <div className="aktionen" style={{ marginTop: 0, marginBottom: 12 }}><button className="btn2" onClick={onZurueck}>← Zurück zur Projektakte</button></div>
       <h1>Beratungsbericht INIT · {projekt.projektnummer}</h1>
-      <p className="hinweis">{projekt.kunde_name} · Entwurf zuletzt bearbeitet {zeit(e.bearbeitet_am)}{e.bearbeitet_von ? ` von ${e.bearbeitet_von}` : ""} ·
+      <p className="hinweis">{projekt.projektname} · Kunde im Bericht: {projekt.berichtskunde} · Entwurf zuletzt bearbeitet {zeit(e.bearbeitet_am)}{e.bearbeitet_von ? ` von ${e.bearbeitet_von}` : ""} ·
         {" "}{offen ? `${offen} von ${e.abschnitte.length} Abschnitten noch nicht geprüft` : "alle Abschnitte geprüft"}</p>
       {!darf && <div className="info">Nur lesen: Entwürfe bearbeiten dürfen Berater und Verwaltung.</div>}
 
@@ -165,7 +165,7 @@ function DatenSchritt({ d, e, kond, projekt, aendern }) {
     <>
       <section className="karte">
         <h2>Objekt und Termin</h2>
-        <p className="klein">Kunde, Anschriften und Wohneinheiten kommen aus den Projektdaten. Die Kundenanschrift wird nie mit der Objektadresse aufgefüllt.</p>
+        <p className="klein">Kunde (je nach „Berichte adressiert an“), Anschriften und Wohneinheiten kommen aus den Projektdaten. Die Kundenanschrift wird nie mit der Objektadresse aufgefüllt.</p>
         <div className="felder">
           <Eingabe id="o-typ" label="Gebäudetyp" wert={d.objekt.gebaeudetyp} onChange={w => aendern("objekt.gebaeudetyp", w)} />
           <Eingabe id="o-bj" label="Baujahr" wert={d.objekt.baujahr} onChange={w => aendern("objekt.baujahr", w)} />
