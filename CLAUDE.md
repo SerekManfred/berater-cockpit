@@ -65,6 +65,25 @@ Ausführliches Fachkonzept: `docs/Konzept_Berater-Cockpit.docx` (falls abgelegt)
 - Projektnummern vergibt die Tabelle `projektnummer_zaehler` (je Jahr, gesperrt bis zum Commit) – nie aus dem Maximum der
   vorhandenen Projekte ableiten, sonst würde eine endgültig gelöschte Nummer erneut vergeben.
 
+## Projektdaten: Projektname, Auftraggeber, Kunde, Objekt (Stand 14.11.2026, Phase 2d)
+- **Migration 0007** (zurücknehmbar): bisherige `kunde_*` → **`auftraggeber_*` umbenannt** (fachlich war „Kunde“ immer der
+  Auftraggeber; Umbenennen statt Anzeige-Zuordnung, damit Spaltenname und Bedeutung stimmen). Neu: `projektname` (Pflicht, ≤ 120;
+  Bestand aus Objektbezeichnung → Objektstraße → Objektort → „Projekt <Nummer>“), Kunden-Block `kunde_name/_strasse/_plz/_ort/_telefon/
+  _email`, `kunde_ist_auftraggeber` (Standard true), `berichte_an` (`kunde` | `auftraggeber`, Standard `kunde`, Check-Constraint).
+  Downgrade verwirft Projektname, Kunden-Block und `berichte_an`.
+- Pflicht: `projektname`, `auftraggeber_name`; ohne „Kunde ist zugleich Auftraggeber“ auch `kunde_name`. Mit dem Haken speichert das
+  Backend den Kunden-Block leer (nichts Verborgenes). Alle Namen/Anschriften/Kontakte und der Projektname sind personenbezogen
+  (Protokoll nur „geändert“).
+- **Wer ist „Kunde“ in den Berichten:** `app/parteien.py` (`berichtskunde`, `weitere_partei`) – einzige Stelle für Checkliste,
+  INIT-Bericht und Fördervergleich (`projekt.kunde_name`). Objektanschrift nie aus Auftraggeber/Kunde auffüllen.
+  Checkliste: weicht die andere Partei ab, steht sie als Zusatz am Namen, z. B. „Erika Muster (Auftraggeber: Musterbau GmbH,
+  53639 Königswinter)“ – der Datenvertrag hat kein Notizfeld, die Skills bleiben unverändert.
+- Oberfläche: Titel/Listen „2026-0004 · Projektname“; Suche über Projektname, Auftraggeber, Kunde, Ort, Nummer; Formular in Blöcken
+  Projekt / Auftraggeber / Kunde (Haken) / Objekt / „Berichte adressiert an“. API liefert zusätzlich `berichtskunde` (Name).
+- Ablaufgrafik „Unsere Leistungen auf Ihrem Weg“ im Cockpit: `frontend/src/Angebotsweg.jsx` unter dem Ergebnis (Fördervergleich
+  und gespeicherter Bericht), Aufbau wie Kapitel 9. Beträge nur aus `ergebnis.szenarien.*.angebotsweg`, Texte und Preis D vor Anrechnung
+  aus `eingaben.angebote` – die Oberfläche rechnet nichts. Empfehlung nur bei WPB „ja“/„nein“ nach `beste_wahl`. Schmal: C/D untereinander.
+
 ## Unterlagen, Papierkorb, Datensicherung (Stand 12.11.2026, Teilauftrag 3)
 - **Upload:** eine Datei je Anfrage als roher Anfrage-Inhalt (`POST /projekte/{id}/dateien?kategorie=…&dateiname=…`), die Oberfläche
   lädt mehrere nacheinander hoch. Höchstgröße `MAX_DATEI_BYTES = 25_000_000` = Grenze des zentralen Caddy (`max_size 25MB`) und
@@ -134,12 +153,12 @@ Ausführliches Fachkonzept: `docs/Konzept_Berater-Cockpit.docx` (falls abgelegt)
 - Generator 0.2.1 (Checklisten-Stand 13.11.2026): `POST /checkliste/{init|meh|kirche}` (Skills unverändert unter `generator/skills/`, Skill läuft als
   Kindprozess über stdin/stdout, Container bleibt `read_only`). Antwort .docx + Kopfzeile `X-Checkliste-Stand`.
 - Migration 0005: optionale Projektfelder `kunde_ansprechpartner`, `kunde_strasse/_plz/_ort` (nur falls abweichend vom Objekt),
-  `kunde_telefon`, `kunde_email`, `objekt_bezeichnung`, `wohneinheiten`, `we_selbstgenutzt`, `we_vermietet`, `termin_am` (UTC;
+  `kunde_telefon`, `kunde_email` (**seit 0007 `auftraggeber_*`**, siehe „Projektdaten“), `objekt_bezeichnung`, `wohneinheiten`, `we_selbstgenutzt`, `we_vermietet`, `termin_am` (UTC;
   ohne Zone gesendet = Europe/Berlin); in `dateien` `quelle` (`upload` | `generator`) und `checkliste_stand`.
   Neue Kontaktfelder sind personenbezogen (Protokoll nur „geändert“).
 - `POST /projekte/{id}/checkliste?modul=…` (`app/checkliste.py`, berater/verwaltung/admin): Daten nach Datenvertrag
   (`generator/README.md`). **Kundenanschrift und Objektadresse getrennt** (Generator 0.2.1, Nachtrag 13.11.2026):
-  `kunde.strasse`/`plz_ort` nur aus den Kundenfeldern, nie mit der Objektadresse auffüllen (dann leer, Berater kreuzt
+  `kunde.*` aus dem Block, an den die Berichte adressiert sind (`app/parteien.py`, Phase 2d), nie mit der Objektadresse auffüllen (dann leer, Berater kreuzt
   „Kundenanschrift = Objektadresse“ an); `objekt.strasse`/`plz_ort` plus `objekt.adresse` (für Kirche). Berater = Zuständiger sonst Aufrufer.
   Ablage als Datei `Checkliste_<INIT|MEH|Kirche>_<Projektnummer>.docx` (ohne Kundennamen), Kategorie `checkliste`,
   gleicher Inhalt wird **nicht** als Duplikat abgelehnt (jede Erzeugung = neue Fassung). Protokoll `checkliste_erzeugt` /
@@ -210,8 +229,9 @@ Ausführliches Fachkonzept: `docs/Konzept_Berater-Cockpit.docx` (falls abgelegt)
 - `.env`: `KI_AKTIV` (Standard **aus**), `KI_MODELL` (Standard `claude-sonnet-5-5`), `KI_ANBIETER`, `KI_MAX_LAEUFE_TAG` (10 je Entwurf und
   Tag), `ANTHROPIC_API_KEY`. Zeitlimit 180 s, höchstens 20 Fotos (1024 px) je Lauf. Fehler kommen als Meldung, nie als Absturz.
 - **An die KI gehen nur:** Objekt-/Checklisten-/PV-/Verbrauchsangaben, Notizen, Förderwahl, die Programm-Abschnitte der aktiven
-  (freigegebenen) Konditionen, verkleinerte Fotos. **Nie:** Telefon, E-Mail, Kundenanschrift, Anwesende. Namen und Anschriften werden in allen
-  Texten durch Platzhalter (`[KUNDE]`, `[OBJEKTSTRASSE]` …) ersetzt und in der Antwort zurückgesetzt. Keine Webrecherche im Cockpit.
+  (freigegebenen) Konditionen, verkleinerte Fotos. **Nie:** Telefon, E-Mail, Anschriften von Auftraggeber und Kunde, Anwesende. Namen und
+  Anschriften von Auftraggeber, Kunde/Eigentümer und Objekt werden in allen Texten durch Platzhalter (`[KUNDE]`, `[AUFTRAGGEBER]`,
+  `[EIGENTUEMER]`, `[OBJEKTSTRASSE]` …) ersetzt und in der Antwort zurückgesetzt. Keine Webrecherche im Cockpit.
 - Die KI überschreibt nur Abschnitte im Status `offen`/`vorschlag` (andere nur, wenn ausdrücklich gewählt) und setzt nie Kosten,
   Einsparungen oder Förderbeträge (Regel 4).
 - **Datenschutz:** Vor der ersten Verarbeitung echter Kundendaten müssen die kommerziellen API-Bedingungen und der AVV (Data Processing
@@ -231,6 +251,7 @@ Fachregeln, Rechenkern, Generator. Die Oberfläche soll Masken aus dieser Beschr
 - **Phase 2a (erledigt 13.11.2026):** Vor-Ort-Checklisten INIT/MEH/Kirche aus der Projektakte (siehe Abschnitt oben).
 - **Phase 2c (erledigt 13.11.2026):** Angebote A–D im Fördervergleich, Generator 0.3.0 (siehe Abschnitt oben).
   Nachtrag 14.11.2026: Reihenfolge B = KfW 266 / C = Einzelmaßnahmen, Generator 0.4.1, einheitliche Zahlenfelder.
+- **Phase 2d (umgesetzt 14.11.2026, Abnahme offen):** Projektname, Auftraggeber/Kunde/Objekt, „Berichte adressiert an“, Ablaufgrafik im Cockpit.
 - **Phase 2b (umgesetzt 13.11.2026, Abnahme offen):** Beratungsbericht INIT mit KI-Textvorschlägen (siehe Abschnitte oben).
 - **Phase 2:** MEH (danach) und Kirche nach demselben Muster; INIT und MEH mit KI (Checklisten-Erkennung, Fotozuordnung) – vorhandene Generatoren `generate_report.js` aus den Skills einbinden.
 - **Phase 3:** Kirche. **Phase 4:** Änderungs-Monitor für Förderquellen, Freigabe-Workflow, Anbindung IR-Planer.
