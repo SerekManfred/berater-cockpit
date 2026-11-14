@@ -3,6 +3,8 @@ import { api, hatRolle, wordHerunterladen, zeit } from "./api.js";
 import { ANGEBOTE, eur, Ergebnis, Foerdervergleich, KATEGORIEN } from "./Foerdervergleich.jsx";
 import { Unterlagen, VorOrtCheckliste } from "./Unterlagen.jsx";
 import { BerichtInit } from "./BerichtInit.jsx";
+import { ZahlFeld } from "./ZahlFeld.jsx";
+import { zahlUngueltig } from "./zahl.js";
 
 export const GEBAEUDEARTEN = [["EFH", "Einfamilienhaus (EFH)"], ["ZFH", "Zweifamilienhaus (ZFH)"], ["MFH", "Mehrfamilienhaus (MFH)"],
   ["Nichtwohngebaeude", "Nichtwohngebäude"], ["Kirche", "Kirche"]];
@@ -157,27 +159,29 @@ const ZAHLEN = ["wohneinheiten", "we_selbstgenutzt", "we_vermietet"];
 function ProjektFormular({ start, onSpeichern, onAbbrechen, knopf }) {
   const [p, setP] = useState(() => {
     const s = { ...LEERES_PROJEKT, ...start };
-    return { ...s, termin_am: zuLokal(s.termin_am), ...Object.fromEntries(ZAHLEN.map(k => [k, s[k] ?? ""])) };
+    return { ...s, termin_am: zuLokal(s.termin_am), ...Object.fromEntries(ZAHLEN.map(k => [k, s[k] ?? null])) };
   });
   const [fehler, setFehler] = useState("");
   const [laeuft, setLaeuft] = useState(false);
   const personen = useBenutzerAuswahl();
   const set = (k, v) => setP({ ...p, [k]: v });
   const kirche = p.gebaeudeart === "Kirche";
-  const weZuViel = !kirche && p.wohneinheiten !== "" && Number(p.we_selbstgenutzt || 0) + Number(p.we_vermietet || 0) > Number(p.wohneinheiten);
+  // Zahlen: null = leer, NaN = ungültig (ZahlFeld)
+  const weZuViel = !kirche && typeof p.wohneinheiten === "number" && (p.we_selbstgenutzt || 0) + (p.we_vermietet || 0) > p.wohneinheiten;
+  const zahlFalsch = ZAHLEN.some(k => zahlUngueltig(p[k], true));
   async function senden(e) {
     e.preventDefault(); setFehler("");
+    if (zahlFalsch) { setFehler("Wohneinheiten bitte als ganze Zahl eingeben (oder leer lassen)."); return; }
     if (weZuViel) { setFehler("Selbstgenutzte und vermietete Wohneinheiten sind zusammen mehr als die Wohneinheiten insgesamt."); return; }
     setLaeuft(true);
     const daten = Object.fromEntries(Object.keys(LEERES_PROJEKT).map(k => [k,
-      ZAHLEN.includes(k) ? (p[k] === "" || p[k] === null ? null : Number(p[k]))
+      ZAHLEN.includes(k) ? (p[k] ?? null)
         : k === "termin_am" ? vonLokal(p[k])
           : typeof p[k] === "string" && k !== "kunde_name" ? (p[k].trim() || null) : p[k]]));
     try { await onSpeichern(daten); } catch (err) { setFehler(err.message); } finally { setLaeuft(false); }
   }
   const zahlFeld = (k, titel) => (
-    <label>{titel}<input type="number" inputMode="numeric" min={0} max={9999} step={1} value={p[k]}
-      aria-invalid={weZuViel || undefined} onChange={e => set(k, e.target.value)} /></label>
+    <ZahlFeld label={titel} ganzzahl maxLength={5} wert={p[k]} aria-invalid={weZuViel || undefined} onChange={v => set(k, v)} />
   );
   return (
     <form onSubmit={senden}>

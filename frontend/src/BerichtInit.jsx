@@ -1,5 +1,7 @@
 import React, { useEffect, useState } from "react";
 import { api, wordHerunterladen, zeit } from "./api.js";
+import { ZahlFeld } from "./ZahlFeld.jsx";
+import { zahlUngueltig } from "./zahl.js";
 
 // Beratungsbericht INIT: Daten → Fotos → KI-Vorschlag → Prüfen und freigeben → Bericht erzeugen.
 // Förderzahlen kommen ausschließlich aus dem Rechenkern (foerder_vorschau / Antwort von „erzeugen“); hier wird nichts gerechnet.
@@ -81,7 +83,13 @@ export function BerichtInit({ ich, projekt, onZurueck }) {
   const aendernZ = neu => { setZ(neu); setGeaendert(true); setMeldung(""); };
 
   async function speichern() {
-    setFehler(""); setLaeuft("speichern");
+    setFehler("");
+    // Ungültige Zahl (NaN) nicht still als „leer“ speichern
+    const falsch = [["we", "Wohneinheiten gesamt", true], ["we_eigen", "davon selbstgenutzt", true], ["we_verm", "davon vermietet", true],
+      ["kosten_einzel", "Investitionskosten Einzelmaßnahmen"], ["kosten_effizienzhaus", "Investitionskosten Effizienzhaus"]]
+      .filter(([k, , ganz]) => zahlUngueltig(d.foerder?.[k], ganz)).map(([, l]) => l);
+    if (falsch.length) { setFehler("Bitte als Zahl eingeben: " + falsch.join(", ") + "."); return false; }
+    setLaeuft("speichern");
     try { uebernehmen(await api(pfad, { method: "PUT", body: { revision: e.revision, daten: d, foto_zuordnung: z } })); setMeldung("Entwurf gespeichert."); return true; }
     catch (x) { setFehler(x.message); return false; } finally { setLaeuft(""); }
   }
@@ -223,9 +231,9 @@ function DatenSchritt({ d, e, kond, projekt, aendern }) {
       <section className="karte">
         <h2>Förderdaten</h2>
         <div className="felder">
-          <Eingabe id="f-we" typ="number" min="1" label="Wohneinheiten gesamt" wert={f.we} onChange={w => aendern("foerder.we", w === "" ? null : Number(w))} />
-          <Eingabe id="f-eig" typ="number" min="0" label="davon selbstgenutzt" wert={f.we_eigen} onChange={w => aendern("foerder.we_eigen", w === "" ? null : Number(w))} />
-          <Eingabe id="f-verm" typ="number" min="0" label="davon vermietet" wert={f.we_verm} onChange={w => aendern("foerder.we_verm", w === "" ? null : Number(w))} />
+          <ZahlFeld id="f-we" ganzzahl label="Wohneinheiten gesamt" wert={f.we} onChange={w => aendern("foerder.we", w)} />
+          <ZahlFeld id="f-eig" ganzzahl label="davon selbstgenutzt" wert={f.we_eigen} onChange={w => aendern("foerder.we_eigen", w)} />
+          <ZahlFeld id="f-verm" ganzzahl label="davon vermietet" wert={f.we_verm} onChange={w => aendern("foerder.we_verm", w)} />
           <label htmlFor="f-eink">Einkommensbonus KfW 458
             <select id="f-eink" value={String(f.einkommensbonus || 0)} onChange={x => aendern("foerder.einkommensbonus", Number(x.target.value))}>
               <option value="0">kein Einkommensbonus</option>
@@ -236,8 +244,8 @@ function DatenSchritt({ d, e, kond, projekt, aendern }) {
               <option value="">kein Effizienzhaus-Ziel</option>
               {ehStufen.map(s => <option key={s} value={s}>{EH_TEXT[s] || s}</option>)}
             </select></label>
-          <Eingabe id="f-ke" typ="number" min="0" label="Investitionskosten Einzelmaßnahmen (€)" wert={f.kosten_einzel} onChange={w => aendern("foerder.kosten_einzel", w === "" ? null : Number(w))} />
-          <Eingabe id="f-kh" typ="number" min="0" label="Investitionskosten Effizienzhaus (€)" wert={f.kosten_effizienzhaus} onChange={w => aendern("foerder.kosten_effizienzhaus", w === "" ? null : Number(w))} />
+          <ZahlFeld id="f-ke" label="Investitionskosten Einzelmaßnahmen (€)" wert={f.kosten_einzel} onChange={w => aendern("foerder.kosten_einzel", w)} />
+          <ZahlFeld id="f-kh" label="Investitionskosten Effizienzhaus (€)" wert={f.kosten_effizienzhaus} onChange={w => aendern("foerder.kosten_effizienzhaus", w)} />
         </div>
         <div className="schalter">
           <label><input type="checkbox" checked={!!f.klimabonus} onChange={x => aendern("foerder.klimabonus", x.target.checked)} /> Klimageschwindigkeitsbonus (KfW 458)</label>

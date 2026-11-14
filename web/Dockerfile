@@ -4,6 +4,8 @@ WORKDIR /app
 COPY frontend/package*.json ./
 RUN npm install
 COPY frontend/ .
+# Frontend-Tests (vitest) laufen beim Bauen – schlägt einer fehl, entsteht kein Image
+RUN npm test
 RUN npm run build
 
 # Stufe 2: Caddy liefert die Oberfläche aus und leitet /api an das Backend weiter

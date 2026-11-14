@@ -1,6 +1,8 @@
 import React, { useEffect, useState } from "react";
 import { api } from "./api.js";
 import { FristHinweise } from "./Konditionen.jsx";
+import { ZahlEingabe, ZahlFeld } from "./ZahlFeld.jsx";
+import { zahlenPruefen, zahlUngueltig } from "./zahl.js";
 
 export const eur = n => (n ?? 0).toLocaleString("de-DE", { maximumFractionDigits: 0 }) + " €";
 const pct = n => ((n ?? 0) * 100).toLocaleString("de-DE", { minimumFractionDigits: 1, maximumFractionDigits: 1 }) + " %";
@@ -32,34 +34,37 @@ export const BESTANDSHEIZUNG = ["fossil, älter als 5 Jahre", "neu in den letzte
 export const NUTZUNG = ["komplett vermietet", "teilweise selbstgenutzt", "komplett selbstgenutzt"];
 export const WPB_STATUS = ["ja", "nein", "unbekannt"];
 
-// Unsere Angebote A–D: [Kennung, vorbelegter Titel, Hinweis]. Beträge, Zuschüsse und Eigenanteile rechnet nur der Rechenkern.
+// Unsere Angebote A–D in der Reihenfolge des Ablaufs (ab 14.11.2026): [Kennung, vorbelegter Titel, Hinweis, Beispiel].
+// Beträge, Zuschüsse und Eigenanteile rechnet nur der Rechenkern.
 export const ANGEBOTE = [
   ["a", "Modellierung Gebäude", "immer – gefördert als Fachplanung/Baubegleitung", "z. B. 3D-Erfassung, Prüfung WPB"],
-  ["b", "BAFA Einzelmaßnahmen", "Weg Einzelmaßnahmen – gefördert", "z. B. Fachplanung und Baubegleitung BAFA"],
-  ["c", "KfW 266 Umnutzung", "nur mit KfW 266 – nicht gefördert", "z. B. Nachweise KfW 266"],
+  ["b", "KfW 266 Umnutzung", "nur mit KfW 266 – nicht gefördert", "z. B. Nachweise KfW 266"],
+  ["c", "BAFA Einzelmaßnahmen", "Weg Einzelmaßnahmen – gefördert", "z. B. Fachplanung und Baubegleitung BAFA"],
   ["d", "KfW Effizienzhaus 261", "Weg Effizienzhaus – gefördert", "z. B. Effizienzhaus-Nachweis, Baubegleitung KfW"],
 ];
 
-// Gespeicherte Angebote → Formularzustand (Beträge als Text, damit ein leeres Feld „nicht ausgefüllt“ bedeutet)
-function angeboteFormular(a) {
+const leer = x => x === null || x === undefined;
+
+// Gespeicherte Angebote → Formularzustand (Betrag: Zahl, null = nicht ausgefüllt, NaN = ungültig)
+export function angeboteFormular(a) {
   const f = { anrechnung_a_in_d: a?.anrechnung_a_in_d ?? true };
   for (const [k, titel] of ANGEBOTE)
-    f[k] = { betrag: a?.[k]?.betrag !== undefined ? String(a[k].betrag) : "", titel: a?.[k]?.titel ?? titel, leistungen: a?.[k]?.leistungen ?? "" };
+    f[k] = { betrag: a?.[k]?.betrag ?? null, titel: a?.[k]?.titel ?? titel, leistungen: a?.[k]?.leistungen ?? "" };
   return f;
 }
 
-// Formularzustand → Eingaben. Keine Angebote, solange kein Betrag eingetragen ist. C nur mit KfW 266.
-function angeboteDaten(f, kfw266) {
-  const kennungen = ["a", "b", "d", ...(kfw266 ? ["c"] : [])];
-  if (!kennungen.some(k => f[k].betrag.trim() !== "")) return null;
+// Formularzustand → Eingaben. Keine Angebote, solange kein Betrag eingetragen ist. B (KfW 266) nur mit KfW 266.
+export function angeboteDaten(f, kfw266) {
+  const kennungen = ["a", "c", "d", ...(kfw266 ? ["b"] : [])];
+  if (!kennungen.some(k => !leer(f[k].betrag))) return null;
   const eintrag = k => {
-    const x = { betrag: Number(f[k].betrag.replace(",", ".")) || 0 };
+    const x = { betrag: f[k].betrag ?? 0 };
     if (f[k].titel.trim()) x.titel = f[k].titel.trim();
     if (f[k].leistungen.trim()) x.leistungen = f[k].leistungen.trim();
     return x;
   };
-  const r = { a: eintrag("a"), b: eintrag("b"), d: eintrag("d"), anrechnung_a_in_d: f.anrechnung_a_in_d };
-  if (kfw266 && f.c.betrag.trim() !== "") r.c = eintrag("c");
+  const r = { a: eintrag("a"), c: eintrag("c"), d: eintrag("d"), anrechnung_a_in_d: f.anrechnung_a_in_d };
+  if (kfw266 && !leer(f.b.betrag)) r.b = eintrag("b");
   return r;
 }
 
@@ -71,8 +76,26 @@ function mitAngeboten(n, f) {
   return r;
 }
 
-function Feld({ label, value, onChange, type = "number", disabled }) {
-  return <label>{label}<input type={type} value={value} disabled={disabled} onChange={e => onChange(type === "number" ? Number(e.target.value) : e.target.value)} /></label>;
+// Zahlenfelder der Eckparameter: leer → 0, außer Wohneinheiten nach Sanierung (Pflicht)
+const ZAHLFELDER = [
+  ["we_nach_sanierung", "Wohneinheiten nach Sanierung", { pflicht: true, ganzzahl: true }],
+  ["kosten_baubegleitung", "Kosten Fachplanung/Baubegleitung"],
+  ["kosten_isfp", "Honorar iSFP"],
+  ["we_neu", "Davon neue WE (Umnutzung)", { ganzzahl: true }],
+  ["umbaukosten_neue_we", "Umbaukosten neue WE"],
+];
+
+/** Formular → Eingaben für den Rechenkern: Zahlen prüfen, leere Felder auf 0 (wo zulässig). */
+export function eingabenPruefen(d) {
+  const { werte, fehler } = zahlenPruefen(d, ZAHLFELDER);
+  werte.massnahmen = (d.massnahmen || []).map((m, i) => {
+    if (zahlUngueltig(m.kosten)) fehler.push(`Maßnahme ${i + 1}: Kosten bitte als Zahl eingeben`);
+    return { ...m, kosten: m.kosten ?? 0 };
+  });
+  if (zahlUngueltig(d.we_vor_sanierung, true)) fehler.push("Wohneinheiten vor Sanierung: bitte eine ganze Zahl eingeben");
+  for (const [k] of ANGEBOTE)
+    if (zahlUngueltig(d.angebote?.[k]?.betrag)) fehler.push(`Angebot ${k.toUpperCase()}: Betrag bitte als Zahl eingeben`);
+  return { werte, fehler };
 }
 
 const schnellrechnung = d => api("/module/foerderung-em-eh/berechnen", { method: "POST", body: d });
@@ -95,16 +118,18 @@ export function Foerdervergleich({ titel = "Fördervergleich Einzelmaßnahmen / 
   const setA = (k, feld, v) => { const f = { ...ang, [k]: { ...ang[k], [feld]: v } }; setAng(f); setD(mitAngeboten(d, f)); };
   const setAnrechnung = v => { const f = { ...ang, anrechnung_a_in_d: v }; setAng(f); setD(mitAngeboten(d, f)); };
   useEffect(() => { setErg(null); setBerechnetMit(null); }, [rechenSchluessel]);
-  const aktuell = erg && berechnetMit === JSON.stringify(d);
+  const geprueft = eingabenPruefen(d);
+  const aktuell = erg && !geprueft.fehler.length && berechnetMit === JSON.stringify(geprueft.werte);
   const [fristen, setFristen] = useState([]);
   useEffect(() => { api("/konditionen/fristen").then(f => setFristen(f.fristen)).catch(() => setFristen([])); }, []);
   const frist266 = fristen.find(f => f.schalter === "kfw266");
 
   async function berechnen() {
     setFehler(""); setErg(null);
+    if (geprueft.fehler.length) { setFehler("Bitte prüfen: " + geprueft.fehler.join(" · ")); return; }
     try {
-      const stand = JSON.stringify(d);
-      setErg(await rechnen(d));
+      const stand = JSON.stringify(geprueft.werte);
+      setErg(await rechnen(geprueft.werte));
       setBerechnetMit(stand);
     } catch (e) { setFehler("Berechnung nicht möglich: " + e.message); }
   }
@@ -124,14 +149,14 @@ export function Foerdervergleich({ titel = "Fördervergleich Einzelmaßnahmen / 
       <section className="karte">
         <h2>Eckparameter</h2>
         <div className="felder">
-          <Feld label="Wohneinheiten nach Sanierung" value={d.we_nach_sanierung} onChange={v => set("we_nach_sanierung", v)} />
+          <ZahlFeld label="Wohneinheiten nach Sanierung" ganzzahl wert={d.we_nach_sanierung} onChange={v => set("we_nach_sanierung", v)} />
           {d.angebote
             ? <label>Kosten Fachplanung/Baubegleitung (€)
                 <input type="text" value="aus den Angeboten" disabled aria-describedby="bb-aus-angeboten" />
                 <span id="bb-aus-angeboten" className="klein" style={{ fontWeight: "normal" }}>wird aus den Angeboten berechnet (je Weg)</span>
               </label>
-            : <Feld label="Kosten Fachplanung/Baubegleitung (€)" value={d.kosten_baubegleitung} onChange={v => set("kosten_baubegleitung", v)} />}
-          <Feld label="Honorar iSFP (€)" value={d.kosten_isfp} onChange={v => set("kosten_isfp", v)} />
+            : <ZahlFeld label="Kosten Fachplanung/Baubegleitung (€)" wert={d.kosten_baubegleitung} onChange={v => set("kosten_baubegleitung", v)} />}
+          <ZahlFeld label="Honorar iSFP (€)" wert={d.kosten_isfp} onChange={v => set("kosten_isfp", v)} />
           <label>Effizienzhaus-Stufe
             <select value={d.eh_stufe} onChange={e => set("eh_stufe", e.target.value)}>
               {["EH40EE", "EH55EE", "EH70EE", "EH85EE"].map(s => <option key={s} value={s}>{s.replace("EE", " EE").replace("EH", "EH ")}</option>)}
@@ -151,8 +176,8 @@ export function Foerdervergleich({ titel = "Fördervergleich Einzelmaßnahmen / 
           <p className="klein">KfW 266 ist noch angehakt (aus gespeicherten Eingaben). Bitte abwählen – mit abgelaufener Frist wird nicht gerechnet.</p>}
         {d.kfw266 && (
           <div className="felder" style={{ marginTop: 14 }}>
-            <Feld label="Davon neue WE (Umnutzung)" value={d.we_neu} onChange={v => set("we_neu", v)} />
-            <Feld label="Umbaukosten neue WE, nicht energetisch (€)" value={d.umbaukosten_neue_we} onChange={v => set("umbaukosten_neue_we", v)} />
+            <ZahlFeld label="Davon neue WE (Umnutzung)" ganzzahl wert={d.we_neu} onChange={v => set("we_neu", v)} />
+            <ZahlFeld label="Umbaukosten neue WE, nicht energetisch (€)" wert={d.umbaukosten_neue_we} onChange={v => set("umbaukosten_neue_we", v)} />
           </div>
         )}
       </section>
@@ -160,15 +185,14 @@ export function Foerdervergleich({ titel = "Fördervergleich Einzelmaßnahmen / 
       <details className="karte programm-form" open={!!start.angebote}>
         <summary><h2>Unsere Angebote (optional)</h2>{d.angebote && <span className="okzahl">wird berechnet</span>}</summary>
         <p className="klein">Mit Angeboten rechnet der Fördervergleich die Kosten Fachplanung/Baubegleitung je Weg
-          (Einzelmaßnahmen: A + B, Effizienzhaus: A + D) und zeigt im Word-Bericht das Kapitel „Unsere Leistungen auf Ihrem Weg“.
+          (Einzelmaßnahmen: A + C, Effizienzhaus: A + D; B nur bei KfW 266, nicht gefördert) und zeigt im Word-Bericht
+          das Kapitel „Unsere Leistungen auf Ihrem Weg“.
           Ohne Betrag bleiben die Angebote unberücksichtigt.</p>
-        {ANGEBOTE.filter(([k]) => k !== "c" || d.kfw266).map(([k, , hinweis, beispiel]) => (
+        {ANGEBOTE.filter(([k]) => k !== "b" || d.kfw266).map(([k, , hinweis, beispiel]) => (
           <fieldset key={k} className="gruppe">
             <legend>Angebot {k.toUpperCase()} <span style={{ fontWeight: "normal" }}>({hinweis})</span></legend>
             <div className="felder">
-              <label>Betrag brutto (€)
-                <input type="number" min="0" step="0.01" value={ang[k].betrag} onChange={e => setA(k, "betrag", e.target.value)} />
-              </label>
+              <ZahlFeld label="Betrag brutto (€)" wert={ang[k].betrag} onChange={v => setA(k, "betrag", v)} />
               <label>Titel
                 <input type="text" maxLength={80} value={ang[k].titel} onChange={e => setA(k, "titel", e.target.value)} />
               </label>
@@ -190,9 +214,7 @@ export function Foerdervergleich({ titel = "Fördervergleich Einzelmaßnahmen / 
           <h2>Angaben für den Word-Bericht</h2>
           <p className="klein" style={{ marginTop: 0 }}>Optional. Erscheinen im Bericht, haben aber keinen Einfluss auf die Berechnung.</p>
           <div className="felder">
-            <label>Wohneinheiten vor Sanierung
-              <input type="number" min="0" value={d.we_vor_sanierung ?? ""} onChange={e => setOpt("we_vor_sanierung", e.target.value === "" ? null : Number(e.target.value))} />
-            </label>
+            <ZahlFeld label="Wohneinheiten vor Sanierung" ganzzahl wert={d.we_vor_sanierung ?? null} onChange={v => setOpt("we_vor_sanierung", v)} />
             <label>Bestandsheizung
               <select value={d.bestandsheizung ?? ""} onChange={e => setOpt("bestandsheizung", e.target.value)}>
                 <option value="">keine Angabe</option>
@@ -228,7 +250,7 @@ export function Foerdervergleich({ titel = "Fördervergleich Einzelmaßnahmen / 
               {d.massnahmen.map((m, i) => (
                 <tr key={i}>
                   <td><input aria-label="Maßnahme" value={m.name} onChange={e => setM(i, "name", e.target.value)} /></td>
-                  <td><input aria-label="Kosten" type="number" value={m.kosten} onChange={e => setM(i, "kosten", Number(e.target.value))} /></td>
+                  <td><ZahlEingabe aria-label="Kosten" wert={m.kosten} onChange={v => setM(i, "kosten", v)} /></td>
                   <td><select aria-label="Einordnung" value={m.em_kategorie} onChange={e => setM(i, "em_kategorie", e.target.value)}>{KATEGORIEN.map(([k, t]) => <option key={k} value={k}>{t}</option>)}</select></td>
                   <td style={{ textAlign: "center" }}><input aria-label="im Effizienzhaus förderfähig" type="checkbox" style={{ width: 20, minHeight: 20 }} checked={m.eh_foerderfaehig} onChange={e => setM(i, "eh_foerderfaehig", e.target.checked)} /></td>
                   <td><button className="btn2" onClick={() => set("massnahmen", d.massnahmen.filter((_, j) => j !== i))}>Entfernen</button></td>
@@ -292,7 +314,7 @@ export function Ergebnis({ erg }) {
             <tr className="summe"><td>Zuschüsse gesamt</td>{z("summe", x => eur(x.summe_zuschuesse_gesamt))}</tr>
             <tr><td>Eigenanteil energetisch</td>{z("k", x => eur(x.eigenanteil_energetisch))}</tr>
             <tr><td>Förderquote energetisch</td>{z("k", x => pct(x.foerderquote_energetisch))}</tr>
-            {mitAngebot && <tr><td>Eigenanteil Planung/Begleitung (unsere Angebote{reihe.some(r => s[r].angebotsweg?.posten.some(p => p.kennung === "C")) ? " inkl. C" : ""})</td>
+            {mitAngebot && <tr><td>Eigenanteil Planung/Begleitung (unsere Angebote{reihe.some(r => s[r].angebotsweg?.posten.some(p => p.kennung === "B")) ? " inkl. B" : ""})</td>
               {reihe.map(r => <td key={r} className="z">{s[r].angebotsweg ? eur(s[r].angebotsweg.eigenanteil) : "–"}</td>)}</tr>}
             <tr><td>Bewertung</td>{reihe.map(r => <td key={r} className="z">{beste.has(r) ? <span className="marke">beste Wahl {r.endsWith("ohne_WPB") ? "ohne" : "mit"} WPB</span> : ""}</td>)}</tr>
           </tbody>

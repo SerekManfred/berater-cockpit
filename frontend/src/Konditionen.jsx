@@ -1,5 +1,6 @@
 import React, { useEffect, useMemo, useState } from "react";
 import { api, hatRolle, zeit } from "./api.js";
+import { ZahlEingabe } from "./ZahlFeld.jsx";
 
 // ---------- Darstellung von Werten ----------
 
@@ -300,6 +301,8 @@ function Vergleich({ id }) {
 
 // ---------- Editor (nur Entwurf, nur Admin) ----------
 
+const enthaeltNaN = w => typeof w === "number" ? Number.isNaN(w) : (w && typeof w === "object" ? Object.values(w).some(enthaeltNaN) : false);
+
 function Editor({ id, formular, onGehe }) {
   const [v, setV] = useState(null);
   const [daten, setDaten] = useState(null);
@@ -317,6 +320,8 @@ function Editor({ id, formular, onGehe }) {
 
   async function speichern() {
     setAllgemein(""); setMeldung("");
+    // Ungültige Zahl (NaN) nicht still als „leer“ speichern
+    if (enthaeltNaN(daten)) { setAllgemein("Mindestens ein Zahlenfeld enthält keine gültige Zahl – siehe rote Markierung."); return null; }
     try {
       const x = await api(`/konditionen/versionen/${id}`, { method: "PUT", body: { daten, aenderungsnotiz: notiz } });
       setV(x); setDaten(x.daten); setFehler(x.fehler); setGeaendert(false);
@@ -372,11 +377,11 @@ function Eingabe({ feld: f, wert, fehler, onChange }) {
   const meldung = fehler[f.pfad];
   const id = "f-" + f.pfad.replaceAll(".", "-");
   const kennung = <>{f.label}{f.pflicht ? "" : " (optional)"}{f.typ === "prozent" ? " in %" : f.typ === "euro" ? " in €" : ""}</>;
-  const zahl = (s, faktor = 1) => s === "" ? null : Math.round(Number(s) * 1e6 / faktor) / 1e6;
   const props = { id, "aria-invalid": !!meldung, "aria-describedby": meldung ? id + "-f" : undefined };
   let feld;
-  if (f.typ === "prozent") feld = <input {...props} type="number" step="any" inputMode="decimal" value={typeof wert === "number" ? Math.round(wert * 1e8) / 1e6 : ""} onChange={e => onChange(zahl(e.target.value, 100))} />;
-  else if (f.typ === "euro" || f.typ === "zahl") feld = <input {...props} type="number" step="any" min="0" inputMode="decimal" value={typeof wert === "number" ? wert : ""} onChange={e => onChange(zahl(e.target.value))} />;
+  // Zahlen über die gemeinsame ZahlEingabe (Text im Feld, deutsche Schreibweise). Prozent: Anteil 0,15 ↔ Eingabe 15.
+  if (f.typ === "prozent") feld = <ZahlEingabe {...props} faktor={100} wert={typeof wert === "number" ? wert : null} onChange={onChange} />;
+  else if (f.typ === "euro" || f.typ === "zahl") feld = <ZahlEingabe {...props} wert={typeof wert === "number" ? wert : null} onChange={onChange} />;
   else if (f.typ === "datum") feld = <input {...props} type="date" value={typeof wert === "string" ? wert : ""} onChange={e => onChange(e.target.value || null)} />;
   else if (f.typ === "text") feld = <input {...props} value={wert ?? ""} onChange={e => onChange(e.target.value)} />;
   else if (f.typ === "text_lang") feld = <textarea {...props} rows={3} value={wert ?? ""} onChange={e => onChange(e.target.value)} />;
