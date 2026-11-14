@@ -6,7 +6,7 @@ from pydantic import BaseModel, Field, model_validator
 from sqlalchemy import select
 from sqlalchemy.orm import Session
 
-from app import fristen
+from app import fristen, wohneinheiten
 from app.rechenkern.foerdervergleich import Angebote, Eingaben, Massnahme, vergleich
 from app.rechenkern.init_foerderung import InitEingaben, init_foerderung
 
@@ -107,7 +107,13 @@ class FoerdervergleichIn(FoerdervergleichEingaben):
     konditionen_version: int | None = None
 
 
-def foerdervergleich_rechnen(daten: FoerdervergleichEingaben, kond: dict) -> dict:
+def foerdervergleich_rechnen(daten: FoerdervergleichEingaben, kond: dict, projekt_we: int | None = None) -> dict:
+    """Rechnen mit Plausibilität der Wohneinheiten: Fehler → 422, Warnungen stehen im Ergebnis unter „hinweise“
+    (mit projekt_we auch der Vergleich mit den Wohneinheiten im Projekt)."""
+    hinweise = wohneinheiten.foerdervergleich(daten.we_nach_sanierung, daten.we_vor_sanierung, daten.we_neu, daten.kfw266,
+                                              projekt_we)
+    if wohneinheiten.fehler(hinweise):
+        raise HTTPException(422, " ".join(x["text"] for x in wohneinheiten.fehler(hinweise)))
     if daten.eh_stufe not in kond["beg_wg"]["tilgungszuschuss"]:
         raise HTTPException(422, f"Unbekannte EH-Stufe {daten.eh_stufe}")
     for schalter, frist in fristen.abgelaufene_schalter(kond).items():
@@ -119,7 +125,7 @@ def foerdervergleich_rechnen(daten: FoerdervergleichEingaben, kond: dict) -> dic
     werte = daten.model_dump(exclude={"massnahmen", "konditionen_version", "angebote"} | ANZEIGEFELDER)
     e = Eingaben(**werte, massnahmen=[Massnahme(**m.model_dump()) for m in daten.massnahmen],
                  angebote=daten.angebote.fuer_rechenkern() if daten.angebote else None)
-    return vergleich(e, kond)
+    return {**vergleich(e, kond), "hinweise": hinweise}
 
 
 # ---------- Beratungsbericht INIT: Förder-Übersicht (Kap. 7.5 und Förder-Anhang) ----------
@@ -159,6 +165,8 @@ def init_rechnen(daten: InitFoerderEingaben, kond: dict) -> dict:
         raise HTTPException(422, f"Förder-Übersicht nicht berechenbar: {fehler}") from None
 
 
+# Module, deren Rechenfunktion die Wohneinheiten des Projekts bekommt (Plausibilität, app/wohneinheiten.py)
+MIT_PROJEKT_WE = {"foerderung-em-eh"}
 # Module, deren Berichte in der Projektakte gespeichert werden können: id -> (Eingabe-Schema, Rechenfunktion)
 RECHNER = {
     "foerderung-em-eh": (FoerdervergleichEingaben, foerdervergleich_rechnen),

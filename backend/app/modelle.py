@@ -1,7 +1,7 @@
 """Tabellen benutzer, sitzung, protokoll. Änderungen nur zusammen mit einer Alembic-Migration."""
 from datetime import UTC, date, datetime
 
-from sqlalchemy import (JSON, BigInteger, Boolean, Date, DateTime, ForeignKey, Index, Integer, SmallInteger, String, Text,
+from sqlalchemy import (JSON, BigInteger, Boolean, Date, DateTime, ForeignKey, Index, Integer, Numeric, SmallInteger, String, Text,
                         UniqueConstraint, text)
 from sqlalchemy.dialects.postgresql import ARRAY, JSONB
 from sqlalchemy.orm import Mapped, mapped_column
@@ -147,6 +147,9 @@ class Bericht(Base):
     status: Mapped[str] = mapped_column(String(20), nullable=False, default="entwurf")
     erstellt_von_id: Mapped[int | None] = mapped_column(ForeignKey("benutzer.id", ondelete="SET NULL"))
     erstellt_am: Mapped[datetime] = mapped_column(UTCZeit, nullable=False, default=jetzt)
+    # „Wohneinheiten geprüft“ (Phase 2e): Liste der Bestätigungen {von_id, von, am, codes, texte} – wird nur ergänzt,
+    # Eingaben und Ergebnis bleiben unverändert. Leer = noch keine Bestätigung.
+    we_pruefungen: Mapped[list | None] = mapped_column(DETAILS_TYP)
 
 
 DATEI_KATEGORIEN = ("kostenschaetzung", "energieausweis", "plaene", "fotos", "checkliste", "angebote", "bericht", "sonstiges")
@@ -222,3 +225,20 @@ class BerichtEntwurf(Base):
     erstellt_am: Mapped[datetime] = mapped_column(UTCZeit, nullable=False, default=jetzt)
     bearbeitet_von_id: Mapped[int | None] = mapped_column(ForeignKey("benutzer.id", ondelete="SET NULL"))
     bearbeitet_am: Mapped[datetime] = mapped_column(UTCZeit, nullable=False, default=jetzt)
+    # „Wohneinheiten geprüft“ im Entwurf (Phase 2e), beim Erzeugen in die Eingaben des Berichts übernommen
+    we_pruefungen: Mapped[list | None] = mapped_column(DETAILS_TYP)
+
+
+ANGEBOT_KENNUNGEN = ("a", "b", "c", "d")
+
+
+class Angebotsvorlage(Base):
+    """Zentrale Leistungstexte für die Angebote A–D (Phase 2e). Vorbelegung neuer Fördervergleiche; gespeicherte Berichte
+    behalten ihren eigenen Text. Bearbeiten nur Admin, Änderungen im Protokoll (alt/neu)."""
+    __tablename__ = "angebotsvorlagen"
+    kennung: Mapped[str] = mapped_column(String(1), primary_key=True)  # a, b, c, d
+    titel: Mapped[str] = mapped_column(String(80), nullable=False)
+    leistungen: Mapped[str] = mapped_column(String(300), nullable=False, default="")
+    standardbetrag: Mapped[float | None] = mapped_column(Numeric(12, 2, asdecimal=False))  # leer = kein Standard
+    geaendert_von_id: Mapped[int | None] = mapped_column(ForeignKey("benutzer.id", ondelete="SET NULL"))
+    geaendert_am: Mapped[datetime] = mapped_column(UTCZeit, nullable=False, default=jetzt)

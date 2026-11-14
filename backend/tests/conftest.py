@@ -62,6 +62,21 @@ def _leere_tabellen():
         # Konditionen: nur der Startbestand (Version 1, aktiv) bleibt
         db.execute(delete(KonditionenVersion).where(KonditionenVersion.version != 1))
         db.execute(update(KonditionenVersion).where(KonditionenVersion.version == 1).values(status="aktiv"))
+        # Angebotsvorlagen: zurück auf die Startwerte der Migration 0008
+        from app.modelle import Angebotsvorlage
+        for kennung, titel, leistungen in vorlagen_startwerte():
+            db.execute(update(Angebotsvorlage).where(Angebotsvorlage.kennung == kennung).values(
+                titel=titel, leistungen=leistungen, standardbetrag=None, geaendert_von_id=None))
         for tabelle in (BerichtEntwurf, Datei, Bericht, Projekt, ProjektnummerZaehler, Protokoll, Sitzung, Benutzer):
             db.execute(delete(tabelle))
         db.commit()
+
+
+def vorlagen_startwerte() -> list[tuple[str, str, str]]:
+    """Startwerte der Angebotsvorlagen aus Migration 0008 (eine Quelle für Tests und Datenbank)."""
+    import importlib.util
+    pfad = Path(__file__).resolve().parents[1] / "alembic" / "versions" / "0008_wohneinheiten_angebotsvorlagen.py"
+    spec = importlib.util.spec_from_file_location("migration_0008", pfad)
+    modul = importlib.util.module_from_spec(spec)
+    spec.loader.exec_module(modul)
+    return modul.STARTWERTE

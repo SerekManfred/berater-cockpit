@@ -171,7 +171,8 @@ def test_foerdervergleich_word_daten_nach_berichte_an(monkeypatch, berichte_an, 
     monkeypatch.setattr(word, "TRANSPORT", httpx.MockTransport(antwort))
     c = nutzer("berater")
     p = anlegen(c, berichte_an=berichte_an)
-    b = c.post(f"/projekte/{p['id']}/berichte", json={"modul": MODUL, "eingaben": REFERENZFALL}).json()
+    b = c.post(f"/projekte/{p['id']}/berichte", json={"modul": MODUL, "eingaben": REFERENZFALL,
+                                                      "we_geprueft": True}).json()  # Projekt 4 WE, Referenzfall 6 (Phase 2e)
     assert c.get(f"/berichte/{b['id']}/word").status_code == 200
     pj = anfragen[0]["projekt"]
     assert (pj["kunde_name"], pj["objekt_strasse"], pj["objekt_plz"], pj["objekt_ort"]) == (name, "Teststraße 1", "44135", "Dortmund")
@@ -250,7 +251,8 @@ def test_echter_generator_abnahme_berichte_an(monkeypatch):
     monkeypatch.setattr(word, "TRANSPORT", None)
     c = nutzer("berater")
     p = anlegen(c)
-    b = c.post(f"/projekte/{p['id']}/berichte", json={"modul": MODUL, "eingaben": REFERENZFALL}).json()
+    b = c.post(f"/projekte/{p['id']}/berichte", json={"modul": MODUL, "eingaben": REFERENZFALL,
+                                                      "we_geprueft": True}).json()  # Projekt 4 WE, Referenzfall 6 (Phase 2e)
     for berichte_an, name, anschrift in (("kunde", "Erika Muster", "45127 Essen"), ("auftraggeber", "Musterbau GmbH", "53639 Königswinter")):
         assert c.patch(f"/projekte/{p['id']}", json={"berichte_an": berichte_an}).status_code == 200
         r = checkliste(c, p["id"])

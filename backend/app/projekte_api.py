@@ -24,7 +24,8 @@ from app.db import get_db
 from app.modelle import Benutzer, Bericht, Projekt, ProjektnummerZaehler, jetzt
 from app.parteien import berichtskunde
 from app.protokoll import protokollieren
-from app.rechnen import NUR_UEBER_ENTWURF, RECHNER, lade_konditionen
+from app import wohneinheiten
+from app.rechnen import MIT_PROJEKT_WE, NUR_UEBER_ENTWURF, RECHNER, lade_konditionen
 
 router = APIRouter(tags=["Projektakte"])
 
@@ -158,11 +159,13 @@ class BerichtNeu(BaseModel):
     modul: Modul
     eingaben: dict
     konditionen_version: int | None = None  # leer = aktuelle Version
+    we_geprueft: bool = False  # „Wohneinheiten geprüft“ für die aktuellen Warnungen (app/wohneinheiten.py)
 
 
 class NeuRechnen(BaseModel):
     eingaben: dict
     aktuelle_konditionen: bool = False  # nur auf ausdrücklichen Wunsch; sonst eingefrorene Version
+    we_geprueft: bool = False
 
 
 # ---------- Hilfen ----------
@@ -238,30 +241,35 @@ def _naechste_projektnummer(db: Session) -> str:
     return f"{jahr}-{zaehler.letzte:04d}"
 
 
-def _rechnen(modul: str, eingaben: dict, kond: dict) -> tuple[dict, dict]:
+def _rechnen(modul: str, eingaben: dict, kond: dict, projekt: Projekt | None = None) -> tuple[dict, dict]:
     """Eingaben prüfen und mit dem Rechenkern rechnen. Gibt (bereinigte Eingaben, Ergebnis) zurück."""
     schema, rechner = RECHNER[modul]
     try:
         daten = schema.model_validate(eingaben)
     except ValidationError as fehler:
         raise RequestValidationError(fehler.errors(include_url=False, include_context=False)) from None
+    extra = {"projekt_we": projekt.wohneinheiten} if projekt is not None and modul in MIT_PROJEKT_WE else {}
     # Nicht ausgefüllte optionale Felder (None) werden nicht mitgespeichert
-    return daten.model_dump(exclude_none=True), rechner(daten, kond)
+    return daten.model_dump(exclude_none=True), rechner(daten, kond, **extra)
 
 
 def _bericht_speichern(db: Session, request: Request, p: Projekt, modul: str, eingaben: dict, kond: dict,
-                       benutzer: Benutzer, **protokoll_details) -> Bericht:
-    eingaben, ergebnis = _rechnen(modul, eingaben, kond)
+                       benutzer: Benutzer, we_geprueft: bool = False, **protokoll_details) -> Bericht:
+    eingaben, ergebnis = _rechnen(modul, eingaben, kond, p)
     version = (db.scalar(select(func.max(Bericht.versionsnummer))
                          .where(Bericht.projekt_id == p.id, Bericht.modul == modul)) or 0) + 1
+    # „Wohneinheiten geprüft“ schon beim Speichern (Haken im Formular) – nur für die Warnungen, die es gerade gibt
+    warnungen = [x for x in ergebnis.get("hinweise") or [] if x["art"] == "warnung"] if we_geprueft else []
     b = Bericht(projekt_id=p.id, modul=modul, versionsnummer=version, eingaben=eingaben, ergebnis=ergebnis,
                 konditionen_version=kond["version"], konditionen_snapshot=kond, status="entwurf",
-                erstellt_von_id=benutzer.id, erstellt_am=jetzt())
+                erstellt_von_id=benutzer.id, erstellt_am=jetzt(),
+                we_pruefungen=[wohneinheiten.bestaetigung(benutzer, warnungen)] if warnungen else None)
     db.add(b)
     p.geaendert_am = jetzt()
     db.flush()
     protokollieren(db, request, "bericht_gespeichert", benutzer.id, projekt_id=p.id, projektnummer=p.projektnummer,
                    bericht_id=b.id, modul=modul, versionsnummer=version, konditionen_version=kond["version"],
+                   **({"wohneinheiten_geprueft": [x["code"] for x in warnungen]} if warnungen else {}),
                    **protokoll_details)
     try:
         db.commit()
@@ -410,7 +418,7 @@ def bericht_speichern(projekt_id: int, daten: BerichtNeu, request: Request, ich:
     if daten.konditionen_version is not None and kond["version"] != lade_konditionen(db=db)["version"]:
         raise HTTPException(409, f"Inzwischen gilt eine neue Konditionen-Version (statt Version {kond['version']}). "
                                  "Bitte neu berechnen und dann speichern.")
-    b = _bericht_speichern(db, request, p, daten.modul, daten.eingaben, kond, ich)
+    b = _bericht_speichern(db, request, p, daten.modul, daten.eingaben, kond, ich, we_geprueft=daten.we_geprueft)
     return bericht_lesen(b.id, ich, db)
 
 
@@ -419,8 +427,37 @@ def bericht_lesen(bericht_id: int, _: Benutzer = Depends(lesen), db: Session = D
     b, p = _bericht_laden(db, bericht_id)
     namen = _namen(db, [b.erstellt_von_id])
     aktuell = lade_konditionen(db=db)["version"]
+    hinweise, offen = we_pruefung(b, p)
     return {**_bericht_kurz(b, namen), "projektnummer": p.projektnummer, "eingaben": b.eingaben,
-            "ergebnis": b.ergebnis, "aktuelle_konditionen_version": aktuell}
+            "ergebnis": b.ergebnis, "aktuelle_konditionen_version": aktuell,
+            "wohneinheiten": {"hinweise": hinweise, "offen": offen,
+                              "pruefungen": [{k: x.get(k) for k in ("von", "am", "texte")} for x in b.we_pruefungen or []]}}
+
+
+def we_pruefung(b: Bericht, p: Projekt) -> tuple[list[dict], list[dict]]:
+    """Plausibilität der Wohneinheiten eines gespeicherten Fördervergleichs: (alle Hinweise, noch nicht bestätigte Warnungen).
+    Geprüft wird mit den gespeicherten Eingaben und den Wohneinheiten, die das Projekt JETZT hat – so fallen auch
+    ältere Berichte und spätere Änderungen am Projekt auf."""
+    if b.modul not in MIT_PROJEKT_WE:
+        return [], []
+    hinweise = wohneinheiten.foerdervergleich_aus_eingaben(b.eingaben, p.wohneinheiten)
+    return hinweise, wohneinheiten.offene_warnungen(hinweise, b.we_pruefungen)
+
+
+@router.post("/berichte/{bericht_id}/wohneinheiten-geprueft")
+def wohneinheiten_geprueft(bericht_id: int, request: Request, ich: Benutzer = Depends(berichten),
+                           db: Session = Depends(get_db)):
+    """„Wohneinheiten geprüft“: bestätigt die offenen Warnungen (Voraussetzung für den Word-Bericht).
+    Ergänzt nur die Liste der Bestätigungen – Eingaben und Ergebnis des Berichts bleiben unverändert."""
+    b, p = _bericht_laden(db, bericht_id)
+    _hinweise, offen = we_pruefung(b, p)
+    if not offen:
+        raise HTTPException(409, "Es gibt keine offenen Hinweise zu den Wohneinheiten.")
+    b.we_pruefungen = [*(b.we_pruefungen or []), wohneinheiten.bestaetigung(ich, offen)]  # neue Liste → wird gespeichert
+    protokollieren(db, request, "bericht_wohneinheiten_geprueft", ich.id, projekt_id=p.id, projektnummer=p.projektnummer,
+                   bericht_id=b.id, versionsnummer=b.versionsnummer, codes=[x["code"] for x in offen])
+    db.commit()
+    return bericht_lesen(b.id, ich, db)
 
 
 def _kond_fuer_neu(b: Bericht, aktuelle: bool, db: Session) -> dict:
@@ -432,9 +469,9 @@ def _kond_fuer_neu(b: Bericht, aktuelle: bool, db: Session) -> dict:
 def bericht_vorschau(bericht_id: int, daten: NeuRechnen, _: Benutzer = Depends(berichten),
                      db: Session = Depends(get_db)):
     """Vorschau für „Als neue Version bearbeiten“ – speichert nichts."""
-    b, _p = _bericht_laden(db, bericht_id)
+    b, p = _bericht_laden(db, bericht_id)
     _nicht_ueber_entwurf(b.modul)
-    return _rechnen(b.modul, daten.eingaben, _kond_fuer_neu(b, daten.aktuelle_konditionen, db))[1]
+    return _rechnen(b.modul, daten.eingaben, _kond_fuer_neu(b, daten.aktuelle_konditionen, db), p)[1]
 
 
 @router.post("/berichte/{bericht_id}/neue-version", status_code=201)
@@ -445,6 +482,7 @@ def bericht_neu_rechnen(bericht_id: int, daten: NeuRechnen, request: Request, ic
     _nicht_ueber_entwurf(b.modul)
     p = _projekt_laden(db, b.projekt_id, sperren=True)
     kond = _kond_fuer_neu(b, daten.aktuelle_konditionen, db)
-    neu = _bericht_speichern(db, request, p, b.modul, daten.eingaben, kond, ich, basis_bericht_id=b.id,
+    neu = _bericht_speichern(db, request, p, b.modul, daten.eingaben, kond, ich, we_geprueft=daten.we_geprueft,
+                             basis_bericht_id=b.id,
                              basis_versionsnummer=b.versionsnummer, aktuelle_konditionen=daten.aktuelle_konditionen)
     return bericht_lesen(neu.id, ich, db)

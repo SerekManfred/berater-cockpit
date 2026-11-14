@@ -11,7 +11,7 @@ from app.auth import aktueller_benutzer
 from app.db import get_db
 from app.modelle import Benutzer, Bericht, Projekt
 from app.parteien import berichtskunde
-from app.projekte_api import _bericht_laden, _namen
+from app.projekte_api import _bericht_laden, _namen, we_pruefung
 from app.protokoll import protokollieren
 
 router = APIRouter(tags=["Word-Berichte"])
@@ -76,6 +76,11 @@ def bericht_word(bericht_id: int, request: Request, ich: Benutzer = Depends(aktu
         return _gespeichertes_word(b, p, request, ich, db)
     if b.modul not in GENERATOR_PFAD:
         raise HTTPException(422, "Für diese Berichtsart gibt es noch keine Word-Ausgabe.")
+    _hinweise, offen = we_pruefung(b, p)
+    if offen:  # Warnungen zu den Wohneinheiten erst bestätigen („Wohneinheiten geprüft“)
+        raise HTTPException(409, {"meldung": "Bitte zuerst die Hinweise zu den Wohneinheiten prüfen und bestätigen "
+                                             "(„Wohneinheiten geprüft“): " + " ".join(x["text"] for x in offen),
+                                  "wohneinheiten": offen})
     ersteller = _namen(db, [b.erstellt_von_id]).get(b.erstellt_von_id)
     try:
         inhalt = generator_senden(GENERATOR_PFAD[b.modul], generator_daten(b, p, ersteller))

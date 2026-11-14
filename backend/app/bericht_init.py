@@ -22,7 +22,7 @@ from sqlalchemy import func, select
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session
 
-from app import config, dateien, ki, ki_texte
+from app import config, dateien, ki, ki_texte, wohneinheiten
 from app.auth import aktueller_benutzer, rolle
 from app.dateien_api import _namen, datei_aus
 from app.db import get_db
@@ -335,6 +335,12 @@ def _erlaubte_zahlen(db: Session, e: BerichtEntwurf, p: Projekt) -> tuple[set[fl
     return ki_texte.erlaubte_zahlen(eingaben, projekt, ki_texte.konditionen_fuer_ki(kond))
 
 
+def _we_pruefung(daten: dict, e: BerichtEntwurf | None, p: Projekt) -> tuple[list[dict], list[dict]]:
+    """Wohneinheiten der Förder-Übersicht gegen das Projekt (app/wohneinheiten.py): (Hinweise, offene Warnungen)."""
+    hinweise = wohneinheiten.init_bericht((daten.get("foerder") or {}).get("we"), p.wohneinheiten)
+    return hinweise, wohneinheiten.offene_warnungen(hinweise, e.we_pruefungen if e else None)
+
+
 def entwurf_aus(db: Session, e: BerichtEntwurf | None, p: Projekt, ich: Benutzer) -> dict:
     daten = e.daten if e else vorbelegung(db, p, ich)
     zuordnung = e.foto_zuordnung if e else {"frontbild": None, "frontbild_caption": "", "fotos": {}}
@@ -353,12 +359,16 @@ def entwurf_aus(db: Session, e: BerichtEntwurf | None, p: Projekt, ich: Benutzer
     fotos = _fotos_des_projekts(db, p.id)
     fehlend = _fehlende_pflicht(daten)
     alle_geprueft = all(x["status"] == "geprueft" for x in abschnitte)
+    we_hinweise, we_offen = _we_pruefung(daten, e, p)
     return {
         "id": e.id if e else None, "projekt_id": p.id, "projektnummer": p.projektnummer, "modul": MODUL,
         "revision": e.revision if e else 0, "status": e.status if e else "offen",
         "daten": daten, "foto_zuordnung": zuordnung, "abschnitte": abschnitte,
         "fotos": [datei_aus(f, {}) for f in fotos],
-        "fehlende_pflichtangaben": fehlend, "pflichtangaben": PFLICHT, "alle_geprueft": alle_geprueft, "bereit": alle_geprueft and not fehlend,
+        "fehlende_pflichtangaben": fehlend, "pflichtangaben": PFLICHT, "alle_geprueft": alle_geprueft,
+        "bereit": alle_geprueft and not fehlend and not we_offen,
+        "wohneinheiten": {"hinweise": we_hinweise, "offen": we_offen,
+                          "pruefungen": [{k: x.get(k) for k in ("von", "am", "texte")} for x in (e.we_pruefungen if e else None) or []]},
         "darf_bearbeiten": any(r in ich.rollen for r in ("admin", "berater", "verwaltung")),
         "darf_freigeben": "berater" in ich.rollen,
         "ki": {"aktiv": config.KI_AKTIV, "modell": config.KI_MODELL, "laeufe_heute": _ki_laeufe_heute(e) if e else 0,
@@ -448,6 +458,26 @@ def abschnitt_freigeben(projekt_id: int, abschnitt: str, daten: Freigabe, reques
     protokollieren(db, request, "bericht_abschnitt_freigegeben", ich.id, projekt_id=p.id, projektnummer=p.projektnummer,
                    modul=MODUL, abschnitt=abschnitt, quelle=neu[abschnitt]["quelle"], bewusst_leer=leer,
                    unbekannte_zahlen=len(pr["unbekannte_zahlen"]))
+    db.commit()
+    return entwurf_aus(db, e, p, ich)
+
+
+@router.post("/projekte/{projekt_id}/bericht-init/entwurf/wohneinheiten-geprueft")
+def wohneinheiten_geprueft(projekt_id: int, request: Request, ich: Benutzer = Depends(bearbeiten),
+                           db: Session = Depends(get_db)):
+    """„Wohneinheiten geprüft“: bestätigt die offenen Warnungen (Voraussetzung fürs Erzeugen)."""
+    p = _projekt(db, projekt_id)
+    e = _entwurf(db, p, sperren=True)
+    if e is None:
+        raise HTTPException(404, "Für dieses Projekt gibt es noch keinen Entwurf")
+    _hinweise, offen = _we_pruefung(e.daten, e, p)
+    if not offen:
+        raise HTTPException(409, "Es gibt keine offenen Hinweise zu den Wohneinheiten.")
+    e.we_pruefungen = [*(e.we_pruefungen or []), wohneinheiten.bestaetigung(ich, offen)]
+    e.revision += 1
+    e.bearbeitet_von_id, e.bearbeitet_am = ich.id, jetzt()
+    protokollieren(db, request, "bericht_wohneinheiten_geprueft", ich.id, projekt_id=p.id, projektnummer=p.projektnummer,
+                   modul=MODUL, codes=[x["code"] for x in offen])
     db.commit()
     return entwurf_aus(db, e, p, ich)
 
@@ -689,6 +719,14 @@ def bericht_erzeugen(projekt_id: int, request: Request, ich: Benutzer = Depends(
     if fehlend:
         raise HTTPException(422, {"meldung": "Pflichtangaben fehlen (ausfüllen oder „bewusst leer“ markieren): "
                                              + ", ".join(x["label"] for x in fehlend) + ".", "pflicht": fehlend})
+    we_hinweise, we_offen = _we_pruefung(e.daten, e, p)
+    if we_offen:
+        raise HTTPException(422, {"meldung": "Bitte zuerst die Hinweise zu den Wohneinheiten prüfen und bestätigen "
+                                             "(„Wohneinheiten geprüft“): " + " ".join(x["text"] for x in we_offen),
+                                  "wohneinheiten": we_offen})
+    we_texte = {x["text"] for x in we_hinweise}
+    # Snapshot: die Bestätigungen, die zu den Warnungen dieses Berichts gehören
+    we_geprueft = [x for x in e.we_pruefungen or [] if we_texte & set(x.get("texte", []))]
     kond = lade_konditionen(db=db)
     foerder = _foerder_eingaben(e.daten)
     rk = init_rechnen(foerder, kond)  # 422 ohne KfW 458 („Version 3 freigeben“)
@@ -740,10 +778,11 @@ def bericht_erzeugen(projekt_id: int, request: Request, ich: Benutzer = Depends(
         "ki": {"laeufe": len(e.ki_laeufe or []), "letzter_lauf": ({k: letzte_ki[-1].get(k) for k in ("nr", "modell", "prompt_version", "zeit")}
                                                                if letzte_ki else None)},
         "entwurf_id": e.id, "entwurf_revision": e.revision, "word_datei_id": d.id,
+        **({"wohneinheiten_geprueft": we_geprueft} if we_geprueft else {}),
     }
     b = Bericht(projekt_id=p.id, modul=MODUL, versionsnummer=version, eingaben=eingaben, ergebnis=rk,
                 konditionen_version=kond["version"], konditionen_snapshot=kond, status="entwurf",
-                erstellt_von_id=ich.id, erstellt_am=jetzt_)
+                erstellt_von_id=ich.id, erstellt_am=jetzt_, we_pruefungen=we_geprueft or None)
     db.add(b)
     p.geaendert_am = jetzt_
     db.flush()
