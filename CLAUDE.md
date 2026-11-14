@@ -147,19 +147,32 @@ Ausführliches Fachkonzept: `docs/Konzept_Berater-Cockpit.docx` (falls abgelegt)
 - **Entschieden 13.11.2026 (Weg A):** Förderbeträge der Vor-Ort-Berichte rechnet der Rechenkern
   (`app/rechenkern/init_foerderung.py`), siehe „Beratungsbericht INIT“. MEH und Kirche: noch **keine** Berichtserzeugung im Cockpit.
 
-## Angebote A–D im Fördervergleich (Stand 13.11.2026, Phase 2c)
-- Optionale Eingabe `angebote` (`AngeboteIn` in `app/rechnen.py`): `a`, `b`, `d` Pflicht, `c` optional, je `betrag` (≥ 0),
+## Angebote A–D im Fördervergleich (Stand 14.11.2026, Phase 2c + Nachtrag)
+- **Reihenfolge des Ablaufs (Geschäftsführer 14.11.2026):** A Gebäudemodell/WPB-Prüfung (immer), **B KfW 266 Umnutzung** (nur bei
+  KfW 266, nicht gefördert), **C BAFA Einzelmaßnahmen**, D KfW Effizienzhaus 261. Bis 13.11.2026 waren B und C vertauscht; gespeicherte
+  Berichte mit Angeboten gab es zum Wechsel keine (geprüft 14.11.2026), daher keine Umschlüsselung.
+- Optionale Eingabe `angebote` (`AngeboteIn` in `app/rechnen.py`): `a`, `c`, `d` Pflicht, `b` optional, je `betrag` (≥ 0),
   `titel` (≤ 80), `leistungen` (≤ 300); `anrechnung_a_in_d` (Standard `true`, dann muss D ≥ A sein). Titel/Leistungen sind
   Anzeigetexte, der Rechenkern bekommt nur die Beträge. Angebote **und** `kosten_baubegleitung > 0` zusammen → 422.
-- Rechenkern (`Angebote` in `app/rechenkern/foerdervergleich.py`): Kosten Fachplanung/Baubegleitung je Weg – EM = A + B,
-  EH = A + (D − A bei Anrechnung). Jedes Szenario liefert `angebotsweg` (Posten A/B bzw. A/D, dazu C nur bei `kfw266`, nicht
-  gefördert; Zuschuss anteilig nach Betrag; `eigenanteil`, `anrechnung_a`, `hoechstgrenze_greift`). Ohne Angebote `null` – der
-  Referenzfall rechnet unverändert. Tests: `tests/test_angebotsweg.py` (Rechenkern), `tests/test_angebote_api.py` (API,
-  Speichern, Generator, Abnahmefall 4 WE / Gegenprobe 1 WE mit echtem Generator).
-- Generator 0.3.0: Kapitel 9 „Unsere Leistungen auf Ihrem Weg“ nur mit `angebotsweg`, „Empfohlenes Vorgehen“ wird dann 10.
-- Oberfläche: aufklappbarer Abschnitt „Unsere Angebote (optional)“; Angebote gelten, sobald ein Betrag (A, B, D bzw. C bei KfW 266)
-  eingetragen ist – dann ist „Kosten Fachplanung/Baubegleitung“ gesperrt (0). Ergebnis: Zeile „Eigenanteil Planung/Begleitung“ je
-  Szenario aus `angebotsweg.eigenanteil`, Hinweis bei `hoechstgrenze_greift`.
+- Rechenkern (`Angebote` in `app/rechenkern/foerdervergleich.py`): Kosten Fachplanung/Baubegleitung je Weg – EM = A + C,
+  EH = A + (D − A bei Anrechnung). Jedes Szenario liefert `angebotsweg` (Posten in Ablauf-Reihenfolge A, B nur bei `kfw266`
+  (nicht gefördert), dann C bzw. D; Zuschuss anteilig nach Betrag; `eigenanteil`, `anrechnung_a`, `hoechstgrenze_greift`). Ohne
+  Angebote `null` – der Referenzfall rechnet unverändert. Tests: `tests/test_angebotsweg.py` (Rechenkern), `tests/test_angebote_api.py`
+  (API, Speichern, Generator, Abnahmefall 4 WE / Gegenprobe 1 WE mit echtem Generator, Reihenfolge in Kapitel 9).
+- Generator 0.4.1: Kapitel 9 „Unsere Leistungen auf Ihrem Weg“ (A → B → „Welcher Sanierungsweg?“ → C | D) nur mit `angebotsweg`,
+  „Empfohlenes Vorgehen“ wird dann 10.
+- Oberfläche: aufklappbarer Abschnitt „Unsere Angebote (optional)“ in der Reihenfolge A, B, C, D (B nur mit KfW 266); Angebote gelten,
+  sobald ein Betrag (A, C, D bzw. B bei KfW 266) eingetragen ist – dann ist „Kosten Fachplanung/Baubegleitung“ gesperrt (0).
+  Ergebnis: Zeile „Eigenanteil Planung/Begleitung“ je Szenario aus `angebotsweg.eigenanteil`, Hinweis bei `hoechstgrenze_greift`.
+
+## Zahlenfelder in der Oberfläche (Stand 14.11.2026)
+- **Alle Zahlenfelder** über `ZahlFeld`/`ZahlEingabe` (`frontend/src/ZahlFeld.jsx`) und `frontend/src/zahl.js` – kein `type="number"`,
+  keine Einzellösungen. Das Feld hält den getippten Text (leer bleibt leer, „0“ lässt sich löschen) und meldet Zahl, `null` (leer)
+  oder `NaN` (ungültig, mit Hinweis am Feld). Deutsche Eingabe: „2975“, „2.975“, „2975,50“, „2.975,50“; Punkt mit Dreiergruppen =
+  Tausenderpunkt, sonst Dezimalpunkt („0.15“). Prozent mit `faktor={100}` (Anteil 0,15 ↔ Eingabe 15).
+- Umwandeln erst beim Rechnen/Speichern (`zahlenPruefen`): leer → 0, wo 0 zulässig ist, sonst Pflicht-Hinweis; `NaN` blockiert
+  Rechnen bzw. Speichern (Fördervergleich, Projektformular, Bericht INIT, Konditionen-Zentrale).
+- Frontend-Tests mit vitest (`npm test`, laufen beim Bauen von `cockpit-web`): `zahl.test.js`, `ZahlFeld.test.jsx`, `Foerdervergleich.test.js`.
 
 ## Beratungsbericht INIT (Stand 13.11.2026, Phase 2b)
 - **Weg A (Geschäftsführer 13.11.2026):** `init_foerderung(InitEingaben, kond)` → `{konditionen_version, saetze, werte}`, im Bericht als
@@ -214,6 +227,7 @@ Fachregeln, Rechenkern, Generator. Die Oberfläche soll Masken aus dieser Beschr
 - **Phase 1b (erledigt 12.11.2026):** Konditionen-Zentrale in PostgreSQL mit Versionen, Vier-Augen-Freigabe, Fachwerten und Fristen.
 - **Phase 2a (erledigt 13.11.2026):** Vor-Ort-Checklisten INIT/MEH/Kirche aus der Projektakte (siehe Abschnitt oben).
 - **Phase 2c (erledigt 13.11.2026):** Angebote A–D im Fördervergleich, Generator 0.3.0 (siehe Abschnitt oben).
+  Nachtrag 14.11.2026: Reihenfolge B = KfW 266 / C = Einzelmaßnahmen, Generator 0.4.1, einheitliche Zahlenfelder.
 - **Phase 2b (umgesetzt 13.11.2026, Abnahme offen):** Beratungsbericht INIT mit KI-Textvorschlägen (siehe Abschnitte oben).
 - **Phase 2:** MEH (danach) und Kirche nach demselben Muster; INIT und MEH mit KI (Checklisten-Erkennung, Fotozuordnung) – vorhandene Generatoren `generate_report.js` aus den Skills einbinden.
 - **Phase 3:** Kirche. **Phase 4:** Änderungs-Monitor für Förderquellen, Freigabe-Workflow, Anbindung IR-Planer.
