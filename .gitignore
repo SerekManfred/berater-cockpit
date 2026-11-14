@@ -13,3 +13,6 @@ __pycache__/
 uploads/
 # Konzept-Dokument bleibt außerhalb des Repositorys (enthält Kundenbezug)
 docs/*.docx
+# Lieferpakete: nur Ergebnis einchecken, nie die Patches/Zips selbst
+*.patch
+*.zip

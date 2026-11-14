@@ -242,6 +242,9 @@ vollständig erhalten und getestet. Bevor echte Nutzer oder Kundendaten ins Syst
 7. **Erst danach echte Kundendaten zulassen.** Bis dahin nur neutrale Test- und Referenzfälle.
 
 ## Arbeitsweise
+- **Jeder neue Auftrag wird zuerst unter `docs/auftraege/` abgelegt und eingecheckt** (Dateiname wie geliefert,
+  z. B. `Auftrag_Phase2b_Bericht_INIT.md`). Patches (`*.patch`) und Zip-Pakete (`*.zip`) werden **nicht** eingecheckt
+  (`.gitignore`); sie werden eingespielt, das Ergebnis wird eingecheckt.
 - Vor jeder Änderung: `cd backend && python -m pytest -q`. Neue Rechenlogik nur mit Tests.
 - **Tests gegen PostgreSQL** (Pflicht vor jedem Commit mit Datenbank-Änderungen, Migrationen oder neuen Routen):
   `scripts/test-postgres.sh` im Projektordner. Startet einen eigenen Wegwerf-Container `postgres:16-alpine` (Daten nur im RAM,
