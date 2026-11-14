@@ -75,17 +75,19 @@ Angebote A–D vorliegen, ab 0.3.0) · 9 bzw. 10 Empfohlenes Vorgehen · Quellen
 - Anfragegröße bis 64 MB – das Backend soll Fotos vorher verkleinern (z. B. max. 1600 px, JPEG 85 %).
 
 ## Angebote A–D (ab 0.3.0)
-Ablaufgrafik aus Word-Tabellen (keine Bilder): A immer → C nur bei KfW 266 → Weg B (Einzelmaßnahmen) oder D (Effizienzhaus),
+Ablaufgrafik aus Word-Tabellen (keine Bilder), Reihenfolge ab 0.4.1: **A** Gebäudemodell/WPB-Prüfung (immer) →
+**B** KfW 266 Umnutzung (nur bei KfW 266, nicht gefördert) → **C** Einzelmaßnahmen oder **D** Effizienzhaus,
 darunter Kosten, Zuschuss und Eigenanteil je Weg. Alle Beträge kommen aus `ergebnis.szenarien[].angebotsweg`
 (Rechenkern, Zuschuss inkl. Höchstgrenzen Fachplanung/Baubegleitung). Der Generator rechnet nicht.
 Anzeigetexte aus `eingaben.angebote`:
 ```json
 "angebote": { "a": { "betrag": 2975, "titel": "Modellierung Gebäude", "leistungen": "3D-Erfassung, Prüfung WPB" },
-              "b": { "betrag": 2975, "titel": "BAFA Einzelmaßnahmen", "leistungen": "..." },
-              "c": { "betrag": 8330, "titel": "KfW 266 Umnutzung", "leistungen": "..." },   // optional, nicht gefördert
+              "b": { "betrag": 8330, "titel": "KfW 266 Umnutzung", "leistungen": "..." },     // optional, nicht gefördert
+              "c": { "betrag": 2975, "titel": "BAFA Einzelmaßnahmen", "leistungen": "..." },
               "d": { "betrag": 15000, "titel": "KfW Effizienzhaus 261", "leistungen": "..." },
               "anrechnung_a_in_d": true }                                                     // A ist in D enthalten
 ```
+**Achtung 0.4.1:** B und C haben gegenüber 0.3.0/0.4.0 die Rolle getauscht (vorher B = Einzelmaßnahmen, C = KfW 266).
 Die Empfehlung (grüner Rahmen) erscheint nur bei bekanntem `wpb_status` („ja“/„nein“) und folgt `ergebnis.beste_wahl`.
 
 ## Dateien

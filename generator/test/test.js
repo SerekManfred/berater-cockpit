@@ -38,7 +38,7 @@ async function text(daten) {
   const ta = await text(mitA);
   for (const z of ["Unsere Leistungen auf Ihrem Weg", "10  Empfohlenes Vorgehen", "Preis 15.000 € abzgl. Anrechnung A = 12.025 €",
     "Eigenanteil 1.487,50 €", "Ihr Eigenanteil 11.305 €", "Ihr Eigenanteil 15.830 €", "Empfehlung für Ihr Gebäude",
-    "Angebote A + B", "Angebote A + D", "Fachplanung KfW 266 (Angebot C)"]) assert(ta.includes(z), "Angebote: " + z);
+    "Angebote A + C", "Angebote A + D", "Fachplanung KfW 266 (Angebot B)", "Weg Einzelmaßnahmen: A + B + C", "Weg Effizienzhaus: A + B + D"]) assert(ta.includes(z), "Angebote: " + z);
   const ohneWpb = await text({ ...mitA, eingaben: { ...mitA.eingaben, wpb_status: "unbekannt" } });
   assert(!ohneWpb.includes("Empfehlung für Ihr Gebäude") && ohneWpb.includes("hängt von der WPB-Einstufung ab"), "Angebote ohne WPB-Status: keine Empfehlung");
   // Schutz: Konditionen-Version muss zum Ergebnis passen

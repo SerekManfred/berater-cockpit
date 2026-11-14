@@ -75,11 +75,11 @@ function angebotsweg(d, s, erg, e) {
   const A = p(em, "A");
   ch.push(kasten([absatz("**A  " + (txt.a?.titel || "Gebäudemodell und WPB-Prüfung") + "**", { size: 19 }), ...leistung("a"),
     absatz(`Immer erforderlich · ${eur2(A.betrag)} · Zuschuss ${eur2(A.zuschuss)} · Eigenanteil **${eur2(A.eigenanteil)}**`)], BR, { fill: C.goldL, randfarbe: C.gold }));
-  const C_ = p(em, "C");
-  if (C_) {
+  const U = p(em, "B"); // B = KfW 266 Umnutzung (nur bei KfW 266, nicht gefördert)
+  if (U) {
     ch.push(pfeil());
-    ch.push(kasten([absatz("**C  " + (txt.c?.titel || "KfW 266 Umnutzung") + "**", { size: 19 }), ...leistung("c"),
-      absatz(`Nötig, weil neuer Wohnraum entsteht · ${eur2(C_.betrag)} · kein Zuschuss`)], BR, { fill: C.goldL, randfarbe: C.gold, gestrichelt: true }));
+    ch.push(kasten([absatz("**B  " + (txt.b?.titel || "KfW 266 Umnutzung") + "**", { size: 19 }), ...leistung("b"),
+      absatz(`Nötig, weil neuer Wohnraum entsteht · ${eur2(U.betrag)} · kein Zuschuss`)], BR, { fill: C.goldL, randfarbe: C.gold, gestrichelt: true }));
   }
   ch.push(pfeil());
   ch.push(kasten([absatz("**Welcher Sanierungsweg?**", { size: 19 })], 4200, { fill: C.grauL, randfarbe: C.anth }));
@@ -89,30 +89,30 @@ function angebotsweg(d, s, erg, e) {
   const SP = 4950, LUECKE = W - 2 * SP;
   const zeile = (links, rechts, o = {}) => new TableRow({ cantSplit: true, children: [
     flussZelle(links, SP, o.l || {}), flussZelle([], LUECKE, { ohne: true }), flussZelle(rechts, SP, o.r || {})] });
-  const B = p(em, "B"), D = p(eh, "D");
+  const E = p(em, "C"), D = p(eh, "D"); // C = Einzelmaßnahmen, D = Effizienzhaus
   const ehOk = s.EH_ohne_WPB.foerderfaehig;
   const karte = (weg, k) => ({ fill: C.goldL, randfarbe: empf === weg ? C.gruen : C.gold, dick: empf === weg ? 18 : 6 });
   const markierung = weg => empf === weg ? [absatz("**Empfehlung für Ihr Gebäude**", { color: C.gruen })] : [];
-  const linksB = [absatz("**B  " + (txt.b?.titel || "BAFA Einzelmaßnahmen") + "**", { size: 19 }), ...leistung("b"),
-    absatz(`Preis ${eur2(B.betrag)}`), absatz(`Zuschuss ${eur2(B.zuschuss)} · Eigenanteil **${eur2(B.eigenanteil)}**`), ...markierung("EM")];
+  const linksC = [absatz("**C  " + (txt.c?.titel || "BAFA Einzelmaßnahmen") + "**", { size: 19 }), ...leistung("c"),
+    absatz(`Preis ${eur2(E.betrag)}`), absatz(`Zuschuss ${eur2(E.zuschuss)} · Eigenanteil **${eur2(E.eigenanteil)}**`), ...markierung("EM")];
   const rechtsD = [absatz("**D  " + (txt.d?.titel || "KfW Effizienzhaus 261") + "**", { size: 19 }), ...leistung("d"),
     absatz(eh.anrechnung_a ? `Preis ${eur2(D.betrag + eh.anrechnung_a)} abzgl. Anrechnung A = ${eur2(D.betrag)}` : `Preis ${eur2(D.betrag)}`),
     absatz(ehOk ? `Zuschuss ${eur2(D.zuschuss)} · Eigenanteil **${eur2(D.eigenanteil)}**` : "**Nicht förderfähig** (EE-Klasse nicht erreichbar)", { color: ehOk ? undefined : C.rot }),
     ...markierung("EH")];
   const summe = (titel, w, cKosten) => [absatz("**" + titel + "**", { size: 18 }),
-    absatz(`Kosten ${eur2(w.kosten)}` + (cKosten ? " (inkl. C)" : "")),
+    absatz(`Kosten ${eur2(w.kosten)}` + (cKosten ? " (inkl. B)" : "")),
     absatz(`Zuschuss ${eur2(w.zuschuss)}`),
     absatz(`Ihr Eigenanteil **${eur2(w.eigenanteil)}**`, { size: 19 })];
   ch.push(new Table({ width: { size: W, type: WidthType.DXA }, columnWidths: [SP, LUECKE, SP], rows: [
     zeile([pfeil()], [pfeil()], { l: { ohne: true }, r: { ohne: true } }),
-    zeile(linksB, rechtsD, { l: karte("EM"), r: karte("EH") }),
+    zeile(linksC, rechtsD, { l: karte("EM"), r: karte("EH") }),
     zeile([pfeil()], [pfeil()], { l: { ohne: true }, r: { ohne: true } }),
-    zeile(summe("Weg Einzelmaßnahmen: A + B" + (C_ ? " + C" : ""), em, !!C_), summe("Weg Effizienzhaus: A + D" + (C_ ? " + C" : ""), eh, !!C_),
+    zeile(summe("Weg Einzelmaßnahmen: A + " + (U ? "B + " : "") + "C", em, !!U), summe("Weg Effizienzhaus: A + " + (U ? "B + " : "") + "D", eh, !!U),
       { l: { fill: C.grauL }, r: { fill: C.grauL } }),
   ] }));
   const fuss = [];
   if (eh.anrechnung_a) fuss.push(`A ist in D enthalten und wird mit ${eur2(eh.anrechnung_a)} angerechnet – A wird also nur einmal bezahlt. Der Eigenanteil von A ist in der Summe des Effizienzhaus-Weges enthalten.`);
-  fuss.push("Zuschuss für Fachplanung und Baubegleitung nach BEG" + (C_ ? "; die Leistungen für KfW 266 (C) sind nicht förderfähig" : "") + ".");
+  fuss.push("Zuschuss für Fachplanung und Baubegleitung nach BEG" + (U ? "; die Leistungen für KfW 266 (B) sind nicht förderfähig" : "") + ".");
   if (em.hoechstgrenze_greift || eh.hoechstgrenze_greift)
     fuss.push("Der Zuschuss ist durch die Höchstgrenze für Fachplanung/Baubegleitung begrenzt (" +
       [em.hoechstgrenze_greift && "Einzelmaßnahmen", eh.hoechstgrenze_greift && "Effizienzhaus"].filter(Boolean).join(" und ") + ").");
@@ -244,10 +244,10 @@ function erstelleFoerdervergleich(d) {
   if (e.kosten_baubegleitung) kz.push(["Fachplanung / Baubegleitung", { t: eur(e.kosten_baubegleitung), align: R }, { t: "BEG EM", align: Z }, { t: "KfW 261", align: Z }]);
   const awEM = s.EM_ohne_WPB.angebotsweg, awEH = s.EH_ohne_WPB.angebotsweg;
   if (awEM && awEH) {
-    kz.push(["Fachplanung / Baubegleitung Einzelmaßnahmen (Angebote A + B)", { t: eur(awEM.kosten_baubegleitung), align: R }, { t: "BEG EM", align: Z }, { t: "–", align: Z }]);
+    kz.push(["Fachplanung / Baubegleitung Einzelmaßnahmen (Angebote A + C)", { t: eur(awEM.kosten_baubegleitung), align: R }, { t: "BEG EM", align: Z }, { t: "–", align: Z }]);
     kz.push(["Fachplanung / Baubegleitung Effizienzhaus (Angebote A + D)", { t: eur(awEH.kosten_baubegleitung), align: R }, { t: "–", align: Z }, { t: "KfW 261", align: Z }]);
-    const c = awEM.posten.find(x => x.kennung === "C");
-    if (c) kz.push(["Fachplanung KfW 266 (Angebot C)", { t: eur(c.betrag), align: R }, { t: "nicht gefördert", align: Z, span: 2 }]);
+    const b = awEM.posten.find(x => x.kennung === "B");
+    if (b) kz.push(["Fachplanung KfW 266 (Angebot B)", { t: eur(b.betrag), align: R }, { t: "nicht gefördert", align: Z, span: 2 }]);
   }
   if (e.isfp && e.kosten_isfp) kz.push(["iSFP-Beratung", { t: eur(e.kosten_isfp), align: R }, { t: "BAFA EBW", align: Z }, { t: "–", align: Z }]);
   if (mit266) kz.push([`Umbau ${e.we_neu || ""} neue WE (nicht energetisch)`, { t: eur(e.umbaukosten_neue_we), align: R }, { t: "KfW 266", align: Z, span: 2 }]);

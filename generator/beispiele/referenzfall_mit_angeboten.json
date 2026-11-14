@@ -78,14 +78,14 @@
     "leistungen": "3D-Erfassung, Prüfung WPB, Maßnahmen EH 85 / EH 55"
    },
    "b": {
-    "betrag": 2975,
-    "titel": "BAFA Einzelmaßnahmen",
-    "leistungen": "Fachplanung, BzA, Baubegleitung, Dokumentation, Rechnungssichtung, BnD"
-   },
-   "c": {
     "betrag": 8330,
     "titel": "KfW 266 Umnutzung",
     "leistungen": "Fachplanung, BzA, Rechnungssichtung, BnD"
+   },
+   "c": {
+    "betrag": 2975,
+    "titel": "BAFA Einzelmaßnahmen",
+    "leistungen": "Fachplanung, BzA, Baubegleitung, Dokumentation, Rechnungssichtung, BnD"
    },
    "d": {
     "betrag": 15000,
@@ -130,15 +130,15 @@
       },
       {
        "kennung": "B",
-       "betrag": 2975.0,
-       "zuschuss": 1487.5,
-       "eigenanteil": 1487.5
-      },
-      {
-       "kennung": "C",
        "betrag": 8330.0,
        "zuschuss": 0.0,
        "eigenanteil": 8330.0
+      },
+      {
+       "kennung": "C",
+       "betrag": 2975.0,
+       "zuschuss": 1487.5,
+       "eigenanteil": 1487.5
       }
      ],
      "kosten_baubegleitung": 5950.0,
@@ -183,15 +183,15 @@
       },
       {
        "kennung": "B",
-       "betrag": 2975.0,
-       "zuschuss": 1487.5,
-       "eigenanteil": 1487.5
-      },
-      {
-       "kennung": "C",
        "betrag": 8330.0,
        "zuschuss": 0.0,
        "eigenanteil": 8330.0
+      },
+      {
+       "kennung": "C",
+       "betrag": 2975.0,
+       "zuschuss": 1487.5,
+       "eigenanteil": 1487.5
       }
      ],
      "kosten_baubegleitung": 5950.0,
@@ -231,16 +231,16 @@
        "eigenanteil": 1487.5
       },
       {
+       "kennung": "B",
+       "betrag": 8330.0,
+       "zuschuss": 0.0,
+       "eigenanteil": 8330.0
+      },
+      {
        "kennung": "D",
        "betrag": 12025.0,
        "zuschuss": 6012.5,
        "eigenanteil": 6012.5
-      },
-      {
-       "kennung": "C",
-       "betrag": 8330.0,
-       "zuschuss": 0.0,
-       "eigenanteil": 8330.0
       }
      ],
      "kosten_baubegleitung": 15000.0,
@@ -281,16 +281,16 @@
        "eigenanteil": 1487.5
       },
       {
+       "kennung": "B",
+       "betrag": 8330.0,
+       "zuschuss": 0.0,
+       "eigenanteil": 8330.0
+      },
+      {
        "kennung": "D",
        "betrag": 12025.0,
        "zuschuss": 6012.5,
        "eigenanteil": 6012.5
-      },
-      {
-       "kennung": "C",
-       "betrag": 8330.0,
-       "zuschuss": 0.0,
-       "eigenanteil": 8330.0
       }
      ],
      "kosten_baubegleitung": 15000.0,
