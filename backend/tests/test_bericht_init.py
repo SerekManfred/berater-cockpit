@@ -132,7 +132,7 @@ def alle_freigeben(berater, pid) -> dict:
 
 def efh(berater, **projektwerte):
     return projekt(berater, gebaeudeart="EFH", wohneinheiten=1, we_selbstgenutzt=1, we_vermietet=0,
-                   kunde_telefon="0170 1234567", kunde_email="kunde@example.org", termin_am="2026-11-05T10:00", **projektwerte)
+                   auftraggeber_telefon="0170 1234567", auftraggeber_email="kunde@example.org", termin_am="2026-11-05T10:00", **projektwerte)
 
 
 def fertiger_entwurf(berater, p, fotos=True, **foerder):
@@ -393,7 +393,7 @@ def test_ki_aus_bericht_mit_manuellen_texten(v3_aktiv, generator):
 def test_ki_vorschlag_platzhalter_freigabe_und_erzeugen(v3_aktiv, generator, ki_an):
     """Abnahme 4b: KI an → Vorschläge erscheinen, Erzeugen erst nach Freigabe aller Abschnitte."""
     berater = konto("berater")
-    p = efh(berater, kunde_ansprechpartner="Erika Beispielfrau", kunde_strasse="Kundenweg 9", kunde_plz="80331", kunde_ort="München",
+    p = efh(berater, auftraggeber_ansprechpartner="Erika Beispielfrau", auftraggeber_strasse="Kundenweg 9", auftraggeber_plz="80331", auftraggeber_ort="München",
             objekt_bezeichnung=None)
     ids = [foto(berater, p["id"], "a.jpg"), foto(berater, p["id"], "b.jpg", (1, 2, 3))]
     e = berater.get(ENTWURF.format(p["id"])).json()

@@ -205,7 +205,7 @@ def test_rechte_je_rolle():
 
 def test_duplikat_im_selben_projekt_wird_gemeldet():
     c = nutzer("berater")
-    p1, p2 = projekt(c), projekt(c, kunde_name="Zweites Testprojekt")
+    p1, p2 = projekt(c), projekt(c, auftraggeber_name="Zweites Testprojekt")
     inhalt = pdf()
     erste = hochladen(c, p1["id"], inhalt, "Energieausweis.pdf", "energieausweis").json()
     zweite = hochladen(c, p1["id"], inhalt, "anderer Name.pdf", "sonstiges")

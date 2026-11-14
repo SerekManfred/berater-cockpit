@@ -16,6 +16,7 @@ from app.auth import rolle
 from app.dateien_api import _namen, _projekt_aktiv, datei_aus
 from app.db import get_db
 from app.modelle import Benutzer, Datei, Projekt, jetzt
+from app.parteien import berichtskunde, kurzangabe, weitere_partei
 from app.protokoll import protokollieren
 from app.word import DOCX, GEBAEUDEART_TEXT, generator_anfrage
 
@@ -41,15 +42,20 @@ def checkliste_daten(p: Projekt, berater: str | None) -> dict:
     objekt_plz_ort = _plz_ort(p.objekt_plz, p.objekt_ort)
     # Kundenanschrift und Objektadresse getrennt (Generator 0.2.1): die Kundenanschrift nur, wenn gepflegt –
     # nie mit der Objektadresse auffüllen; sonst bleibt der Kunde-Block leer („Kundenanschrift = Objektadresse“).
+    # „Kunde“ = Block, an den die Berichte adressiert sind (Phase 2d). Weicht die andere Partei ab, steht sie mit Name
+    # und Ort als Zusatz am Namen – der Datenvertrag hat kein Notizfeld, die Skills bleiben unverändert.
+    k, andere = berichtskunde(p), weitere_partei(p)
+    name = k.name
+    if andere and andere.name:
+        name = f"{k.name or '–'} ({andere.rolle}: {kurzangabe(andere)})"
     zahl = lambda w: None if w is None else str(w)  # noqa: E731
     termin = (p.termin_am.astimezone(ZoneInfo("Europe/Berlin")).strftime("%d.%m.%Y, %H:%M Uhr")
               if p.termin_am else None)
     daten = {
         "projekt_id": p.projektnummer,
         "kunde": _ohne_leere({
-            "name": p.kunde_name, "ansprechpartner": p.kunde_ansprechpartner,
-            "strasse": p.kunde_strasse, "plz_ort": _plz_ort(p.kunde_plz, p.kunde_ort),
-            "telefon": p.kunde_telefon, "email": p.kunde_email,
+            "name": name, "ansprechpartner": k.ansprechpartner,
+            "strasse": k.strasse, "plz_ort": k.plz_ort, "telefon": k.telefon, "email": k.email,
         }),
         "objekt": _ohne_leere({
             "strasse": p.objekt_strasse, "plz_ort": objekt_plz_ort,

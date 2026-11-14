@@ -184,7 +184,7 @@ class Platzhalter:
             if wert and str(wert).strip():
                 paare.append((str(wert).strip(), f"[{schluessel}]"))
         # Einzelne Namensteile (z. B. Nachname aus „Familie Beispielmann“) ebenfalls ersetzen
-        for schluessel in ("KUNDE", "ANSPRECHPARTNER"):
+        for schluessel in ("KUNDE", "AUFTRAGGEBER", "EIGENTUEMER", "ANSPRECHPARTNER"):
             wert = werte.get(schluessel)
             for i, teil in enumerate(re.split(r"[\s,]+", wert or "")):
                 if len(teil) >= 3 and teil.lower() not in ALLGEMEIN and not any(teil == p[0] for p in paare):

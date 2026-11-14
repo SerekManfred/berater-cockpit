@@ -87,7 +87,9 @@ class Projekt(Base):
     __tablename__ = "projekte"
     id: Mapped[int] = mapped_column(Integer, primary_key=True)
     projektnummer: Mapped[str] = mapped_column(String(20), unique=True, nullable=False)  # z. B. 2026-0001
-    kunde_name: Mapped[str] = mapped_column(String(200), nullable=False)
+    projektname: Mapped[str] = mapped_column(String(120), nullable=False)  # Migration 0007, z. B. „Umnutzung Arndtstraße 41“
+    # Auftraggeber (bis Migration 0007 „kunde_*“ – umbenannt, Daten unverändert)
+    auftraggeber_name: Mapped[str] = mapped_column(String(200), nullable=False)
     objekt_strasse: Mapped[str | None] = mapped_column(String(200))
     objekt_plz: Mapped[str | None] = mapped_column(String(10))
     objekt_ort: Mapped[str | None] = mapped_column(String(100))
@@ -95,13 +97,22 @@ class Projekt(Base):
     zustaendig_id: Mapped[int | None] = mapped_column(ForeignKey("benutzer.id", ondelete="SET NULL"), index=True)
     status: Mapped[str] = mapped_column(String(20), nullable=False, default="offen")
     notiz: Mapped[str | None] = mapped_column(Text)
-    # Optionale Angaben für die Vor-Ort-Checkliste (Migration 0005)
-    kunde_ansprechpartner: Mapped[str | None] = mapped_column(String(200))
-    kunde_strasse: Mapped[str | None] = mapped_column(String(200))  # Anschrift des Auftraggebers, falls abweichend
+    # Auftraggeber: weitere Angaben (Migration 0005, in 0007 von kunde_* umbenannt)
+    auftraggeber_ansprechpartner: Mapped[str | None] = mapped_column(String(200))
+    auftraggeber_strasse: Mapped[str | None] = mapped_column(String(200))
+    auftraggeber_plz: Mapped[str | None] = mapped_column(String(10))
+    auftraggeber_ort: Mapped[str | None] = mapped_column(String(100))
+    auftraggeber_telefon: Mapped[str | None] = mapped_column(String(50))
+    auftraggeber_email: Mapped[str | None] = mapped_column(String(200))
+    # Kunde / Eigentümer (Migration 0007); bei kunde_ist_auftraggeber gelten die Auftraggeber-Angaben
+    kunde_ist_auftraggeber: Mapped[bool] = mapped_column(Boolean, nullable=False, default=True)
+    kunde_name: Mapped[str | None] = mapped_column(String(200))
+    kunde_strasse: Mapped[str | None] = mapped_column(String(200))
     kunde_plz: Mapped[str | None] = mapped_column(String(10))
     kunde_ort: Mapped[str | None] = mapped_column(String(100))
     kunde_telefon: Mapped[str | None] = mapped_column(String(50))
     kunde_email: Mapped[str | None] = mapped_column(String(200))
+    berichte_an: Mapped[str] = mapped_column(String(20), nullable=False, default="kunde")  # kunde | auftraggeber
     objekt_bezeichnung: Mapped[str | None] = mapped_column(String(200))  # z. B. Name der Kirche
     wohneinheiten: Mapped[int | None] = mapped_column(SmallInteger)
     we_selbstgenutzt: Mapped[int | None] = mapped_column(SmallInteger)

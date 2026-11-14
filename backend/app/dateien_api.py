@@ -194,7 +194,8 @@ def papierkorb(_: Benutzer = Depends(nur_admin), db: Session = Depends(get_db)):
         anzahl[p.id] = (len(db.scalars(select(Bericht.id).where(Bericht.projekt_id == p.id)).all()),
                         len(db.scalars(select(Datei.id).where(Datei.projekt_id == p.id)).all()))
     return {
-        "projekte": [{"id": p.id, "projektnummer": p.projektnummer, "kunde_name": p.kunde_name, "objekt_ort": p.objekt_ort,
+        "projekte": [{"id": p.id, "projektnummer": p.projektnummer, "projektname": p.projektname,
+                      "auftraggeber_name": p.auftraggeber_name, "objekt_ort": p.objekt_ort,
                       "geloescht_am": p.geloescht_am, "geloescht_von": namen.get(p.geloescht_von_id),
                       "berichte": anzahl[p.id][0], "dateien": anzahl[p.id][1]} for p in projekte],
         "dateien": [{**datei_aus(d, namen), "projektnummer": nr, "projekt_geloescht": p_geloescht is not None,

@@ -22,6 +22,7 @@ from app.auth import aktueller_benutzer, rolle
 from app.dateien_api import dateien_des_projekts
 from app.db import get_db
 from app.modelle import Benutzer, Bericht, Projekt, ProjektnummerZaehler, jetzt
+from app.parteien import berichtskunde
 from app.protokoll import protokollieren
 from app.rechnen import NUR_UEBER_ENTWURF, RECHNER, lade_konditionen
 
@@ -34,12 +35,17 @@ berichten = rolle("berater")
 
 Gebaeudeart = Literal["EFH", "ZFH", "MFH", "Nichtwohngebaeude", "Kirche"]
 ProjektStatus = Literal["offen", "in_bearbeitung", "abgeschlossen"]
+BerichteAn = Literal["kunde", "auftraggeber"]
 Modul = Literal[tuple(RECHNER)]  # type: ignore[valid-type]
 
-# Personenbezogene Felder: im Protokoll nur der Feldname, nicht der Inhalt
-PERSONENBEZOGEN = {"kunde_name", "objekt_strasse", "objekt_plz", "objekt_ort", "notiz",
-                   "kunde_ansprechpartner", "kunde_strasse", "kunde_plz", "kunde_ort", "kunde_telefon", "kunde_email",
-                   "objekt_bezeichnung"}
+# Auftraggeber (bis Migration 0007 „kunde_*“) und Kunde/Eigentümer (neu in 0007)
+AUFTRAGGEBER_FELDER = ("auftraggeber_name", "auftraggeber_ansprechpartner", "auftraggeber_strasse", "auftraggeber_plz",
+                       "auftraggeber_ort", "auftraggeber_telefon", "auftraggeber_email")
+KUNDE_FELDER = ("kunde_name", "kunde_strasse", "kunde_plz", "kunde_ort", "kunde_telefon", "kunde_email")
+# Personenbezogene Felder: im Protokoll nur der Feldname, nicht der Inhalt. Der Projektname enthält oft die Objektstraße.
+PERSONENBEZOGEN = {"projektname", "objekt_strasse", "objekt_plz", "objekt_ort", "notiz", "objekt_bezeichnung",
+                   *AUFTRAGGEBER_FELDER, *KUNDE_FELDER}
+KUNDE_FEHLT = "Bitte den Namen des Kunden (Eigentümers) angeben – oder „Kunde ist zugleich Auftraggeber“ wählen."
 BERLIN = ZoneInfo("Europe/Berlin")
 EMAIL_MUSTER = re.compile(r"^[^@\s]+@[^@\s]+\.[^@\s]+$")
 WE_FELDER = ("wohneinheiten", "we_selbstgenutzt", "we_vermietet")
@@ -49,7 +55,14 @@ WE_FELDER = ("wohneinheiten", "we_selbstgenutzt", "we_vermietet")
 
 class ProjektZusatz(BaseModel):
     """Optionale Angaben (u. a. für die Vor-Ort-Checkliste). Leere Texte gelten als „nicht angegeben“."""
-    kunde_ansprechpartner: str | None = Field(None, max_length=200)
+    auftraggeber_ansprechpartner: str | None = Field(None, max_length=200)
+    auftraggeber_strasse: str | None = Field(None, max_length=200)
+    auftraggeber_plz: str | None = Field(None, max_length=10)
+    auftraggeber_ort: str | None = Field(None, max_length=100)
+    auftraggeber_telefon: str | None = Field(None, max_length=50)
+    auftraggeber_email: str | None = Field(None, max_length=200)
+    # Kunde / Eigentümer – nur wenn nicht zugleich Auftraggeber
+    kunde_name: str | None = Field(None, max_length=200)
     kunde_strasse: str | None = Field(None, max_length=200)
     kunde_plz: str | None = Field(None, max_length=10)
     kunde_ort: str | None = Field(None, max_length=100)
@@ -61,8 +74,7 @@ class ProjektZusatz(BaseModel):
     we_vermietet: int | None = Field(None, ge=0, le=9999)
     termin_am: datetime | None = None  # ohne Zeitzone = Ortszeit Europe/Berlin
 
-    @field_validator("kunde_ansprechpartner", "kunde_strasse", "kunde_plz", "kunde_ort", "kunde_telefon", "kunde_email",
-                     "objekt_bezeichnung", mode="before")
+    @field_validator(*AUFTRAGGEBER_FELDER[1:], *KUNDE_FELDER, "objekt_bezeichnung", mode="before")
     @classmethod
     def _leer_ist_none(cls, wert):
         if isinstance(wert, str):
@@ -70,7 +82,7 @@ class ProjektZusatz(BaseModel):
             return wert or None
         return wert
 
-    @field_validator("kunde_email")
+    @field_validator("auftraggeber_email", "kunde_email")
     @classmethod
     def _email(cls, wert):
         if wert is not None and not EMAIL_MUSTER.match(wert):
@@ -96,8 +108,17 @@ def _we_pruefen(werte: dict):
         raise ValueError("Selbstgenutzte und vermietete Wohneinheiten sind zusammen mehr als die Wohneinheiten insgesamt.")
 
 
+def _leer_zu_none(wert):
+    if isinstance(wert, str):
+        return wert.strip() or None
+    return wert
+
+
 class ProjektDaten(ProjektZusatz):
-    kunde_name: str = Field(min_length=1, max_length=200)
+    projektname: str = Field(min_length=1, max_length=120)
+    auftraggeber_name: str = Field(min_length=1, max_length=200)
+    kunde_ist_auftraggeber: bool = True
+    berichte_an: BerichteAn = "kunde"
     objekt_strasse: str | None = Field(None, max_length=200)
     objekt_plz: str | None = Field(None, max_length=10)
     objekt_ort: str | None = Field(None, max_length=100)
@@ -106,14 +127,24 @@ class ProjektDaten(ProjektZusatz):
     status: ProjektStatus = "offen"
     notiz: str | None = Field(None, max_length=10000)
 
+    @field_validator("projektname", "auftraggeber_name", mode="before")
+    @classmethod
+    def _ohne_rand(cls, wert):
+        return wert.strip() if isinstance(wert, str) else wert  # nur Leerzeichen → leer → abgelehnt
+
     @model_validator(mode="after")
     def _wohneinheiten(self):
         _we_pruefen(self.model_dump(include=set(WE_FELDER)))
+        if not self.kunde_ist_auftraggeber and not self.kunde_name:
+            raise ValueError(KUNDE_FEHLT)
         return self
 
 
 class ProjektAenderung(ProjektZusatz):
-    kunde_name: str | None = Field(None, min_length=1, max_length=200)
+    projektname: str | None = Field(None, min_length=1, max_length=120)
+    auftraggeber_name: str | None = Field(None, min_length=1, max_length=200)
+    kunde_ist_auftraggeber: bool | None = None
+    berichte_an: BerichteAn | None = None
     objekt_strasse: str | None = Field(None, max_length=200)
     objekt_plz: str | None = Field(None, max_length=10)
     objekt_ort: str | None = Field(None, max_length=100)
@@ -145,11 +176,12 @@ def _namen(db: Session, ids) -> dict[int, str]:
 
 def _projekt_aus(p: Projekt, namen: dict[int, str]) -> dict:
     return {
-        "id": p.id, "projektnummer": p.projektnummer, "kunde_name": p.kunde_name,
+        "id": p.id, "projektnummer": p.projektnummer, "projektname": p.projektname,
         "objekt_strasse": p.objekt_strasse, "objekt_plz": p.objekt_plz, "objekt_ort": p.objekt_ort,
         "gebaeudeart": p.gebaeudeart, "status": p.status, "notiz": p.notiz,
-        "kunde_ansprechpartner": p.kunde_ansprechpartner, "kunde_strasse": p.kunde_strasse, "kunde_plz": p.kunde_plz,
-        "kunde_ort": p.kunde_ort, "kunde_telefon": p.kunde_telefon, "kunde_email": p.kunde_email,
+        **{f: getattr(p, f) for f in AUFTRAGGEBER_FELDER},
+        "kunde_ist_auftraggeber": p.kunde_ist_auftraggeber, **{f: getattr(p, f) for f in KUNDE_FELDER},
+        "berichte_an": p.berichte_an, "berichtskunde": berichtskunde(p).name,
         "objekt_bezeichnung": p.objekt_bezeichnung, "wohneinheiten": p.wohneinheiten,
         "we_selbstgenutzt": p.we_selbstgenutzt, "we_vermietet": p.we_vermietet, "termin_am": p.termin_am,
         "zustaendig_id": p.zustaendig_id, "zustaendig": namen.get(p.zustaendig_id),
@@ -263,6 +295,8 @@ def projekte_liste(suche: str = "", status: ProjektStatus | None = None, zustaen
     suche = suche.strip()
     if suche:
         abfrage = abfrage.where(or_(
+            func.lower(Projekt.projektname).contains(suche.lower(), autoescape=True),
+            func.lower(Projekt.auftraggeber_name).contains(suche.lower(), autoescape=True),
             func.lower(Projekt.kunde_name).contains(suche.lower(), autoescape=True),
             func.lower(Projekt.objekt_ort).contains(suche.lower(), autoescape=True),
             func.lower(Projekt.projektnummer).contains(suche.lower(), autoescape=True),
@@ -291,7 +325,10 @@ def projekt_anlegen(daten: ProjektDaten, request: Request, ich: Benutzer = Depen
                     db: Session = Depends(get_db)):
     _zustaendig_pruefen(db, daten.zustaendig_id)
     for _ in range(5):  # bei gleichzeitiger Anlage: nächste freie Nummer nehmen
-        p = Projekt(**daten.model_dump(), projektnummer=_naechste_projektnummer(db), erstellt_von_id=ich.id,
+        werte = daten.model_dump()
+        if werte["kunde_ist_auftraggeber"]:  # nichts Verborgenes speichern: der Kunden-Block gilt dann nicht
+            werte.update(dict.fromkeys(KUNDE_FELDER))
+        p = Projekt(**werte, projektnummer=_naechste_projektnummer(db), erstellt_von_id=ich.id,
                     erstellt_am=jetzt(), geaendert_am=jetzt())
         db.add(p)
         try:
@@ -322,9 +359,16 @@ def projekt_bearbeiten(projekt_id: int, daten: ProjektAenderung, request: Reques
     werte = daten.model_dump(exclude_unset=True)
     if "zustaendig_id" in werte:
         _zustaendig_pruefen(db, werte["zustaendig_id"])
-    for pflicht in ("kunde_name", "gebaeudeart", "status"):
+    for f in ("projektname", "auftraggeber_name"):
+        if f in werte:
+            werte[f] = _leer_zu_none(werte[f])
+    for pflicht in ("projektname", "auftraggeber_name", "gebaeudeart", "status", "kunde_ist_auftraggeber", "berichte_an"):
         if pflicht in werte and werte[pflicht] is None:
             raise HTTPException(422, f"{pflicht} darf nicht leer sein")
+    if werte.get("kunde_ist_auftraggeber", p.kunde_ist_auftraggeber):
+        werte.update(dict.fromkeys(KUNDE_FELDER))  # Kunden-Block gilt nicht – nichts Verborgenes speichern
+    elif not werte.get("kunde_name", p.kunde_name):
+        raise HTTPException(422, KUNDE_FEHLT)
     try:  # Wohneinheiten zusammen mit den gespeicherten Werten prüfen (Änderung kann nur ein Feld betreffen)
         _we_pruefen({f: werte.get(f, getattr(p, f)) for f in WE_FELDER})
     except ValueError as fehler:

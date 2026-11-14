@@ -10,6 +10,7 @@ from app import config
 from app.auth import aktueller_benutzer
 from app.db import get_db
 from app.modelle import Benutzer, Bericht, Projekt
+from app.parteien import berichtskunde
 from app.projekte_api import _bericht_laden, _namen
 from app.protokoll import protokollieren
 
@@ -29,7 +30,7 @@ def generator_daten(b: Bericht, p: Projekt, ersteller: str | None) -> dict:
     """Datenvertrag POST /foerdervergleich – Eingaben, Ergebnis und Konditionen exakt wie gespeichert."""
     return {
         "projekt": {
-            "projektnummer": p.projektnummer, "kunde_name": p.kunde_name, "objekt_strasse": p.objekt_strasse or "",
+            "projektnummer": p.projektnummer, "kunde_name": berichtskunde(p).name or "", "objekt_strasse": p.objekt_strasse or "",
             "objekt_plz": p.objekt_plz or "", "objekt_ort": p.objekt_ort or "",
             "gebaeudeart": GEBAEUDEART_TEXT.get(p.gebaeudeart, p.gebaeudeart),
         },

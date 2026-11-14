@@ -63,36 +63,36 @@ def dateien_db(pid) -> list[Datei]:
 
 def test_neue_projektfelder_speichern_pruefen_und_protokollieren():
     c = nutzer("verwaltung")
-    p = projekt(c, gebaeudeart="EFH", kunde_telefon=" 0123 456789 ", kunde_email="test@example.org",
-                wohneinheiten=1, we_selbstgenutzt=1, we_vermietet=0, termin_am="2026-11-20T10:00", kunde_ort="")
-    assert p["kunde_telefon"] == "0123 456789" and p["kunde_email"] == "test@example.org"
+    p = projekt(c, gebaeudeart="EFH", auftraggeber_telefon=" 0123 456789 ", auftraggeber_email="test@example.org",
+                wohneinheiten=1, we_selbstgenutzt=1, we_vermietet=0, termin_am="2026-11-20T10:00", auftraggeber_ort="")
+    assert p["auftraggeber_telefon"] == "0123 456789" and p["auftraggeber_email"] == "test@example.org"
     assert (p["wohneinheiten"], p["we_selbstgenutzt"], p["we_vermietet"]) == (1, 1, 0)
-    assert p["kunde_ort"] is None  # leerer Text = nicht angegeben
+    assert p["auftraggeber_ort"] is None  # leerer Text = nicht angegeben
     assert p["termin_am"].startswith("2026-11-20T09:00")  # 10:00 Uhr Ortszeit (MEZ) = 09:00 UTC
 
-    for falsch in ({"wohneinheiten": -1}, {"we_vermietet": -2}, {"kunde_email": "keine-adresse"},
+    for falsch in ({"wohneinheiten": -1}, {"we_vermietet": -2}, {"auftraggeber_email": "keine-adresse"},
                    {"wohneinheiten": 2, "we_selbstgenutzt": 2, "we_vermietet": 1}, {"termin_am": "kein Datum"},
-                   {"termin_am": "1899-01-01T10:00"}, {"kunde_telefon": "1" * 51}):
-        r = c.post("/projekte", json={"kunde_name": "X", "gebaeudeart": "EFH", **falsch})
+                   {"termin_am": "1899-01-01T10:00"}, {"auftraggeber_telefon": "1" * 51}):
+        r = c.post("/projekte", json={"projektname": "P", "auftraggeber_name": "X", "gebaeudeart": "EFH", **falsch})
         assert r.status_code == 422, falsch
 
     # Änderung wird zusammen mit den gespeicherten Werten geprüft
     assert c.patch(f"/projekte/{p['id']}", json={"we_vermietet": 1}).status_code == 422
-    r = c.patch(f"/projekte/{p['id']}", json={"wohneinheiten": 3, "we_vermietet": 2, "kunde_ansprechpartner": "Herr Test",
+    r = c.patch(f"/projekte/{p['id']}", json={"wohneinheiten": 3, "we_vermietet": 2, "auftraggeber_ansprechpartner": "Herr Test",
                                                "objekt_bezeichnung": "Testobjekt", "termin_am": "2026-11-21T08:30:00+01:00"})
     assert r.status_code == 200, r.text
     with SessionLocal() as db:
         eintrag = db.scalars(select(Protokoll).where(Protokoll.aktion == "projekt_geaendert")).one()
     felder = eintrag.details["felder"]
-    assert felder["kunde_ansprechpartner"] == "geändert" and felder["objekt_bezeichnung"] == "geändert"
+    assert felder["auftraggeber_ansprechpartner"] == "geändert" and felder["objekt_bezeichnung"] == "geändert"
     assert felder["wohneinheiten"] == {"alt": 1, "neu": 3}
     assert felder["termin_am"]["neu"].startswith("2026-11-21T07:30")  # 08:30 MEZ in UTC
     assert "Herr Test" not in json.dumps(eintrag.details)
-    assert c.patch(f"/projekte/{p['id']}", json={"kunde_email": "Test@"}).status_code == 422
-    c.patch(f"/projekte/{p['id']}", json={"kunde_email": "neu@example.org"})
+    assert c.patch(f"/projekte/{p['id']}", json={"auftraggeber_email": "Test@"}).status_code == 422
+    c.patch(f"/projekte/{p['id']}", json={"auftraggeber_email": "neu@example.org"})
     with SessionLocal() as db:
         letzte = db.scalars(select(Protokoll).where(Protokoll.aktion == "projekt_geaendert").order_by(Protokoll.id.desc())).first()
-    assert letzte.details["felder"] == {"kunde_email": "geändert"}
+    assert letzte.details["felder"] == {"auftraggeber_email": "geändert"}
 
 
 # ---------- Datenvertrag und Ablage ----------
@@ -100,7 +100,7 @@ def test_neue_projektfelder_speichern_pruefen_und_protokollieren():
 def test_daten_an_generator_und_ablage(generator):
     c = nutzer("verwaltung")
     zust = nutzer("berater")
-    p = projekt(c, gebaeudeart="Nichtwohngebaeude", kunde_telefon="0123 456789", kunde_email="test@example.org",
+    p = projekt(c, gebaeudeart="Nichtwohngebaeude", auftraggeber_telefon="0123 456789", auftraggeber_email="test@example.org",
                 wohneinheiten=2, we_selbstgenutzt=1, we_vermietet=0, termin_am="2026-07-20T10:00",
                 zustaendig_id=zust.benutzer_id)
     r = checkliste(c, p["id"], "meh")
@@ -143,7 +143,7 @@ def test_daten_an_generator_und_ablage(generator):
 
 def test_abweichende_kundenanschrift_getrennt_von_objekt(generator):
     c = nutzer("berater")
-    p = projekt(c, gebaeudeart="EFH", kunde_strasse="Hauptstr. 1", kunde_plz="89073", kunde_ort="Ulm")
+    p = projekt(c, gebaeudeart="EFH", auftraggeber_strasse="Hauptstr. 1", auftraggeber_plz="89073", auftraggeber_ort="Ulm")
     assert checkliste(c, p["id"], "init").status_code == 201
     d = generator[0]["daten"]
     assert d["kunde"] == {"name": KUNDE, "strasse": "Hauptstr. 1", "plz_ort": "89073 Ulm"}
@@ -153,8 +153,8 @@ def test_abweichende_kundenanschrift_getrennt_von_objekt(generator):
 
 def test_kundenanschrift_kirche_und_leere_felder(generator):
     c = nutzer("berater")
-    p = projekt(c, gebaeudeart="Kirche", objekt_bezeichnung="St. Test", kunde_ansprechpartner="Herr Test, Kirchenpfleger",
-                kunde_strasse="Pfarrgasse 2", kunde_ort="Testdorf")
+    p = projekt(c, gebaeudeart="Kirche", objekt_bezeichnung="St. Test", auftraggeber_ansprechpartner="Herr Test, Kirchenpfleger",
+                auftraggeber_strasse="Pfarrgasse 2", auftraggeber_ort="Testdorf")
     assert checkliste(c, p["id"], "kirche").status_code == 201
     d = generator[0]["daten"]
     assert d["kunde"] == {"name": KUNDE, "ansprechpartner": "Herr Test, Kirchenpfleger", "strasse": "Pfarrgasse 2",
@@ -163,7 +163,7 @@ def test_kundenanschrift_kirche_und_leere_felder(generator):
                            "bezeichnung": "St. Test", "gebaeudetyp": "Kirche"}
     assert d["termin"] == {"berater": "berater"}  # ohne Zuständigen: Aufrufer; ohne Termin kein Datum
 
-    nur_ort = projekt(c, kunde_ort="Ulm")  # unvollständige Kundenanschrift: Straße bleibt frei, kein Objekt-Ersatz
+    nur_ort = projekt(c, auftraggeber_ort="Ulm")  # unvollständige Kundenanschrift: Straße bleibt frei, kein Objekt-Ersatz
     assert checkliste(c, nur_ort["id"]).status_code == 201
     assert generator[1]["daten"]["kunde"] == {"name": KUNDE, "plz_ort": "Ulm"}
 
@@ -283,7 +283,7 @@ def test_migration_0005_hoch_und_runter(leere_datenbank):
         v.execute(text("INSERT INTO dateien (id, projekt_id, kategorie, dateiname_original, speichername, mime_typ, groesse, "
                        "sha256, hat_vorschau, hochgeladen_am) VALUES (1, 1, 'plaene', 'a.pdf', 'x', 'application/pdf', 1, "
                        "'s', false, :t)"), {"t": "2026-11-01 10:00:00+00"})
-    command.upgrade(alembic_config(url), "head")
+    command.upgrade(alembic_config(url), "0005")  # Stand 0005 prüfen (0007 benennt kunde_* in auftraggeber_* um)
     spalten = lambda t: {s["name"] for s in inspect(motor).get_columns(t)}  # noqa: E731
     neu_projekt = {"kunde_ansprechpartner", "kunde_strasse", "kunde_plz", "kunde_ort", "kunde_telefon", "kunde_email",
                    "objekt_bezeichnung", "wohneinheiten", "we_selbstgenutzt", "we_vermietet", "termin_am"}
@@ -322,8 +322,8 @@ def test_echter_generator_erzeugt_checkliste(monkeypatch, modul, gebaeudeart):
     monkeypatch.setattr(config, "GENERATOR_URL", os.environ["GENERATOR_TEST_URL"].rstrip("/"))
     monkeypatch.setattr(word, "TRANSPORT", None)
     c = nutzer("verwaltung")
-    p = projekt(c, gebaeudeart=gebaeudeart, kunde_telefon="0123 456789", wohneinheiten=1, we_selbstgenutzt=1,
-                kunde_strasse="Hauptstr. 1", kunde_plz="89073", kunde_ort="Ulm",
+    p = projekt(c, gebaeudeart=gebaeudeart, auftraggeber_telefon="0123 456789", wohneinheiten=1, we_selbstgenutzt=1,
+                auftraggeber_strasse="Hauptstr. 1", auftraggeber_plz="89073", auftraggeber_ort="Ulm",
                 termin_am="2026-11-20T10:00", objekt_bezeichnung="St. Test" if modul == "kirche" else None)
     r = checkliste(c, p["id"], modul)
     assert r.status_code == 201, r.text

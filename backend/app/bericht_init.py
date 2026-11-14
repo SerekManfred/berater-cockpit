@@ -27,6 +27,7 @@ from app.auth import aktueller_benutzer, rolle
 from app.dateien_api import _namen, datei_aus
 from app.db import get_db
 from app.modelle import Benutzer, Bericht, BerichtEntwurf, Datei, Projekt, jetzt
+from app.parteien import auftraggeber, berichtskunde, kunde
 from app.protokoll import protokollieren
 from app.rechnen import InitFoerderEingaben, init_rechnen, lade_konditionen
 from app.word import DOCX, GEBAEUDEART_TEXT, generator_anfrage
@@ -465,11 +466,17 @@ def ki_lauf_lesen(projekt_id: int, nr: int, _: Benutzer = Depends(bearbeiten), d
 # ---------- KI-Vorschlag ----------
 
 def _platzhalter(p: Projekt) -> ki_texte.Platzhalter:
+    """Namen, Anschriften und Kontakte von Auftraggeber UND Kunde/Eigentümer nie an die KI (Phase 2b/2d)."""
+    ag = auftraggeber(p)
+    eig = None if p.kunde_ist_auftraggeber else kunde(p)
     return ki_texte.Platzhalter({
-        "KUNDE": p.kunde_name, "ANSPRECHPARTNER": p.kunde_ansprechpartner, "OBJEKTSTRASSE": p.objekt_strasse,
-        "OBJEKTORT": " ".join(t for t in (p.objekt_plz, p.objekt_ort) if t) or None,
-        "KUNDENSTRASSE": p.kunde_strasse, "KUNDENORT": " ".join(t for t in (p.kunde_plz, p.kunde_ort) if t) or None,
-        "TELEFON": p.kunde_telefon, "E-MAIL": p.kunde_email, "OBJEKTBEZEICHNUNG": p.objekt_bezeichnung,
+        "KUNDE": berichtskunde(p).name, "AUFTRAGGEBER": ag.name, "EIGENTUEMER": eig.name if eig else None,
+        "ANSPRECHPARTNER": ag.ansprechpartner, "PROJEKTNAME": p.projektname,
+        "OBJEKTSTRASSE": p.objekt_strasse, "OBJEKTORT": " ".join(t for t in (p.objekt_plz, p.objekt_ort) if t) or None,
+        "AUFTRAGGEBERSTRASSE": ag.strasse, "AUFTRAGGEBERORT": ag.plz_ort or None, "TELEFON": ag.telefon, "E-MAIL": ag.email,
+        "KUNDENSTRASSE": eig.strasse if eig else None, "KUNDENORT": (eig.plz_ort or None) if eig else None,
+        "TELEFON_KUNDE": eig.telefon if eig else None, "E-MAIL_KUNDE": eig.email if eig else None,
+        "OBJEKTBEZEICHNUNG": p.objekt_bezeichnung,
     })
 
 
@@ -589,6 +596,7 @@ def _foto_name(datei_id: int) -> str:
 def generator_daten(p: Projekt, d: dict, z: dict, rk: dict, kond: dict, version: int) -> tuple[dict, list[int]]:
     """Datenvertrag POST /bericht/init (generator/README.md). Kundenanschrift ≠ Objektadresse (wie Phase 2a)."""
     objekt_adresse = ", ".join(t for t in (p.objekt_strasse, " ".join(t for t in (p.objekt_plz, p.objekt_ort) if t)) if t)
+    k = berichtskunde(p)
     texte, o, t, f = d.get("texte") or {}, d.get("objekt") or {}, d.get("termin") or {}, d.get("foerder") or {}
     fotos_je = {a: [] for a in ki_texte.FOTO_ABSCHNITTE}
     for key, info in (z.get("fotos") or {}).items():
@@ -606,12 +614,12 @@ def generator_daten(p: Projekt, d: dict, z: dict, rk: dict, kond: dict, version:
         "titel": "Energieberatungsbericht",
         "berichtsnummer": f"{p.projektnummer}-V{version}",
         "erstelldatum": datetime.now(BERLIN).strftime("%d.%m.%Y"),
-        "kunde": {
-            "name": p.kunde_name,
+        "kunde": {  # Block, an den die Berichte adressiert sind (Phase 2d, app/parteien.py)
+            "name": k.name,
             # nie mit der Objektadresse auffüllen – sonst ein klarer Hinweis
-            "strasse": p.kunde_strasse or "wie Objektadresse",
-            "plz_ort": " ".join(x for x in (p.kunde_plz, p.kunde_ort) if x) or ("" if p.kunde_strasse else "wie Objektadresse"),
-            "telefon": p.kunde_telefon or "", "email": p.kunde_email or "",
+            "strasse": k.strasse or "wie Objektadresse",
+            "plz_ort": k.plz_ort or ("" if k.strasse else "wie Objektadresse"),
+            "telefon": k.telefon or "", "email": k.email or "",
         },
         "objekt": {
             "adresse": objekt_adresse, "gebaeudetyp": o.get("gebaeudetyp", ""), "baujahr": o.get("baujahr", ""),

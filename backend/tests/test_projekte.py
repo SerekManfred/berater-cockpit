@@ -34,7 +34,7 @@ def nutzer(rolle, email=None):
 
 
 def projekt(c, **werte):
-    daten = {"kunde_name": "Testkunde Muster", "objekt_ort": "Teststadt", "objekt_plz": "12345",
+    daten = {"projektname": "Testprojekt Musterhaus", "auftraggeber_name": "Testkunde Muster", "objekt_ort": "Teststadt", "objekt_plz": "12345",
              "objekt_strasse": "Testweg 1", "gebaeudeart": "MFH", **werte}
     r = c.post("/projekte", json=daten)
     assert r.status_code == 201, r.text
@@ -54,12 +54,12 @@ def bericht_db(bid) -> Bericht:
 
 def test_projekt_anlegen_mit_fortlaufender_nummer():
     c = nutzer("verwaltung")
-    p1, p2 = projekt(c), projekt(c, kunde_name="Zweiter Testkunde", zustaendig_id=c.benutzer_id)
+    p1, p2 = projekt(c), projekt(c, auftraggeber_name="Zweiter Testkunde", zustaendig_id=c.benutzer_id)
     assert p1["projektnummer"] == f"{JAHR}-0001" and p2["projektnummer"] == f"{JAHR}-0002"
     assert p1["status"] == "offen" and p1["erstellt_von"] == "verwaltung" and p2["zustaendig"] == "verwaltung"
-    assert c.post("/projekte", json={"kunde_name": "", "gebaeudeart": "MFH"}).status_code == 422
-    assert c.post("/projekte", json={"kunde_name": "X", "gebaeudeart": "Hochhaus"}).status_code == 422
-    assert c.post("/projekte", json={"kunde_name": "X", "gebaeudeart": "EFH", "zustaendig_id": 99999}).status_code == 422
+    assert c.post("/projekte", json={"projektname": "P", "auftraggeber_name": "", "gebaeudeart": "MFH"}).status_code == 422
+    assert c.post("/projekte", json={"projektname": "P", "auftraggeber_name": "X", "gebaeudeart": "Hochhaus"}).status_code == 422
+    assert c.post("/projekte", json={"projektname": "P", "auftraggeber_name": "X", "gebaeudeart": "EFH", "zustaendig_id": 99999}).status_code == 422
 
 
 def test_projektnummer_zaehlt_nach_loeschen_weiter():
@@ -72,10 +72,10 @@ def test_projektnummer_zaehlt_nach_loeschen_weiter():
 def test_projekte_suchen_filtern_sortieren():
     c = nutzer("berater")
     andere = nutzer("verwaltung")
-    a = projekt(c, kunde_name="Alpha Testkunde", objekt_ort="Nordstadt", zustaendig_id=c.benutzer_id)
-    b = projekt(andere, kunde_name="Beta Testkunde", objekt_ort="Südstadt", status="abgeschlossen",
+    a = projekt(c, auftraggeber_name="Alpha Testkunde", objekt_ort="Nordstadt", zustaendig_id=c.benutzer_id)
+    b = projekt(andere, auftraggeber_name="Beta Testkunde", objekt_ort="Südstadt", status="abgeschlossen",
                 zustaendig_id=c.benutzer_id)
-    d = projekt(andere, kunde_name="Gamma 100%", objekt_ort="Nordstadt", zustaendig_id=andere.benutzer_id)
+    d = projekt(andere, auftraggeber_name="Gamma 100%", objekt_ort="Nordstadt", zustaendig_id=andere.benutzer_id)
 
     ids = lambda r: [p["id"] for p in r.json()]  # noqa: E731
     assert ids(c.get("/projekte")) == [d["id"], b["id"], a["id"]]  # neueste Änderung zuerst
@@ -96,19 +96,19 @@ def test_projekte_suchen_filtern_sortieren():
 def test_projekt_bearbeiten_und_protokoll_ohne_personendaten():
     c = nutzer("verwaltung")
     p = projekt(c)
-    r = c.patch(f"/projekte/{p['id']}", json={"kunde_name": "Neuer Testname", "status": "in_bearbeitung",
+    r = c.patch(f"/projekte/{p['id']}", json={"auftraggeber_name": "Neuer Testname", "status": "in_bearbeitung",
                                               "zustaendig_id": c.benutzer_id})
     assert r.status_code == 200
     neu = r.json()
-    assert (neu["kunde_name"], neu["status"], neu["zustaendig"]) == ("Neuer Testname", "in_bearbeitung", "verwaltung")
+    assert (neu["auftraggeber_name"], neu["status"], neu["zustaendig"]) == ("Neuer Testname", "in_bearbeitung", "verwaltung")
     assert neu["geaendert_am"] > p["geaendert_am"] and neu["projektnummer"] == p["projektnummer"]
-    assert c.patch(f"/projekte/{p['id']}", json={"kunde_name": None}).status_code == 422
+    assert c.patch(f"/projekte/{p['id']}", json={"auftraggeber_name": None}).status_code == 422
     assert c.patch(f"/projekte/{p['id']}", json={"status": "erledigt"}).status_code == 422
     assert c.patch("/projekte/99999", json={"notiz": "x"}).status_code == 404
 
     admin = nutzer("admin")
     eintrag = next(e for e in admin.get("/protokoll").json() if e["aktion"] == "projekt_geaendert")
-    assert eintrag["details"]["felder"]["kunde_name"] == "geändert"  # kein Kundenname im Protokoll
+    assert eintrag["details"]["felder"]["auftraggeber_name"] == "geändert"  # kein Name des Auftraggebers im Protokoll
     assert eintrag["details"]["felder"]["status"] == {"alt": "offen", "neu": "in_bearbeitung"}
     assert "Testkunde" not in str(eintrag) and "Neuer Testname" not in str(eintrag)
 
@@ -229,7 +229,7 @@ def test_rechte_je_rolle():
         assert c.get(f"/berichte/{b['id']}").status_code == 200
         assert c.get("/benutzer-auswahl").status_code == 200
     for c in (berater, verwaltung, admin):  # anlegen und bearbeiten
-        assert c.post("/projekte", json={"kunde_name": "T", "gebaeudeart": "EFH"}).status_code == 201
+        assert c.post("/projekte", json={"projektname": "P", "auftraggeber_name": "T", "gebaeudeart": "EFH"}).status_code == 201
         assert c.patch(f"/projekte/{p['id']}", json={"notiz": str(id(c))}).status_code == 200
     # Berichte rechnen und speichern: Verwaltung nicht
     assert verwaltung.post(f"/projekte/{p['id']}/berichte", json={"modul": MODUL, "eingaben": REFERENZFALL}).status_code == 403
