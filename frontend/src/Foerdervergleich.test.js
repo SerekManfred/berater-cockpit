@@ -39,11 +39,36 @@ describe("Angebote in der Reihenfolge des Ablaufs (ab 14.11.2026)", () => {
 
 describe("eingabenPruefen – Zahlen erst beim Rechnen umwandeln", () => {
   it("leere Felder → 0, Wohneinheiten Pflicht", () => {
-    const d = { ...LEER, we_nach_sanierung: null, kosten_isfp: null, massnahmen: [{ ...LEER.massnahmen[0], kosten: null }] };
+    const d = { ...LEER, we_nach_sanierung: null, kosten_isfp: null, umbaukosten_neue_we: null };
     const { werte, fehler } = eingabenPruefen(d);
     expect(fehler).toEqual(["Wohneinheiten nach Sanierung: bitte ausfüllen"]);
-    expect(werte.kosten_isfp).toBe(0);
-    expect(werte.massnahmen[0].kosten).toBe(0);
+    expect([werte.kosten_isfp, werte.umbaukosten_neue_we]).toEqual([0, 0]);
+  });
+
+  it("Maßnahmen-Kosten sind Pflicht: leer blockiert, 0 ist erlaubt", () => {
+    const m = LEER.massnahmen[0];
+    const d = { ...LEER, massnahmen: [{ ...m, kosten: 0 }, { ...m, kosten: null }, { ...m, kosten: 5000 }] };
+    expect(eingabenPruefen(d).fehler).toEqual(["Maßnahme 2: Kosten bitte ausfüllen"]);
+    expect(eingabenPruefen({ ...LEER, massnahmen: [{ ...m, kosten: 0 }] }).fehler).toEqual([]);
+  });
+
+  it("Angebote: sobald ein Betrag da ist, sind A, C und D Pflicht – B optional", () => {
+    const f = angeboteFormular();
+    f.a.betrag = 2975;                                         // nur A eingetragen
+    const d = { ...LEER, kfw266: true, angebote: angeboteDaten(f, true) };
+    expect(eingabenPruefen(d).fehler).toEqual(["Angebot C: Betrag bitte ausfüllen", "Angebot D: Betrag bitte ausfüllen"]);
+    f.c.betrag = 2975; f.d.betrag = 15000;                     // ohne B vollständig
+    expect(eingabenPruefen({ ...d, angebote: angeboteDaten(f, true) }).fehler).toEqual([]);
+    f.c.betrag = 0;                                            // 0 ist ein Betrag, kein leeres Feld
+    expect(eingabenPruefen({ ...d, angebote: angeboteDaten(f, true) }).fehler).toEqual([]);
+  });
+
+  it("Angebote: nur B ohne KfW 266 → keine Angebote, keine Pflicht", () => {
+    const f = angeboteFormular();
+    f.b.betrag = 8330;
+    const d = { ...LEER, kfw266: false, angebote: angeboteDaten(f, false) ?? undefined };
+    expect(d.angebote).toBeUndefined();
+    expect(eingabenPruefen(d).fehler).toEqual([]);
   });
 
   it("ungültige Zahlen werden gemeldet", () => {

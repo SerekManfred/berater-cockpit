@@ -172,6 +172,9 @@ Ausführliches Fachkonzept: `docs/Konzept_Berater-Cockpit.docx` (falls abgelegt)
   Tausenderpunkt, sonst Dezimalpunkt („0.15“). Prozent mit `faktor={100}` (Anteil 0,15 ↔ Eingabe 15).
 - Umwandeln erst beim Rechnen/Speichern (`zahlenPruefen`): leer → 0, wo 0 zulässig ist, sonst Pflicht-Hinweis; `NaN` blockiert
   Rechnen bzw. Speichern (Fördervergleich, Projektformular, Bericht INIT, Konditionen-Zentrale).
+- **Pflicht im Fördervergleich** (`eingabenPruefen`, Vorgabe 14.11.2026): Wohneinheiten nach Sanierung, **Kosten jeder Maßnahme**
+  (0 ist ein Wert, leer blockiert) und – sobald ein Angebot einen Betrag hat – **A, C und D**; B bleibt optional und nur bei KfW 266.
+  Leer → 0 nur bei Kosten Fachplanung/Baubegleitung, Honorar iSFP, neuen WE und Umbaukosten.
 - Frontend-Tests mit vitest (`npm test`, laufen beim Bauen von `cockpit-web`): `zahl.test.js`, `ZahlFeld.test.jsx`, `Foerdervergleich.test.js`.
 
 ## Beratungsbericht INIT (Stand 13.11.2026, Phase 2b)

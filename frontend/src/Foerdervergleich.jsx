@@ -54,11 +54,12 @@ export function angeboteFormular(a) {
 }
 
 // Formularzustand → Eingaben. Keine Angebote, solange kein Betrag eingetragen ist. B (KfW 266) nur mit KfW 266.
+// Ein leerer Betrag bleibt null – sobald Angebote gelten, sind A, C und D Pflicht (eingabenPruefen).
 export function angeboteDaten(f, kfw266) {
   const kennungen = ["a", "c", "d", ...(kfw266 ? ["b"] : [])];
   if (!kennungen.some(k => !leer(f[k].betrag))) return null;
   const eintrag = k => {
-    const x = { betrag: f[k].betrag ?? 0 };
+    const x = { betrag: f[k].betrag ?? null };
     if (f[k].titel.trim()) x.titel = f[k].titel.trim();
     if (f[k].leistungen.trim()) x.leistungen = f[k].leistungen.trim();
     return x;
@@ -85,16 +86,21 @@ const ZAHLFELDER = [
   ["umbaukosten_neue_we", "Umbaukosten neue WE"],
 ];
 
-/** Formular → Eingaben für den Rechenkern: Zahlen prüfen, leere Felder auf 0 (wo zulässig). */
+/** Formular → Eingaben für den Rechenkern: Zahlen prüfen, leere Felder auf 0 (wo zulässig).
+ *  Pflicht: Wohneinheiten nach Sanierung, Kosten jeder Maßnahme, bei Angeboten A, C und D (B optional, nur KfW 266). */
 export function eingabenPruefen(d) {
   const { werte, fehler } = zahlenPruefen(d, ZAHLFELDER);
   werte.massnahmen = (d.massnahmen || []).map((m, i) => {
     if (zahlUngueltig(m.kosten)) fehler.push(`Maßnahme ${i + 1}: Kosten bitte als Zahl eingeben`);
-    return { ...m, kosten: m.kosten ?? 0 };
+    else if (leer(m.kosten)) fehler.push(`Maßnahme ${i + 1}: Kosten bitte ausfüllen`);
+    return m;
   });
   if (zahlUngueltig(d.we_vor_sanierung, true)) fehler.push("Wohneinheiten vor Sanierung: bitte eine ganze Zahl eingeben");
-  for (const [k] of ANGEBOTE)
-    if (zahlUngueltig(d.angebote?.[k]?.betrag)) fehler.push(`Angebot ${k.toUpperCase()}: Betrag bitte als Zahl eingeben`);
+  for (const [k] of ANGEBOTE) {
+    const b = d.angebote?.[k]?.betrag;
+    if (zahlUngueltig(b)) fehler.push(`Angebot ${k.toUpperCase()}: Betrag bitte als Zahl eingeben`);
+    else if (d.angebote && k !== "b" && leer(b)) fehler.push(`Angebot ${k.toUpperCase()}: Betrag bitte ausfüllen`);
+  }
   return { werte, fehler };
 }
 
@@ -186,7 +192,7 @@ export function Foerdervergleich({ titel = "Fördervergleich Einzelmaßnahmen / 
         <summary><h2>Unsere Angebote (optional)</h2>{d.angebote && <span className="okzahl">wird berechnet</span>}</summary>
         <p className="klein">Mit Angeboten rechnet der Fördervergleich die Kosten Fachplanung/Baubegleitung je Weg
           (Einzelmaßnahmen: A + C, Effizienzhaus: A + D; B nur bei KfW 266, nicht gefördert) und zeigt im Word-Bericht
-          das Kapitel „Unsere Leistungen auf Ihrem Weg“.
+          das Kapitel „Unsere Leistungen auf Ihrem Weg“. Sobald ein Betrag eingetragen ist, sind A, C und D Pflicht, B bleibt optional.
           Ohne Betrag bleiben die Angebote unberücksichtigt.</p>
         {ANGEBOTE.filter(([k]) => k !== "b" || d.kfw266).map(([k, , hinweis, beispiel]) => (
           <fieldset key={k} className="gruppe">
