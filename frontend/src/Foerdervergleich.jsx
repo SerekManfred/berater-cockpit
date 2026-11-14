@@ -2,6 +2,7 @@ import React, { useEffect, useState } from "react";
 import { api } from "./api.js";
 import { FristHinweise } from "./Konditionen.jsx";
 import { ZahlEingabe, ZahlFeld } from "./ZahlFeld.jsx";
+import { Angebotsweg } from "./Angebotsweg.jsx";
 import { zahlenPruefen, zahlUngueltig } from "./zahl.js";
 
 export const eur = n => (n ?? 0).toLocaleString("de-DE", { maximumFractionDigits: 0 }) + " €";
@@ -274,6 +275,7 @@ export function Foerdervergleich({ titel = "Fördervergleich Einzelmaßnahmen / 
       </section>
 
       {erg && <Ergebnis erg={erg} />}
+      {erg && berechnetMit && <Angebotsweg erg={erg} eingaben={JSON.parse(berechnetMit)} />}
       {onSpeichern && (
         <section className="karte speichern-leiste">
           {erg && !aktuell && <div className="info" role="status">Die Eingaben wurden nach der Berechnung geändert. Bitte neu berechnen, bevor Sie speichern.</div>}

@@ -192,3 +192,28 @@ ul.pruefliste li::before { margin-right: 8px; font-weight: bold; }
 ul.pruefliste li.ja::before { content: "✓"; color: var(--gruen); }
 ul.pruefliste li.nein::before { content: "✗"; color: var(--rot); }
 .reiter button[aria-selected="true"] { border-bottom-color: var(--gold); font-weight: bold; }
+
+/* Ablaufgrafik „Unsere Leistungen auf Ihrem Weg“ (wie Kapitel 9 im Word) – ohne Bibliothek, druckbar */
+.angebotsweg .aw-ablauf { margin: 16px 0 0; display: flex; flex-direction: column; align-items: center; }
+.aw-pfeil { text-align: center; color: var(--anth); font-size: 16px; line-height: 1; margin: 6px 0; }
+.aw-kasten { background: var(--gold-l); border: 2px solid var(--gold); border-radius: 10px; padding: 10px 14px; font-size: 14px; }
+.aw-kasten p { margin: 4px 0; }
+.aw-titel { font-weight: bold; font-size: 15px; color: var(--anth-d); }
+.aw-leistung { font-size: 13px; color: var(--grau); }
+.aw-schmal { width: min(100%, 560px); }
+.aw-gestrichelt { border-style: dashed; }
+.aw-frage { background: var(--grau-l); border-color: var(--anth); width: min(100%, 320px); text-align: center; }
+.aw-wege { width: 100%; display: grid; grid-template-columns: 1fr 1fr; gap: 16px; }
+.aw-spalte { display: flex; flex-direction: column; }
+.aw-summe { background: var(--grau-l); border-color: var(--rand); }
+.aw-eigen { font-size: 15px; }
+.aw-empfohlen { border-color: var(--gruen); border-width: 4px; }
+.aw-empfehlung { color: var(--gruen); font-weight: bold; }
+.aw-nicht { color: var(--rot); }
+.aw-fuss { margin-top: 14px; font-size: 13px; color: var(--grau); }
+.aw-fuss p { margin: 4px 0; }
+@media (max-width: 700px) { .aw-wege { grid-template-columns: 1fr; } }
+@media print {
+  .angebotsweg { break-inside: avoid; border: 0; padding: 0; }
+  .aw-kasten { -webkit-print-color-adjust: exact; print-color-adjust: exact; }
+}
