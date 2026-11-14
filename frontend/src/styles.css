@@ -217,3 +217,8 @@ ul.pruefliste li.nein::before { content: "✗"; color: var(--rot); }
   .angebotsweg { break-inside: avoid; border: 0; padding: 0; }
   .aw-kasten { -webkit-print-color-adjust: exact; print-color-adjust: exact; }
 }
+
+/* Plausibilität der Wohneinheiten (Phase 2e): Warnung gelb mit Rand, Fehler rot */
+.warnung { background: var(--gold-l); border-left: 4px solid var(--gold); border-radius: 8px; padding: 12px 14px; font-size: 14px; margin-top: 12px; }
+.we-hinweise .btn2 { margin-top: 8px; }
+.we-pruefungen { margin: 12px 0 0; padding-left: 20px; }

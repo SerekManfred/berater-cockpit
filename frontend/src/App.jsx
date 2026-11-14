@@ -1,6 +1,7 @@
 import React, { useCallback, useEffect, useState } from "react";
 import { ABGEMELDET, api, hatRolle, rollenText } from "./api.js";
 import { Anmeldung, PasswortFormular, PasswortPflicht, ZweiFaktor, ZweiFaktorEinrichten } from "./Anmeldung.jsx";
+import { Angebotsvorlagen } from "./Angebotsvorlagen.jsx";
 import { Benutzerverwaltung, Protokoll } from "./Benutzer.jsx";
 import { Foerdervergleich } from "./Foerdervergleich.jsx";
 import { FristHinweise, Konditionen } from "./Konditionen.jsx";
@@ -47,6 +48,7 @@ function Cockpit({ ich, onAbmelden }) {
     ["projekte", "Projekte", true],
     ["schnell", "Schnellrechnung", hatRolle(ich, "berater")],
     ["konditionen", "Förderkonditionen", true],
+    ["vorlagen", "Angebotsvorlagen", true],
     ["benutzer", "Benutzer", hatRolle(ich)],
     ["protokoll", "Protokoll", hatRolle(ich)],
     ["papierkorb", "Papierkorb", hatRolle(ich)],
@@ -72,6 +74,7 @@ function Cockpit({ ich, onAbmelden }) {
           {ansicht === "schnell" && <Foerdervergleich titel="Schnellrechnung Fördervergleich EM/EH"
             untertitel="Freie Berechnung ohne Projekt und ohne Speichern. Für einen gespeicherten Bericht den Fördervergleich aus der Projektakte starten." />}
           {ansicht === "konditionen" && <Konditionen key={konditionenZiel.n} ich={ich} startVersion={konditionenZiel.id} />}
+          {ansicht === "vorlagen" && <Angebotsvorlagen ich={ich} />}
           {ansicht === "benutzer" && <Benutzerverwaltung ich={ich} />}
           {ansicht === "protokoll" && <Protokoll />}
           {ansicht === "papierkorb" && <Papierkorb />}

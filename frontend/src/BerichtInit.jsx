@@ -2,6 +2,7 @@ import React, { useEffect, useState } from "react";
 import { api, wordHerunterladen, zeit } from "./api.js";
 import { ZahlFeld } from "./ZahlFeld.jsx";
 import { zahlUngueltig } from "./zahl.js";
+import { WeBestaetigung, WeHinweise } from "./Wohneinheiten.jsx";
 
 // Beratungsbericht INIT: Daten → Fotos → KI-Vorschlag → Prüfen und freigeben → Bericht erzeugen.
 // Förderzahlen kommen ausschließlich aus dem Rechenkern (foerder_vorschau / Antwort von „erzeugen“); hier wird nichts gerechnet.
@@ -132,6 +133,7 @@ export function BerichtInit({ ich, projekt, onZurueck }) {
           uebernehmen(await api(pfad + "/freigabe/" + a, { method: "POST", body: { bewusst_leer: leer } }));
         })} />}
       {schritt === "erzeugen" && <ErzeugenSchritt e={e} geaendert={geaendert} laeuft={laeuft} darf={darf}
+        onWeGeprueft={async () => uebernehmen(await api(pfad + "/wohneinheiten-geprueft", { method: "POST" }))}
         onErzeugen={() => aktion("erzeugen", async () => {
           const r = await api(`/projekte/${projekt.id}/bericht-init/erzeugen`, { method: "POST" });
           uebernehmen(await api(pfad));
@@ -251,6 +253,7 @@ function DatenSchritt({ d, e, kond, projekt, aendern }) {
           <label><input type="checkbox" checked={!!f.klimabonus} onChange={x => aendern("foerder.klimabonus", x.target.checked)} /> Klimageschwindigkeitsbonus (KfW 458)</label>
           <label><input type="checkbox" checked={!!f.eh_wpb} onChange={x => aendern("foerder.eh_wpb", x.target.checked)} /> Worst Performing Building (WPB)</label>
         </div>
+        <WeHinweise hinweise={e.wohneinheiten?.hinweise} onUebernehmen={w => aendern("foerder.we", w)} />
         <p className="klein">Klimabonus nur beim Austausch einer funktionstüchtigen fossilen Heizung – bei einer Gasheizung nur, wenn die Inbetriebnahme mindestens 20 Jahre zurückliegt.
           {kond?.kfw_458?.klimabonus_hinweis ? ` Konditionen: ${kond.kfw_458.klimabonus_hinweis}` : ""} Kosten nur aus Angaben des Beraters (keine Schätzung durch die KI).</p>
       </section>
@@ -418,7 +421,7 @@ function PruefSchritt({ e, d, z, ab, aendern, geaendert, laeuft, onFreigabe, onF
 
 // ---------- 5. Erzeugen ----------
 
-function ErzeugenSchritt({ e, geaendert, laeuft, darf, onErzeugen }) {
+function ErzeugenSchritt({ e, geaendert, laeuft, darf, onErzeugen, onWeGeprueft }) {
   const v = e.foerder_vorschau;
   const w = v.ok ? v.werte : null;
   const offen = e.abschnitte.filter(a => a.status !== "geprueft");
@@ -442,6 +445,7 @@ function ErzeugenSchritt({ e, geaendert, laeuft, darf, onErzeugen }) {
           </table></div>
         </>}
       </section>
+      <WeBestaetigung we={e.wohneinheiten} darf={darf && !geaendert} onBestaetigen={onWeGeprueft} wofuer="dem Erzeugen" />
       <section className="karte">
         <h2>Bericht erzeugen</h2>
         <ul className="pruefliste">
@@ -449,6 +453,7 @@ function ErzeugenSchritt({ e, geaendert, laeuft, darf, onErzeugen }) {
           <li className={e.fehlende_pflichtangaben.length ? "nein" : "ja"}>{e.fehlende_pflichtangaben.length
             ? `Pflichtangaben offen: ${e.fehlende_pflichtangaben.map(x => x.label).join(", ")}` : "Alle Pflichtangaben entschieden"}</li>
           <li className={v.ok ? "ja" : "nein"}>{v.ok ? "Förder-Übersicht berechenbar" : "Förder-Übersicht nicht berechenbar"}</li>
+          {e.wohneinheiten?.offen?.length > 0 && <li className="nein">Wohneinheiten weichen vom Projekt ab – bitte unten bestätigen</li>}
           {geaendert && <li className="nein">Ungespeicherte Änderungen – bitte zuerst speichern</li>}
         </ul>
         <p className="klein">Jede Erzeugung ist eine neue Version (nie überschrieben). Das Word-Dokument wird in den Unterlagen (Kategorie „Bericht“) abgelegt.</p>

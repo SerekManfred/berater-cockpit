@@ -4,6 +4,7 @@ import { FristHinweise } from "./Konditionen.jsx";
 import { ZahlEingabe, ZahlFeld } from "./ZahlFeld.jsx";
 import { Angebotsweg } from "./Angebotsweg.jsx";
 import { zahlenPruefen, zahlUngueltig } from "./zahl.js";
+import { WeHinweise } from "./Wohneinheiten.jsx";
 
 export const eur = n => (n ?? 0).toLocaleString("de-DE", { maximumFractionDigits: 0 }) + " €";
 const pct = n => ((n ?? 0) * 100).toLocaleString("de-DE", { minimumFractionDigits: 1, maximumFractionDigits: 1 }) + " %";
@@ -46,12 +47,24 @@ export const ANGEBOTE = [
 
 const leer = x => x === null || x === undefined;
 
-// Gespeicherte Angebote → Formularzustand (Betrag: Zahl, null = nicht ausgefüllt, NaN = ungültig)
-export function angeboteFormular(a) {
+// Angebote → Formularzustand (Betrag: Zahl, null = nicht ausgefüllt, NaN = ungültig).
+// Gespeicherte Angebote (a) behalten ihren Text. Neue Fördervergleiche (ohne a) übernehmen Titel und Leistungen aus den
+// Angebotsvorlagen (Liste aus GET /angebotsvorlagen); den Standardbetrag nicht – er wird nur als Knopf angeboten.
+export function angeboteFormular(a, vorlagen = null) {
   const f = { anrechnung_a_in_d: a?.anrechnung_a_in_d ?? true };
+  const vorlage = Object.fromEntries((vorlagen || []).map(v => [v.kennung, v]));
   for (const [k, titel] of ANGEBOTE)
-    f[k] = { betrag: a?.[k]?.betrag ?? null, titel: a?.[k]?.titel ?? titel, leistungen: a?.[k]?.leistungen ?? "" };
+    f[k] = a
+      ? { betrag: a[k]?.betrag ?? null, titel: a[k]?.titel ?? titel, leistungen: a[k]?.leistungen ?? "" }
+      : { betrag: null, titel: vorlage[k]?.titel ?? titel, leistungen: vorlage[k]?.leistungen ?? "" };
   return f;
+}
+
+// Felder, die die Plausibilität der Wohneinheiten braucht (Regeln im Backend): leere/ungültige Zahlen → null
+export function weFelder(d) {
+  const zahl = v => (typeof v === "number" && Number.isFinite(v) ? v : null);
+  return { we_nach_sanierung: zahl(d.we_nach_sanierung), we_vor_sanierung: zahl(d.we_vor_sanierung),
+    we_neu: zahl(d.we_neu), kfw266: !!d.kfw266 };
 }
 
 // Formularzustand → Eingaben. Keine Angebote, solange kein Betrag eingetragen ist. B (KfW 266) nur mit KfW 266.
@@ -106,13 +119,14 @@ export function eingabenPruefen(d) {
 }
 
 const schnellrechnung = d => api("/module/foerderung-em-eh/berechnen", { method: "POST", body: d });
+const mitProjekt = projektId => projektId ? `?projekt_id=${projektId}` : "";
 
 /**
  * Eingabemaske Fördervergleich. Gerechnet wird immer im Backend (rechnen).
  * Mit onSpeichern erscheint nach „Berechnen“ der Button „Speichern“ – gespeichert werden genau die berechneten Eingaben.
  */
 export function Foerdervergleich({ titel = "Fördervergleich Einzelmaßnahmen / Effizienzhaus", untertitel, start = LEER,
-  rechnen = schnellrechnung, rechenSchluessel = "", zusatz = null, onSpeichern, onAbbrechen }) {
+  rechnen = schnellrechnung, rechenSchluessel = "", zusatz = null, onSpeichern, onAbbrechen, projektId = null }) {
   const [d, setD] = useState(start);
   const [erg, setErg] = useState(null);
   const [berechnetMit, setBerechnetMit] = useState(null);
@@ -122,8 +136,27 @@ export function Foerdervergleich({ titel = "Fördervergleich Einzelmaßnahmen / 
   const setOpt = (k, v) => { const n = { ...d }; if (v === "" || v === null || v === undefined) delete n[k]; else n[k] = v; setD(n); };
   const setM = (i, k, v) => set("massnahmen", d.massnahmen.map((m, j) => j === i ? { ...m, [k]: v } : m));
   const [ang, setAng] = useState(() => angeboteFormular(start.angebote));
-  const setA = (k, feld, v) => { const f = { ...ang, [k]: { ...ang[k], [feld]: v } }; setAng(f); setD(mitAngeboten(d, f)); };
-  const setAnrechnung = v => { const f = { ...ang, anrechnung_a_in_d: v }; setAng(f); setD(mitAngeboten(d, f)); };
+  const [angBeruehrt, setAngBeruehrt] = useState(false);
+  const setA = (k, feld, v) => { const f = { ...ang, [k]: { ...ang[k], [feld]: v } }; setAng(f); setAngBeruehrt(true); setD(mitAngeboten(d, f)); };
+  const setAnrechnung = v => { const f = { ...ang, anrechnung_a_in_d: v }; setAng(f); setAngBeruehrt(true); setD(mitAngeboten(d, f)); };
+  // Angebotsvorlagen: Titel und Leistungen für NEUE Fördervergleiche vorbelegen (gespeicherte behalten ihren Text)
+  const [vorlagen, setVorlagen] = useState([]);
+  useEffect(() => { api("/angebotsvorlagen").then(v => setVorlagen(Array.isArray(v) ? v : [])).catch(() => setVorlagen([])); }, []);
+  useEffect(() => { if (!start.angebote && !angBeruehrt && vorlagen.length) setAng(angeboteFormular(null, vorlagen)); }, [vorlagen]);
+  const standardbetrag = k => vorlagen.find(v => v.kennung === k)?.standardbetrag ?? null;
+  // Plausibilität der Wohneinheiten: Regeln im Backend (app/wohneinheiten.py), Anzeige schon vor dem Rechnen
+  const [weHinweise, setWeHinweise] = useState([]);
+  const [weGeprueft, setWeGeprueft] = useState(false);
+  const weStand = JSON.stringify(weFelder(d));
+  useEffect(() => {
+    let aktiv = true;
+    const t = setTimeout(() => api("/module/foerderung-em-eh/wohneinheiten-pruefen" + mitProjekt(projektId), { method: "POST", body: JSON.parse(weStand) })
+      .then(r => { if (aktiv) setWeHinweise(r?.hinweise || []); }).catch(() => { if (aktiv) setWeHinweise([]); }), 300);
+    return () => { aktiv = false; clearTimeout(t); };
+  }, [weStand, projektId]);
+  useEffect(() => { setWeGeprueft(false); }, [weStand]);
+  const weFehler = weHinweise.filter(h => h.art === "fehler");
+  const weWarnungen = (erg?.hinweise || []).filter(h => h.art === "warnung"); // Warnungen der Berechnung (zum Bestätigen)
   useEffect(() => { setErg(null); setBerechnetMit(null); }, [rechenSchluessel]);
   const geprueft = eingabenPruefen(d);
   const aktuell = erg && !geprueft.fehler.length && berechnetMit === JSON.stringify(geprueft.werte);
@@ -133,7 +166,8 @@ export function Foerdervergleich({ titel = "Fördervergleich Einzelmaßnahmen / 
 
   async function berechnen() {
     setFehler(""); setErg(null);
-    if (geprueft.fehler.length) { setFehler("Bitte prüfen: " + geprueft.fehler.join(" · ")); return; }
+    const alle = [...geprueft.fehler, ...weFehler.map(h => h.text)];
+    if (alle.length) { setFehler("Bitte prüfen: " + alle.join(" · ")); return; }
     try {
       const stand = JSON.stringify(geprueft.werte);
       setErg(await rechnen(geprueft.werte));
@@ -143,7 +177,7 @@ export function Foerdervergleich({ titel = "Fördervergleich Einzelmaßnahmen / 
 
   async function speichern() {
     setFehler(""); setSpeichert(true);
-    try { await onSpeichern(JSON.parse(berechnetMit), erg); }
+    try { await onSpeichern(JSON.parse(berechnetMit), erg, weGeprueft && weWarnungen.length > 0); }
     catch (e) { setFehler("Speichern nicht möglich: " + e.message); }
     finally { setSpeichert(false); }
   }
@@ -181,12 +215,13 @@ export function Foerdervergleich({ titel = "Fördervergleich Einzelmaßnahmen / 
           <div style={{ marginTop: 12 }}><FristHinweise fristen={[frist266]} /></div>)}
         {d.kfw266 && frist266?.status === "abgelaufen" &&
           <p className="klein">KfW 266 ist noch angehakt (aus gespeicherten Eingaben). Bitte abwählen – mit abgelaufener Frist wird nicht gerechnet.</p>}
-        {d.kfw266 && (
+        {(d.kfw266 || d.we_neu > 0) && ( /* ohne KfW 266 nur sichtbar, solange noch neue WE eingetragen sind (Warnung) */
           <div className="felder" style={{ marginTop: 14 }}>
             <ZahlFeld label="Davon neue WE (Umnutzung)" ganzzahl wert={d.we_neu} onChange={v => set("we_neu", v)} />
             <ZahlFeld label="Umbaukosten neue WE, nicht energetisch (€)" wert={d.umbaukosten_neue_we} onChange={v => set("umbaukosten_neue_we", v)} />
           </div>
         )}
+        <WeHinweise hinweise={weHinweise} onUebernehmen={projektId ? w => set("we_nach_sanierung", w) : undefined} />
       </section>
 
       <details className="karte programm-form" open={!!start.angebote}>
@@ -199,7 +234,12 @@ export function Foerdervergleich({ titel = "Fördervergleich Einzelmaßnahmen / 
           <fieldset key={k} className="gruppe">
             <legend>Angebot {k.toUpperCase()} <span style={{ fontWeight: "normal" }}>({hinweis})</span></legend>
             <div className="felder">
-              <ZahlFeld label="Betrag brutto (€)" wert={ang[k].betrag} onChange={v => setA(k, "betrag", v)} />
+              <div>
+                <ZahlFeld label="Betrag brutto (€)" wert={ang[k].betrag} onChange={v => setA(k, "betrag", v)} />
+                {ang[k].betrag == null && standardbetrag(k) != null &&
+                  <button type="button" className="btn2" onClick={() => setA(k, "betrag", standardbetrag(k))}>
+                    Standardbetrag übernehmen ({eur(standardbetrag(k))})</button>}
+              </div>
               <label>Titel
                 <input type="text" maxLength={80} value={ang[k].titel} onChange={e => setA(k, "titel", e.target.value)} />
               </label>
@@ -268,7 +308,7 @@ export function Foerdervergleich({ titel = "Fördervergleich Einzelmaßnahmen / 
         </div>
         <div className="aktionen">
           <button className="btn2" onClick={() => set("massnahmen", [...d.massnahmen, { name: "", kosten: 0, em_kategorie: "daemmung", eh_foerderfaehig: true }])}>Maßnahme hinzufügen</button>
-          <button className="btn2" onClick={() => { setD(BEISPIEL_REFERENZFALL); setAng(angeboteFormular()); setErg(null); }}>Referenzfall MFH-Umnutzung (6 WE) laden</button>
+          <button className="btn2" onClick={() => { setD(BEISPIEL_REFERENZFALL); setAng(angeboteFormular(null, vorlagen)); setAngBeruehrt(false); setErg(null); }}>Referenzfall MFH-Umnutzung (6 WE) laden</button>
           <button className="btn" onClick={berechnen}>Berechnen</button>
         </div>
         {fehler && <div className="fehler">{fehler}</div>}
@@ -280,6 +320,10 @@ export function Foerdervergleich({ titel = "Fördervergleich Einzelmaßnahmen / 
         <section className="karte speichern-leiste">
           {erg && !aktuell && <div className="info" role="status">Die Eingaben wurden nach der Berechnung geändert. Bitte neu berechnen, bevor Sie speichern.</div>}
           {!erg && <p className="klein">Erst berechnen, dann speichern. Gespeicherte Berichte werden nie überschrieben.</p>}
+          {aktuell && weWarnungen.length > 0 && <div className="schalter" style={{ marginTop: 0 }}>
+            <label><input type="checkbox" checked={weGeprueft} onChange={e => setWeGeprueft(e.target.checked)} />
+              Wohneinheiten geprüft (die Hinweise oben) – sonst vor dem Word-Bericht bestätigen</label>
+          </div>}
           <div className="aktionen">
             <button className="btn" onClick={speichern} disabled={!aktuell || speichert}>{speichert ? "Speichere …" : "Speichern"}</button>
             {onAbbrechen && <button className="btn2" onClick={onAbbrechen}>Abbrechen</button>}

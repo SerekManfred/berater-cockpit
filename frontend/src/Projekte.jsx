@@ -5,6 +5,7 @@ import { Unterlagen, VorOrtCheckliste } from "./Unterlagen.jsx";
 import { BerichtInit } from "./BerichtInit.jsx";
 import { ZahlFeld } from "./ZahlFeld.jsx";
 import { Angebotsweg } from "./Angebotsweg.jsx";
+import { WeBestaetigung } from "./Wohneinheiten.jsx";
 import { zahlUngueltig } from "./zahl.js";
 
 export const GEBAEUDEARTEN = [["EFH", "Einfamilienhaus (EFH)"], ["ZFH", "Zweifamilienhaus (ZFH)"], ["MFH", "Mehrfamilienhaus (MFH)"],
@@ -431,10 +432,11 @@ function BerichtRechnen({ projektId, projekt, basis = null, onFertig, onAbbreche
 
   const rechnen = basis
     ? d => api(`/berichte/${basis.id}/berechnen`, { method: "POST", body: { eingaben: d, aktuelle_konditionen: aktuelle } })
-    : undefined; // neuer Bericht: Vorschau mit aktueller Konditionen-Version (Schnellrechnung)
-  const speichern = async (eingaben, erg) => onFertig(basis
-    ? await api(`/berichte/${basis.id}/neue-version`, { method: "POST", body: { eingaben, aktuelle_konditionen: aktuelle } })
-    : await api(`/projekte/${projektId}/berichte`, { method: "POST", body: { modul: "foerderung-em-eh", eingaben, konditionen_version: erg.konditionen_version } }));
+    // neuer Bericht: Vorschau mit aktueller Konditionen-Version, Wohneinheiten gegen das Projekt geprüft
+    : d => api(`/module/foerderung-em-eh/berechnen?projekt_id=${projektId}`, { method: "POST", body: d });
+  const speichern = async (eingaben, erg, we_geprueft) => onFertig(basis
+    ? await api(`/berichte/${basis.id}/neue-version`, { method: "POST", body: { eingaben, aktuelle_konditionen: aktuelle, we_geprueft } })
+    : await api(`/projekte/${projektId}/berichte`, { method: "POST", body: { modul: "foerderung-em-eh", eingaben, konditionen_version: erg.konditionen_version, we_geprueft } }));
 
   const neuere = basis && basis.aktuelle_konditionen_version !== basis.konditionen_version;
   const zusatz = basis && (
@@ -453,6 +455,7 @@ function BerichtRechnen({ projektId, projekt, basis = null, onFertig, onAbbreche
       <div className="aktionen" style={{ marginTop: 0, marginBottom: 12 }}><button className="btn2" onClick={onAbbrechen}>← Zurück zur Projektakte</button></div>
       <Foerdervergleich titel={titel} untertitel={kopf ? `Projekt ${kopf}. Nach „Berechnen“ kann der Bericht gespeichert werden.` : undefined}
         start={basis ? basis.eingaben : undefined} rechnen={rechnen} rechenSchluessel={String(aktuelle)} zusatz={zusatz}
+        projektId={basis ? basis.projekt_id : projektId}
         onSpeichern={speichern} onAbbrechen={onAbbrechen} />
     </>
   );
@@ -472,6 +475,8 @@ function BerichtAnsicht({ ich, id, onZurueck, onGehe }) {
       <h1>{MODULE[b.modul] || b.modul} · V{b.versionsnummer}</h1>
       <p className="hinweis">Projekt {b.projektnummer} · gespeichert {zeit(b.erstellt_am)} von {b.erstellt_von || "–"} ·
         Konditionen-Version {b.konditionen_version} (eingefroren) · {BERICHT_STATUS[b.status] || b.status} · nur lesen</p>
+      <WeBestaetigung we={b.wohneinheiten} darf={hatRolle(ich, "berater")}
+        onBestaetigen={async () => setB(await api(`/berichte/${b.id}/wohneinheiten-geprueft`, { method: "POST" }))} />
       <div className="aktionen" style={{ marginTop: 0, marginBottom: 18 }}>
         <WordKnopf bericht={b} klasse="btn" />
         {hatRolle(ich, "berater") &&
