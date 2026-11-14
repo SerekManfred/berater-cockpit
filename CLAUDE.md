@@ -54,7 +54,8 @@ Ausführliches Fachkonzept: `docs/Konzept_Berater-Cockpit.docx` (falls abgelegt)
 - Projektnummer automatisch `JJJJ-NNNN` je Kalenderjahr (Europe/Berlin), fortlaufend, nie neu vergeben (auch nicht nach Löschen).
 - Lesen: alle Angemeldeten. Projekte anlegen/bearbeiten: berater, verwaltung, admin. Löschen nur weich (`geloescht_am`), nur admin.
   Berichte rechnen/speichern: berater, admin. Verwaltung darf Berichte öffnen und lesen, aber nicht speichern (bestätigt 12.11.2026).
-- **Berichte werden nie überschrieben.** Kein UPDATE auf `berichte`; „Neu rechnen“ legt die nächste Versionsnummer je Projekt + Modul an.
+- **Berichte werden nie überschrieben.** Kein UPDATE auf Eingaben/Ergebnis/Snapshot in `berichte` (ergänzt werden nur Status und
+  `we_pruefungen`, siehe Phase 2e); „Neu rechnen“ legt die nächste Versionsnummer je Projekt + Modul an.
   Jeder Bericht speichert `konditionen_version` und `konditionen_snapshot` (vollständige Kopie). Neu rechnen nutzt den Snapshot des
   Ausgangsberichts; die aktuelle Version nur bei `aktuelle_konditionen=true` (ausdrückliche Wahl in der Oberfläche).
 - Das Ergebnis rechnet beim Speichern immer das Backend aus den Eingaben – ein vom Client geschicktes Ergebnis wird ignoriert.
@@ -83,6 +84,28 @@ Ausführliches Fachkonzept: `docs/Konzept_Berater-Cockpit.docx` (falls abgelegt)
 - Ablaufgrafik „Unsere Leistungen auf Ihrem Weg“ im Cockpit: `frontend/src/Angebotsweg.jsx` unter dem Ergebnis (Fördervergleich
   und gespeicherter Bericht), Aufbau wie Kapitel 9. Beträge nur aus `ergebnis.szenarien.*.angebotsweg`, Texte und Preis D vor Anrechnung
   aus `eingaben.angebote` – die Oberfläche rechnet nichts. Empfehlung nur bei WPB „ja“/„nein“ nach `beste_wahl`. Schmal: C/D untereinander.
+
+## Wohneinheiten-Plausibilität und Angebotsvorlagen (Stand 14.11.2026, Phase 2e)
+- **Regeln nur in `app/wohneinheiten.py`** (eine Funktion je Bericht, getestet in `tests/test_wohneinheiten.py`); die Oberfläche zeigt
+  nur an (`frontend/src/Wohneinheiten.jsx`). Fördervergleich: WE vor + neue WE (nur mit KfW 266) ≠ WE nach → Warnung mit allen drei
+  Zahlen; WE nach ≠ Projekt-WE → Warnung mit `projekt_wert` (Knopf „Projektwert übernehmen“); neue WE > WE nach → **Fehler** (Rechnen
+  422); neue WE > 0 ohne KfW 266 → Warnung. INIT: `foerder.we` ≠ Projekt-WE → Warnung. Fehlende Angaben werden nicht geprüft.
+- Formular vor dem Rechnen: `POST /module/foerderung-em-eh/wohneinheiten-pruefen?projekt_id=…`. Rechnen/Speichern liefern die
+  Hinweise im Ergebnis unter `hinweise` (Projekt-WE nur mit Projekt: Projektakte, `berechnen?projekt_id=…`).
+- **„Wohneinheiten geprüft“:** Warnungen blockieren nicht, aber Word (`GET /berichte/{id}/word` → 409) bzw. INIT-Erzeugen (422) erst
+  nach Bestätigung. Geprüft wird beim Word immer mit den gespeicherten Eingaben und den **aktuellen** Projekt-WE (auch ältere Berichte
+  ohne `hinweise`). Eine Bestätigung gilt für genau die angezeigten Texte (sie enthalten die Zahlen) – neue Zahl = neue Warnung.
+  Bestätigen: Fördervergleich beim Speichern (`we_geprueft: true`) oder `POST /berichte/{id}/wohneinheiten-geprueft` (berater, admin);
+  INIT `POST …/bericht-init/entwurf/wohneinheiten-geprueft` (berater, verwaltung, admin).
+- Gespeichert in `berichte.we_pruefungen` bzw. `bericht_entwuerfe.we_pruefungen` (Migration 0008): Liste {von_id, von, am, codes,
+  texte}, **wird nur ergänzt** – einzige Änderung an einem gespeicherten Bericht neben dem Status; Eingaben und Ergebnis bleiben
+  unverändert. INIT übernimmt die Bestätigung beim Erzeugen auch in `eingaben.wohneinheiten_geprueft`. Protokoll
+  `bericht_wohneinheiten_geprueft` (nur Codes).
+- **Angebotsvorlagen** (Tabelle `angebotsvorlagen`, `app/angebotsvorlagen_api.py`, Seite „Angebotsvorlagen“): je A–D Titel (≤ 80),
+  Leistungen (≤ 300), optionaler Standardbetrag (Start leer). Lesen alle Angemeldeten, ändern nur Admin; Protokoll
+  `angebotsvorlage_geaendert` mit alt/neu (keine Personendaten). Neue Fördervergleiche übernehmen Titel und Leistungen; den
+  Standardbetrag nur per Knopf (ein Betrag würde die Angebote samt Pflicht A/C/D aktivieren). Gespeicherte Berichte behalten ihren
+  Text (steht in den Eingaben). Startwerte aus der Angebotsmail des Geschäftsführers stehen in Migration 0008 (`STARTWERTE`).
 
 ## Unterlagen, Papierkorb, Datensicherung (Stand 12.11.2026, Teilauftrag 3)
 - **Upload:** eine Datei je Anfrage als roher Anfrage-Inhalt (`POST /projekte/{id}/dateien?kategorie=…&dateiname=…`), die Oberfläche
@@ -178,7 +201,7 @@ Ausführliches Fachkonzept: `docs/Konzept_Berater-Cockpit.docx` (falls abgelegt)
   (nicht gefördert), dann C bzw. D; Zuschuss anteilig nach Betrag; `eigenanteil`, `anrechnung_a`, `hoechstgrenze_greift`). Ohne
   Angebote `null` – der Referenzfall rechnet unverändert. Tests: `tests/test_angebotsweg.py` (Rechenkern), `tests/test_angebote_api.py`
   (API, Speichern, Generator, Abnahmefall 4 WE / Gegenprobe 1 WE mit echtem Generator, Reihenfolge in Kapitel 9).
-- Generator 0.4.1: Kapitel 9 „Unsere Leistungen auf Ihrem Weg“ (A → B → „Welcher Sanierungsweg?“ → C | D) nur mit `angebotsweg`,
+- Generator 0.4.1 (seit 0.4.2 nur README angepasst: `kunde.*` = Partei laut `app/parteien.py`): Kapitel 9 „Unsere Leistungen auf Ihrem Weg“ (A → B → „Welcher Sanierungsweg?“ → C | D) nur mit `angebotsweg`,
   „Empfohlenes Vorgehen“ wird dann 10.
 - Oberfläche: aufklappbarer Abschnitt „Unsere Angebote (optional)“ in der Reihenfolge A, B, C, D (B nur mit KfW 266); Angebote gelten,
   sobald ein Betrag (A, C, D bzw. B bei KfW 266) eingetragen ist – dann ist „Kosten Fachplanung/Baubegleitung“ gesperrt (0).
@@ -252,6 +275,7 @@ Fachregeln, Rechenkern, Generator. Die Oberfläche soll Masken aus dieser Beschr
 - **Phase 2c (erledigt 13.11.2026):** Angebote A–D im Fördervergleich, Generator 0.3.0 (siehe Abschnitt oben).
   Nachtrag 14.11.2026: Reihenfolge B = KfW 266 / C = Einzelmaßnahmen, Generator 0.4.1, einheitliche Zahlenfelder.
 - **Phase 2d (umgesetzt 14.11.2026, Abnahme offen):** Projektname, Auftraggeber/Kunde/Objekt, „Berichte adressiert an“, Ablaufgrafik im Cockpit.
+- **Phase 2e (umgesetzt 14.11.2026, Abnahme offen):** Plausibilität der Wohneinheiten mit „Wohneinheiten geprüft“, Angebotsvorlagen A–D, Generator 0.4.2.
 - **Phase 2b (umgesetzt 13.11.2026, Abnahme offen):** Beratungsbericht INIT mit KI-Textvorschlägen (siehe Abschnitte oben).
 - **Phase 2:** MEH (danach) und Kirche nach demselben Muster; INIT und MEH mit KI (Checklisten-Erkennung, Fotozuordnung) – vorhandene Generatoren `generate_report.js` aus den Skills einbinden.
 - **Phase 3:** Kirche. **Phase 4:** Änderungs-Monitor für Förderquellen, Freigabe-Workflow, Anbindung IR-Planer.
