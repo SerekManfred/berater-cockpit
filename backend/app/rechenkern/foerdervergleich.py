@@ -21,20 +21,23 @@ class Massnahme:
 
 @dataclass
 class Angebote:
-    """Unsere Leistungsangebote: A immer, C nur bei KfW 266, B für Einzelmaßnahmen, D für Effizienzhaus.
+    """Unsere Leistungsangebote in der Reihenfolge des Ablaufs (ab 14.11.2026):
+    A Gebäudemodell/WPB-Prüfung (immer), B KfW 266 Umnutzung (nur bei KfW 266),
+    C Einzelmaßnahmen, D Effizienzhaus.
 
-    A und B/D sind Fachplanung/Baubegleitung (gefördert nach BEG). C (KfW 266) ist nicht gefördert.
+    A und C/D sind Fachplanung/Baubegleitung (gefördert nach BEG). B (KfW 266) ist nicht gefördert.
     Bei anrechnung_a_in_d ist A in D enthalten und wird auf D angerechnet.
     """
     a: float
-    b: float
+    c: float
     d: float
-    c: float = 0.0
+    b: float = 0.0
     anrechnung_a_in_d: bool = True
 
     def posten(self, weg: str) -> list[tuple[str, float]]:
+        """Geförderte Posten (Fachplanung/Baubegleitung) je Weg."""
         if weg == "EM":
-            return [("A", self.a), ("B", self.b)]
+            return [("A", self.a), ("C", self.c)]
         return [("A", self.a), ("D", self.d - self.a if self.anrechnung_a_in_d else self.d)]
 
     def kosten_baubegleitung(self, weg: str) -> float:
@@ -120,7 +123,8 @@ def _baubegleitung(we: int, kosten: float, bb: dict) -> float:
 
 def _angebotsweg(e: Eingaben, weg: str, zuschuss: float, satz: float) -> dict | None:
     """Kosten, Zuschuss und Eigenanteil je Angebot. Der Zuschuss für Fachplanung/Baubegleitung
-    wird anteilig nach Betrag auf A und B bzw. D verteilt (Höchstgrenzen sind darin schon enthalten)."""
+    wird anteilig nach Betrag auf A und C bzw. D verteilt (Höchstgrenzen sind darin schon enthalten).
+    Posten in der Reihenfolge des Ablaufs: A, B (nur bei KfW 266), dann C oder D."""
     if not e.angebote:
         return None
     posten = e.angebote.posten(weg)
@@ -130,8 +134,8 @@ def _angebotsweg(e: Eingaben, weg: str, zuschuss: float, satz: float) -> dict | 
         z = rest if i == len(posten) - 1 else (_r(zuschuss * betrag / summe) if summe else 0.0)
         rest = _r(rest - z)
         zeilen.append({"kennung": kennung, "betrag": _r(betrag), "zuschuss": _r(z), "eigenanteil": _r(betrag - z)})
-    if e.kfw266 and e.angebote.c:
-        zeilen.append({"kennung": "C", "betrag": _r(e.angebote.c), "zuschuss": 0.0, "eigenanteil": _r(e.angebote.c)})
+    if e.kfw266 and e.angebote.b:
+        zeilen.insert(1, {"kennung": "B", "betrag": _r(e.angebote.b), "zuschuss": 0.0, "eigenanteil": _r(e.angebote.b)})
     kosten = _r(sum(z["betrag"] for z in zeilen))
     return {
         "posten": zeilen, "kosten_baubegleitung": summe, "kosten": kosten, "zuschuss": _r(zuschuss), "eigenanteil": _r(kosten - zuschuss),

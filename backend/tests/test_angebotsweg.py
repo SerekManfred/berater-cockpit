@@ -1,6 +1,6 @@
 """Angebote A–D im Fördervergleich (Ablaufgrafik „Unsere Leistungen auf Ihrem Weg“).
 
-A immer, C nur bei KfW 266 (nicht gefördert), B bei Einzelmaßnahmen, D beim Effizienzhaus.
+A immer, B nur bei KfW 266 (nicht gefördert), C bei Einzelmaßnahmen, D beim Effizienzhaus (Reihenfolge ab 14.11.2026).
 A ist in D enthalten und wird angerechnet. Beispielzahlen aus dem Angebot vom 13.11.2026.
 """
 import json
@@ -9,7 +9,7 @@ from pathlib import Path
 from app.rechenkern.foerdervergleich import Angebote, Eingaben, Massnahme, vergleich
 
 KOND = json.loads((Path(__file__).parents[1] / "app/konditionen/v1.json").read_text(encoding="utf-8"))
-ANGEBOTE = Angebote(a=2975, b=2975, c=8330, d=15000, anrechnung_a_in_d=True)
+ANGEBOTE = Angebote(a=2975, b=8330, c=2975, d=15000, anrechnung_a_in_d=True)
 
 
 def fall(**kw) -> Eingaben:
@@ -27,7 +27,7 @@ def weg(res, key):
 def test_einzelmassnahmen_mfh():
     w = weg(vergleich(fall(), KOND), "EM_ohne_WPB")
     assert [(p["kennung"], p["betrag"], p["zuschuss"], p["eigenanteil"]) for p in w["posten"]] == [
-        ("A", 2975, 1487.5, 1487.5), ("B", 2975, 1487.5, 1487.5), ("C", 8330, 0, 8330)]
+        ("A", 2975, 1487.5, 1487.5), ("B", 8330, 0, 8330), ("C", 2975, 1487.5, 1487.5)]
     assert (w["kosten"], w["zuschuss"], w["eigenanteil"]) == (14280, 2975, 11305)
     assert w["hoechstgrenze_greift"] is False
 
@@ -35,13 +35,13 @@ def test_einzelmassnahmen_mfh():
 def test_effizienzhaus_mfh_mit_anrechnung_a():
     w = weg(vergleich(fall(), KOND), "EH_ohne_WPB")
     assert [(p["kennung"], p["betrag"], p["zuschuss"], p["eigenanteil"]) for p in w["posten"]] == [
-        ("A", 2975, 1487.5, 1487.5), ("D", 12025, 6012.5, 6012.5), ("C", 8330, 0, 8330)]
+        ("A", 2975, 1487.5, 1487.5), ("B", 8330, 0, 8330), ("D", 12025, 6012.5, 6012.5)]
     assert (w["kosten"], w["zuschuss"], w["eigenanteil"], w["anrechnung_a"]) == (23330, 7500, 15830, 2975)
 
 
-def test_ohne_kfw266_kein_c():
+def test_ohne_kfw266_kein_b():
     r = vergleich(fall(kfw266=False), KOND)
-    assert [p["kennung"] for p in weg(r, "EM_ohne_WPB")["posten"]] == ["A", "B"]
+    assert [p["kennung"] for p in weg(r, "EM_ohne_WPB")["posten"]] == ["A", "C"]
     assert weg(r, "EM_ohne_WPB")["eigenanteil"] == 2975
     assert weg(r, "EH_ohne_WPB")["eigenanteil"] == 7500
 

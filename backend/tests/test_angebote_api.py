@@ -1,6 +1,7 @@
 """Angebote A–D über die API: Prüfungen, Speichern im Bericht, Weitergabe an den Generator (Phase 2c).
 
-Abnahmefall aus dem Auftrag: 4 WE, KfW 266, WPB „nein“, A 2.975 / B 2.975 / C 8.330 / D 15.000.
+Abnahmefall aus dem Auftrag: 4 WE, KfW 266, WPB „nein“, A 2.975 / B 8.330 / C 2.975 / D 15.000
+(Reihenfolge ab 14.11.2026: B = KfW 266 Umnutzung, C = BAFA Einzelmaßnahmen).
 Gegenprobe: 1 WE ohne KfW 266 → Zuschuss durch die Höchstgrenze begrenzt (EM 2.500 €, EH 5.000 €).
 """
 import io
@@ -16,8 +17,8 @@ from tests.test_word import MODUL, bericht_anlegen, generator, gespeichert  # no
 
 ANGEBOTE = {
     "a": {"betrag": 2975, "titel": "Modellierung Gebäude", "leistungen": "3D-Erfassung, Prüfung WPB"},
-    "b": {"betrag": 2975, "titel": "BAFA Einzelmaßnahmen"},
-    "c": {"betrag": 8330, "titel": "KfW 266 Umnutzung"},
+    "b": {"betrag": 8330, "titel": "KfW 266 Umnutzung"},
+    "c": {"betrag": 2975, "titel": "BAFA Einzelmaßnahmen"},
     "d": {"betrag": 15000, "titel": "KfW Effizienzhaus 261"},
     "anrechnung_a_in_d": True,
 }
@@ -28,7 +29,7 @@ ABNAHME = {
                    {"name": "Fenster", "kosten": 40000, "em_kategorie": "fenster"}],
 }
 GEGENPROBE = {**ABNAHME, "we_nach_sanierung": 1, "we_neu": 0, "kfw266": False, "umbaukosten_neue_we": 0,
-              "angebote": {k: v for k, v in ANGEBOTE.items() if k != "c"}}
+              "angebote": {k: v for k, v in ANGEBOTE.items() if k != "b"}}
 
 
 def weg(ergebnis, schluessel):
@@ -41,25 +42,26 @@ def test_abnahmefall_wird_mit_angeboten_gespeichert():
     em, eh = weg(b["ergebnis"], "EM_ohne_WPB"), weg(b["ergebnis"], "EH_ohne_WPB")
     assert (em["kosten"], em["zuschuss"], em["eigenanteil"]) == (14280, 2975, 11305)
     assert (eh["kosten"], eh["zuschuss"], eh["eigenanteil"], eh["anrechnung_a"]) == (23330, 7500, 15830, 2975)
-    assert [p["betrag"] for p in eh["posten"]] == [2975, 12025, 8330]
+    assert [(p["kennung"], p["betrag"]) for p in eh["posten"]] == [("A", 2975), ("B", 8330), ("D", 12025)]
     g = gespeichert(b["id"])
     assert g.eingaben["angebote"] == ANGEBOTE                          # Anzeigetexte bleiben für den Bericht erhalten
     assert weg(g.ergebnis, "EH_ohne_WPB") == eh                         # angebotsweg im gespeicherten Ergebnis
     assert "kosten_baubegleitung" in g.eingaben and g.eingaben["kosten_baubegleitung"] == 0
 
 
-def test_ohne_c_titel_und_leistungen_optional():
+def test_ohne_b_titel_und_leistungen_optional():
     c = nutzer("berater")
-    nur_betraege = {"a": {"betrag": 1000}, "b": {"betrag": 2000}, "d": {"betrag": 5000}}
+    nur_betraege = {"a": {"betrag": 1000}, "c": {"betrag": 2000}, "d": {"betrag": 5000}}
     r = c.post("/module/foerderung-em-eh/berechnen", json={**ABNAHME, "angebote": nur_betraege})
     assert r.status_code == 200, r.text
-    assert [p["kennung"] for p in weg(r.json(), "EM_ohne_WPB")["posten"]] == ["A", "B"]
+    assert [p["kennung"] for p in weg(r.json(), "EM_ohne_WPB")["posten"]] == ["A", "C"]   # ohne B (KfW 266 optional)
 
 
 @pytest.mark.parametrize("aenderung, text", [
     ({"kosten_baubegleitung": 5000}, "nicht beides"),
     ({"angebote": {**ANGEBOTE, "d": {"betrag": 2000}}}, "mindestens so hoch sein wie A"),
-    ({"angebote": {**ANGEBOTE, "b": {"betrag": -1}}}, ""),
+    ({"angebote": {**ANGEBOTE, "c": {"betrag": -1}}}, ""),
+    ({"angebote": {k: v for k, v in ANGEBOTE.items() if k != "c"}}, ""),
     ({"angebote": {k: v for k, v in ANGEBOTE.items() if k != "d"}}, ""),
     ({"angebote": {**ANGEBOTE, "a": {"betrag": 1, "titel": "x" * 81}}}, ""),
 ])
@@ -78,7 +80,7 @@ def test_ohne_anrechnung_darf_d_kleiner_als_a_sein():
     r = c.post("/module/foerderung-em-eh/berechnen", json={**ABNAHME, "angebote": angebote})
     assert r.status_code == 200, r.text
     eh = weg(r.json(), "EH_ohne_WPB")
-    assert eh["anrechnung_a"] == 0 and [p["betrag"] for p in eh["posten"]] == [2975, 2000, 8330]
+    assert eh["anrechnung_a"] == 0 and [p["betrag"] for p in eh["posten"]] == [2975, 8330, 2000]
 
 
 def test_angebote_gehen_unveraendert_an_den_generator(generator):  # noqa: F811
@@ -115,17 +117,24 @@ def test_echter_generator_kapitel_9_abnahmefall(monkeypatch):
     _, b = bericht_anlegen(c, eingaben=ABNAHME)
     t = _word_text(c, b["id"])
     for teil in ("9  Unsere Leistungen auf Ihrem Weg", "10  Empfohlenes Vorgehen", "11.305 €", "15.830 €",
-                 "Preis 15.000 € abzgl. Anrechnung A = 12.025 €", "Fachplanung KfW 266 (Angebot C)",
+                 "Preis 15.000 € abzgl. Anrechnung A = 12.025 €", "Fachplanung KfW 266 (Angebot B)", "Angebote A + C",
                  "Empfehlung für Ihr Gebäude", "3D-Erfassung, Prüfung WPB"):
         assert teil in t, teil
     assert "durch die Höchstgrenze" not in t
+    # Kapitel 9 im Ablauf: A → B → „Welcher Sanierungsweg?“ → C | D
+    k9 = t[t.index("9  Unsere Leistungen auf Ihrem Weg"):t.index("10  Empfohlenes Vorgehen")]
+    stellen = [k9.index(x) for x in ("A  Modellierung Gebäude", "B  KfW 266 Umnutzung", "Welcher Sanierungsweg?",
+                                     "C  BAFA Einzelmaßnahmen", "D  KfW Effizienzhaus 261")]
+    assert stellen == sorted(stellen), stellen
+    assert "Weg Einzelmaßnahmen: A + B + C" in k9 and "Weg Effizienzhaus: A + B + D" in k9
 
     _, g = bericht_anlegen(c, eingaben=GEGENPROBE)
     em, eh = weg(g["ergebnis"], "EM_ohne_WPB"), weg(g["ergebnis"], "EH_ohne_WPB")
     assert (em["zuschuss"], eh["zuschuss"], em["hoechstgrenze_greift"], eh["hoechstgrenze_greift"]) == (2500, 5000, True, True)
     t = _word_text(c, g["id"])
     assert "durch die Höchstgrenze für Fachplanung/Baubegleitung begrenzt" in t
-    assert "Angebot C" not in t and "KfW 266 Umnutzung" not in t
+    assert "Angebot B" not in t and "KfW 266 Umnutzung" not in t
+    assert "Weg Einzelmaßnahmen: A + C" in t and "Weg Effizienzhaus: A + D" in t
 
 
 @pytest.mark.skipif(not os.environ.get("GENERATOR_TEST_URL"), reason="kein Generator-Container (läuft mit scripts/test-postgres.sh)")

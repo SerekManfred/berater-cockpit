@@ -58,11 +58,12 @@ class AngebotIn(BaseModel):
 
 
 class AngeboteIn(BaseModel):
-    """Unsere Angebote: A immer, B Einzelmaßnahmen, C nur bei KfW 266 (nicht gefördert), D Effizienzhaus."""
+    """Unsere Angebote in der Reihenfolge des Ablaufs: A Gebäudemodell/WPB-Prüfung (immer),
+    B KfW 266 Umnutzung (optional, nicht gefördert), C Einzelmaßnahmen, D Effizienzhaus."""
     a: AngebotIn
-    b: AngebotIn
+    c: AngebotIn
     d: AngebotIn
-    c: AngebotIn | None = None
+    b: AngebotIn | None = None
     anrechnung_a_in_d: bool = True
 
     @model_validator(mode="after")
@@ -72,7 +73,7 @@ class AngeboteIn(BaseModel):
         return self
 
     def fuer_rechenkern(self) -> Angebote:
-        return Angebote(a=self.a.betrag, b=self.b.betrag, d=self.d.betrag, c=self.c.betrag if self.c else 0.0,
+        return Angebote(a=self.a.betrag, c=self.c.betrag, d=self.d.betrag, b=self.b.betrag if self.b else 0.0,
                         anrechnung_a_in_d=self.anrechnung_a_in_d)
 
 
