@@ -1,0 +1,417 @@
+{
+ "v2": {
+  "beg_em": {
+   "quelle": "Richtlinie BEG EM vom 17.07.2026 (in Kraft 21.07.2026); Ökozentrum NRW Zusammenfassung 18.08.2026",
+   "wpb_bonus": 0.05,
+   "isfp_bonus": 0.05,
+   "foerdersatz": 0.15,
+   "geprueft_am": "2026-11-09",
+   "wpb_bonus_ab": "2027-01-01",
+   "baubegleitung": {
+    "satz": 0.5,
+    "mfh_max": 20000,
+    "mfh_je_we": 2000,
+    "efh_zfh_max": 5000
+   },
+   "wpb_bonus_regel": "nur Dämmung der Gebäudehülle (keine Fenster), nur mit iSFP, nur für Anträge ab 2027-01-01",
+   "isfp_bonus_regel": "nur auf förderfähige Kosten oberhalb der Höchstgrenze ohne iSFP; Mindestinvestition 30.000 EUR",
+   "ergaenzungskredit": {
+    "je_we": 120000,
+    "programm": "KfW 358/359"
+   },
+   "hoechstgrenze_bezug": "je Gebäude und Kalenderjahr",
+   "hoechstgrenze_mit_isfp": {
+    "ab_we_7": 15000,
+    "erste_we": 60000,
+    "we_2_bis_6": 30000
+   },
+   "hoechstgrenze_ohne_isfp": {
+    "ab_we_7": 8000,
+    "erste_we": 30000,
+    "we_2_bis_6": 15000
+   }
+  },
+  "beg_wg": {
+   "quelle": "KfW-Hausbankenmitteilung 61/2026 (20.07.2026); Produktseite KfW 261",
+   "wpb_bonus": 0.1,
+   "geprueft_am": "2026-11-09",
+   "kredit_je_we": 150000,
+   "baubegleitung": {
+    "satz": 0.5,
+    "mfh_max": 40000,
+    "mfh_je_we": 4000,
+    "efh_zfh_max": 10000
+   },
+   "tilgungszuschuss": {
+    "EH40EE": 0.1,
+    "EH55EE": 0.05,
+    "EH70EE": 0.0,
+    "EH85EE": 0.0,
+    "DenkmalEE": 0.05
+   },
+   "wpb_bonus_stufen": [
+    "EH40EE",
+    "EH55EE",
+    "EH70EE"
+   ],
+   "ee_klasse_pflicht": true,
+   "kombination_mit_beg_em": "ausgeschlossen, 3 Jahre Sperrfrist in beide Richtungen"
+  },
+  "hinweis": "Erstbestand aus dem Referenzfall MFH-Umnutzung (6 WE). Jeder Wert ist vor produktiver Nutzung im Vier-Augen-Prinzip gegen die Quelle zu prüfen.",
+  "kfw_266": {
+   "satz": 0.3,
+   "quelle": "KfW-Merkblatt 266 Gewerbe zu Wohnen (07/2026); kfw.de/266",
+   "ee_ausnahme": "vorhandener EE-Erzeuger >= 65 %, Wärmenetz oder Heizung jünger als 5 Jahre",
+   "geprueft_am": "2026-11-09",
+   "antragsfrist": "2026-12-31",
+   "mindeststufe": "EH85EE",
+   "max_kosten_je_neue_we": 100000
+  },
+  "version": 2,
+  "fachwerte": {
+   "tma_em": {
+    "quelle": "Technische Mindestanforderungen BEG EM (BAFA), Stand 2026",
+    "bauteile": [
+     {
+      "bauteil": "Außenwand",
+      "anforderung": "U ≤ 0,20 W/(m²K)"
+     },
+     {
+      "bauteil": "Dach, Dachschräge",
+      "anforderung": "U ≤ 0,14 W/(m²K)"
+     },
+     {
+      "bauteil": "Oberste Geschossdecke",
+      "anforderung": "U ≤ 0,14 W/(m²K)"
+     },
+     {
+      "bauteil": "Bodenflächen gegen Erdreich / unbeheizt, Kellerdecke",
+      "anforderung": "U ≤ 0,25 W/(m²K)"
+     },
+     {
+      "bauteil": "Fenster, Fenstertüren",
+      "anforderung": "Uw ≤ 0,95 W/(m²K)"
+     },
+     {
+      "bauteil": "Lüftung mit Wärmerückgewinnung",
+      "anforderung": "Wärmebereitstellungsgrad ≥ 80 % bei ≤ 0,45 W/(m³/h) bzw. ≥ 75 % bei ≤ 0,35 W/(m³/h)"
+     }
+    ],
+    "geprueft_am": "2026-11-09"
+   },
+   "haftung": {
+    "text": "Alle Angaben nach bestem Wissen auf Basis der zum angegebenen Stand gültigen Förderbedingungen, ohne Gewähr. Fördermittel stehen unter Haushaltsvorbehalt. Maßgeblich sind die zum Zeitpunkt der Antragstellung gültigen Richtlinien, Merkblätter und die Bestätigung durch KfW/BAFA.",
+    "quelle": "Haftungshinweis Energieberatung Manfred Serek GmbH (Übernahme aus generator/src/fachtexte.js)",
+    "geprueft_am": "2026-11-09"
+   },
+   "ee_klasse": {
+    "text": "EE-Klasse: mindestens 65 % des Wärmebedarfs aus erneuerbaren Energien, unvermeidbarer Abwärme und/oder Wärmerückgewinnung aus Lüftungsanlagen",
+    "quelle": "BEG WG, Technische Mindestanforderungen Effizienzhaus (KfW)",
+    "geprueft_am": "2026-11-09"
+   },
+   "eh_stufen": {
+    "quelle": "BEG WG, Technische Mindestanforderungen Effizienzhaus (KfW)",
+    "stufen": {
+     "EH40EE": {
+      "ht": 55,
+      "qp": 40,
+      "name": "Effizienzhaus 40 EE"
+     },
+     "EH55EE": {
+      "ht": 70,
+      "qp": 55,
+      "name": "Effizienzhaus 55 EE"
+     },
+     "EH70EE": {
+      "ht": 85,
+      "qp": 70,
+      "name": "Effizienzhaus 70 EE"
+     },
+     "EH85EE": {
+      "ht": 100,
+      "qp": 85,
+      "name": "Effizienzhaus 85 EE"
+     },
+     "DenkmalEE": {
+      "ht": 175,
+      "qp": 160,
+      "name": "Effizienzhaus Denkmal EE"
+     }
+    },
+    "geprueft_am": "2026-11-09"
+   },
+   "kumulierung": {
+    "quelle": "Kumulierungsregeln aus Richtlinien BEG EM / BEG WG, KfW-Merkblatt 266 und §§ 35a, 35c EStG (Übernahme aus generator/src/fachtexte.js, Einzelquellen bei der Prüfung bestätigen)",
+    "regeln": [
+     {
+      "hinweis": "Umbaukosten nur in KfW 266, energetische Kosten nur in BEG EM",
+      "zulaessig": true,
+      "kombination": "KfW 266 + BEG EM (BAFA)"
+     },
+     {
+      "hinweis": "Ausdrücklich vorgesehen; keine Doppelanrechnung derselben Kosten",
+      "zulaessig": true,
+      "kombination": "KfW 266 + BEG WG (KfW 261)"
+     },
+     {
+      "hinweis": "Ausgeschlossen; Sperrfrist 3 Jahre in beide Richtungen",
+      "zulaessig": false,
+      "kombination": "BEG EM + BEG WG"
+     },
+     {
+      "hinweis": "Kredit zusätzlich zum Zuschuss",
+      "zulaessig": true,
+      "kombination": "BEG EM + Ergänzungskredit 358/359"
+     },
+     {
+      "hinweis": "Steuerbonus nur für nicht geförderte Maßnahmen selbstgenutzter Wohnungen",
+      "zulaessig": false,
+      "kombination": "BEG + § 35c EStG (gleiche Maßnahme)"
+     },
+     {
+      "hinweis": "Laut Merkblatt 266 ausgeschlossen",
+      "zulaessig": false,
+      "kombination": "KfW 266 + § 35a EStG"
+     }
+    ],
+    "geprueft_am": "2026-11-09"
+   }
+  },
+  "gueltig_ab": "2026-11-09",
+  "isfp_beratung": {
+   "satz": 0.5,
+   "quelle": "BAFA Energieberatung für Wohngebäude (EBW)",
+   "mfh_max": 850,
+   "efh_zfh_max": 650,
+   "geprueft_am": "2026-11-09"
+  },
+  "beg_em_heizung": {
+   "quelle": "KfW-Infoblatt BEG förderfähige Maßnahmen 11/2026; BAFA",
+   "geprueft_am": "2026-11-09",
+   "brauchwasser_wp_regel": "nur als Umfeldmaßnahme einer förderfähigen Heizung",
+   "stromdirektheizung_foerderfaehig": false
+  }
+ },
+ "v3": {
+  "beg_em": {
+   "quelle": "Richtlinie BEG EM vom 17.07.2026 (in Kraft 21.07.2026); Ökozentrum NRW Zusammenfassung 18.08.2026",
+   "wpb_bonus": 0.05,
+   "isfp_bonus": 0.05,
+   "foerdersatz": 0.15,
+   "geprueft_am": "2026-11-09",
+   "wpb_bonus_ab": "2027-01-01",
+   "baubegleitung": {
+    "satz": 0.5,
+    "mfh_max": 20000,
+    "mfh_je_we": 2000,
+    "efh_zfh_max": 5000
+   },
+   "wpb_bonus_regel": "nur Dämmung der Gebäudehülle (keine Fenster), nur mit iSFP, nur für Anträge ab 2027-01-01",
+   "isfp_bonus_regel": "nur auf förderfähige Kosten oberhalb der Höchstgrenze ohne iSFP; Mindestinvestition 30.000 EUR",
+   "ergaenzungskredit": {
+    "je_we": 120000,
+    "programm": "KfW 358/359"
+   },
+   "hoechstgrenze_bezug": "je Gebäude und Kalenderjahr",
+   "hoechstgrenze_mit_isfp": {
+    "ab_we_7": 15000,
+    "erste_we": 60000,
+    "we_2_bis_6": 30000
+   },
+   "hoechstgrenze_ohne_isfp": {
+    "ab_we_7": 8000,
+    "erste_we": 30000,
+    "we_2_bis_6": 15000
+   },
+   "isfp_bonus_mindestbetrag": 30000
+  },
+  "beg_wg": {
+   "quelle": "KfW-Hausbankenmitteilung 61/2026 (20.07.2026); Produktseite KfW 261",
+   "wpb_bonus": 0.1,
+   "geprueft_am": "2026-11-09",
+   "kredit_je_we": 150000,
+   "baubegleitung": {
+    "satz": 0.5,
+    "mfh_max": 40000,
+    "mfh_je_we": 4000,
+    "efh_zfh_max": 10000
+   },
+   "tilgungszuschuss": {
+    "EH40EE": 0.1,
+    "EH55EE": 0.05,
+    "EH70EE": 0.0,
+    "EH85EE": 0.0,
+    "DenkmalEE": 0.05
+   },
+   "wpb_bonus_stufen": [
+    "EH40EE",
+    "EH55EE",
+    "EH70EE"
+   ],
+   "ee_klasse_pflicht": true,
+   "tilgungszuschuss_max": 0.4,
+   "kombination_mit_beg_em": "ausgeschlossen, 3 Jahre Sperrfrist in beide Richtungen"
+  },
+  "hinweis": "Erstbestand aus dem Referenzfall MFH-Umnutzung (6 WE). Jeder Wert ist vor produktiver Nutzung im Vier-Augen-Prinzip gegen die Quelle zu prüfen.",
+  "kfw_266": {
+   "satz": 0.3,
+   "quelle": "KfW-Merkblatt 266 Gewerbe zu Wohnen (07/2026); kfw.de/266",
+   "ee_ausnahme": "vorhandener EE-Erzeuger >= 65 %, Wärmenetz oder Heizung jünger als 5 Jahre",
+   "geprueft_am": "2026-11-09",
+   "antragsfrist": "2026-12-31",
+   "mindeststufe": "EH85EE",
+   "max_kosten_je_neue_we": 100000
+  },
+  "kfw_458": {
+   "deckel": 0.7,
+   "quelle": "KfW-Produktseite 458 und Hausbankenmitteilung 61/2026; Ökozentrum NRW Zusammenfassung BEG-Reform 18.08.2026",
+   "klimabonus": 0.16,
+   "geprueft_am": "2026-11-12",
+   "hoechstkosten": {
+    "ab_we_7": 8000,
+    "erste_we": 28000,
+    "we_2_bis_6": 15000
+   },
+   "grundfoerderung": 0.3,
+   "klimabonus_hinweis": "ab 01.02.2027 12 %, 01.08.2027 8 %, 01.02.2028 4 %, ab 01.08.2028 0 %; bei Gasheizung nur, wenn Inbetriebnahme mind. 20 Jahre zurückliegt",
+   "hoechstkosten_hinweis": "1. WE ab 01.02.2027 halbjährlich -750 EUR",
+   "einkommensbonus_stufen": [
+    0.1,
+    0.3,
+    0.4
+   ],
+   "deckel_einkommensbonus_40": 0.8
+  },
+  "version": 3,
+  "fachwerte": {
+   "tma_em": {
+    "quelle": "Technische Mindestanforderungen BEG EM (BAFA), Stand 2026",
+    "bauteile": [
+     {
+      "bauteil": "Außenwand",
+      "anforderung": "U ≤ 0,20 W/(m²K)"
+     },
+     {
+      "bauteil": "Dach, Dachschräge",
+      "anforderung": "U ≤ 0,14 W/(m²K)"
+     },
+     {
+      "bauteil": "Oberste Geschossdecke",
+      "anforderung": "U ≤ 0,14 W/(m²K)"
+     },
+     {
+      "bauteil": "Bodenflächen gegen Erdreich / unbeheizt, Kellerdecke",
+      "anforderung": "U ≤ 0,25 W/(m²K)"
+     },
+     {
+      "bauteil": "Fenster, Fenstertüren",
+      "anforderung": "Uw ≤ 0,95 W/(m²K)"
+     },
+     {
+      "bauteil": "Lüftung mit Wärmerückgewinnung",
+      "anforderung": "Wärmebereitstellungsgrad ≥ 80 % bei ≤ 0,45 W/(m³/h) bzw. ≥ 75 % bei ≤ 0,35 W/(m³/h)"
+     }
+    ],
+    "geprueft_am": "2026-11-09"
+   },
+   "haftung": {
+    "text": "Alle Angaben nach bestem Wissen auf Basis der zum angegebenen Stand gültigen Förderbedingungen, ohne Gewähr. Fördermittel stehen unter Haushaltsvorbehalt. Maßgeblich sind die zum Zeitpunkt der Antragstellung gültigen Richtlinien, Merkblätter und die Bestätigung durch KfW/BAFA.",
+    "quelle": "Haftungshinweis Energieberatung Manfred Serek GmbH (Übernahme aus generator/src/fachtexte.js)",
+    "geprueft_am": "2026-11-09"
+   },
+   "ee_klasse": {
+    "text": "EE-Klasse: mindestens 65 % des Wärmebedarfs aus erneuerbaren Energien, unvermeidbarer Abwärme und/oder Wärmerückgewinnung aus Lüftungsanlagen",
+    "quelle": "BEG WG, Technische Mindestanforderungen Effizienzhaus (KfW)",
+    "geprueft_am": "2026-11-09"
+   },
+   "eh_stufen": {
+    "quelle": "BEG WG, Technische Mindestanforderungen Effizienzhaus (KfW)",
+    "stufen": {
+     "EH40EE": {
+      "ht": 55,
+      "qp": 40,
+      "name": "Effizienzhaus 40 EE"
+     },
+     "EH55EE": {
+      "ht": 70,
+      "qp": 55,
+      "name": "Effizienzhaus 55 EE"
+     },
+     "EH70EE": {
+      "ht": 85,
+      "qp": 70,
+      "name": "Effizienzhaus 70 EE"
+     },
+     "EH85EE": {
+      "ht": 100,
+      "qp": 85,
+      "name": "Effizienzhaus 85 EE"
+     },
+     "DenkmalEE": {
+      "ht": 175,
+      "qp": 160,
+      "name": "Effizienzhaus Denkmal EE"
+     }
+    },
+    "geprueft_am": "2026-11-09"
+   },
+   "kumulierung": {
+    "quelle": "Kumulierungsregeln aus Richtlinien BEG EM / BEG WG, KfW-Merkblatt 266 und §§ 35a, 35c EStG (Übernahme aus generator/src/fachtexte.js, Einzelquellen bei der Prüfung bestätigen)",
+    "regeln": [
+     {
+      "hinweis": "Umbaukosten nur in KfW 266, energetische Kosten nur in BEG EM",
+      "zulaessig": true,
+      "kombination": "KfW 266 + BEG EM (BAFA)"
+     },
+     {
+      "hinweis": "Ausdrücklich vorgesehen; keine Doppelanrechnung derselben Kosten",
+      "zulaessig": true,
+      "kombination": "KfW 266 + BEG WG (KfW 261)"
+     },
+     {
+      "hinweis": "Ausgeschlossen; Sperrfrist 3 Jahre in beide Richtungen",
+      "zulaessig": false,
+      "kombination": "BEG EM + BEG WG"
+     },
+     {
+      "hinweis": "Kredit zusätzlich zum Zuschuss",
+      "zulaessig": true,
+      "kombination": "BEG EM + Ergänzungskredit 358/359"
+     },
+     {
+      "hinweis": "Steuerbonus nur für nicht geförderte Maßnahmen selbstgenutzter Wohnungen",
+      "zulaessig": false,
+      "kombination": "BEG + § 35c EStG (gleiche Maßnahme)"
+     },
+     {
+      "hinweis": "Laut Merkblatt 266 ausgeschlossen",
+      "zulaessig": false,
+      "kombination": "KfW 266 + § 35a EStG"
+     }
+    ],
+    "geprueft_am": "2026-11-09"
+   }
+  },
+  "gueltig_ab": "2026-11-09",
+  "steuer_35c": {
+   "quelle": "§ 35c EStG (gesetze-im-internet.de)",
+   "quote_text": "20 % / 3 J.",
+   "geprueft_am": "2026-11-12",
+   "max_kosten_objekt": 200000,
+   "max_ermaessigung_objekt": 40000
+  },
+  "isfp_beratung": {
+   "satz": 0.5,
+   "quelle": "BAFA Energieberatung für Wohngebäude (EBW)",
+   "mfh_max": 850,
+   "efh_zfh_max": 650,
+   "geprueft_am": "2026-11-09"
+  },
+  "beg_em_heizung": {
+   "quelle": "KfW-Infoblatt BEG förderfähige Maßnahmen 11/2026; BAFA",
+   "geprueft_am": "2026-11-09",
+   "brauchwasser_wp_regel": "nur als Umfeldmaßnahme einer förderfähigen Heizung",
+   "stromdirektheizung_foerderfaehig": false
+  }
+ }
+}

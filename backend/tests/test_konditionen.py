@@ -10,7 +10,7 @@ from sqlalchemy.exc import IntegrityError
 
 from app import cli
 from app.db import SessionLocal
-from app.konditionen_zentrale import pruefen, vergleichen
+from app.konditionen_zentrale import abschnitte_vergleichen, pruefen, vergleichen
 from app.modelle import Bericht, KonditionenVersion
 from app.rechnen import lade_konditionen
 from tests.test_anmeldung import aktionen, client, konto
@@ -323,6 +323,35 @@ def test_vergleich_tabellenzeilen():
     neu["fachwerte"]["tma_em"]["bauteile"][0]["anforderung"] = "U ≤ 0,18 W/(m²K)"
     z = vergleichen(alt, neu)
     assert len(z) == 1 and z[0]["label"] == "Anforderungen je Bauteil – Zeile 1 – Anforderung"
+
+
+# Echte Konditionsdaten V2 (aktiv) und V3 (Entwurf mit KfW 458, § 35c) aus der Datenbank, Stand 15.11.2026
+V2_V3 = json.loads((Path(__file__).parent / "daten" / "konditionen_v2_v3.json").read_text(encoding="utf-8"))
+
+
+def test_vergleich_v2_v3_neue_abschnitte_und_felder():
+    """Absturz in der Oberfläche (15.11.2026): Mehrfachauswahl ohne Optionen. Jetzt kommen die Optionen mit."""
+    z = {x["pfad"]: x for x in vergleichen(V2_V3["v2"], V2_V3["v3"])}
+    assert all(x["art"] == "neu" and x["alt"] is None for x in z.values())
+    assert {"beg_em.isfp_bonus_mindestbetrag", "beg_wg.tilgungszuschuss_max", "kfw_458.deckel", "steuer_35c.quelle"} <= set(z)
+    assert z["kfw_458.einkommensbonus_stufen"]["optionen"] == [[0.10, "10 %"], [0.30, "30 %"], [0.40, "40 %"]]
+    assert "optionen" not in z["kfw_458.deckel"]
+    assert [(a["programm"], a["art"]) for a in abschnitte_vergleichen(V2_V3["v2"], V2_V3["v3"])] == [("kfw_458", "neu"), ("steuer_35c", "neu")]
+
+
+def test_vergleich_rueckwaerts_abschnitt_entfaellt():
+    z = vergleichen(V2_V3["v3"], V2_V3["v2"])
+    assert z and all(x["art"] == "entfernt" and x["neu"] is None for x in z)
+    assert [(a["programm"], a["art"]) for a in abschnitte_vergleichen(V2_V3["v3"], V2_V3["v2"])] == [("kfw_458", "entfernt"), ("steuer_35c", "entfernt")]
+    assert abschnitte_vergleichen(None, V2_V3["v2"]) and abschnitte_vergleichen(V2_V3["v2"], V2_V3["v2"]) == []
+
+
+def test_vergleich_api_liefert_abschnitte():
+    admin, verwaltung = nutzer("admin"), nutzer("verwaltung")
+    assert verwaltung.get("/konditionen/versionen/1/vergleich").json()["abschnitte"] == []
+    v = admin.post("/konditionen/versionen", json={}).json()
+    d = admin.get(f"/konditionen/versionen/{v['id']}/vergleich").json()
+    assert d["mit_version"] == 1 and isinstance(d["abschnitte"], list)
 
 
 # ---------- Kommandozeile: Entwurf mit Fachwerten ----------

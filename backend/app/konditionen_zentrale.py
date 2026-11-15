@@ -327,13 +327,30 @@ def vergleichen(alt: dict | None, neu: dict) -> list[dict]:
             sp = next((s for s in (feld or {}).get("spalten", []) if s["name"] == spalte), None)
             label = f"{feld['label']} – Zeile {int(zeile) + 1} – {sp['label']}" if feld and sp and zeile.isdigit() else pfad
             typ = sp["typ"] if sp else "text"
+            optionen = (sp or {}).get("optionen")
         else:
-            label, typ = feld["label"], feld["typ"]
+            label, typ, optionen = feld["label"], feld["typ"], feld.get("optionen")
         programm = pfad.split(".")[0] if pfad.split(".")[0] in TITEL else "allgemein"
         art = "neu" if pfad not in a else "entfernt" if pfad not in n else "geaendert"
-        zeilen.append({"pfad": pfad, "programm": programm, "programm_titel": TITEL[programm], "label": label, "typ": typ,
-                       "alt": a.get(pfad), "neu": n.get(pfad), "art": art})
+        zeile = {"pfad": pfad, "programm": programm, "programm_titel": TITEL[programm], "label": label, "typ": typ,
+                 "alt": a.get(pfad), "neu": n.get(pfad), "art": art}
+        if optionen is not None:  # Auswahl/Mehrfach: Anzeigetexte mitliefern (z. B. kfw_458.einkommensbonus_stufen)
+            zeile["optionen"] = optionen
+        zeilen.append(zeile)
     return zeilen
+
+
+def abschnitte_vergleichen(alt: dict | None, neu: dict) -> list[dict]:
+    """Programm-Abschnitte, die nur in einer der beiden Versionen vorkommen (art „neu“ bzw. „entfernt“ = entfällt)."""
+    alt = alt or {}
+    aus = []
+    for pid, titel in TITEL.items():
+        if pid == "allgemein":
+            continue
+        in_alt, in_neu = isinstance(alt.get(pid), dict), isinstance(neu.get(pid), dict)
+        if in_alt != in_neu:
+            aus.append({"programm": pid, "programm_titel": titel, "art": "neu" if in_neu else "entfernt"})
+    return aus
 
 
 # ---------- Hilfen ----------
@@ -429,7 +446,8 @@ def version_vergleich(versions_id: int, mit: int | None = None, ich: Benutzer = 
     alt = _laden(db, mit, ich) if mit is not None else _vorgaenger(db, v)
     neu_daten = konditionen_daten(v) if v.status in FREIGEGEBEN else v.daten
     alt_daten = (konditionen_daten(alt) if alt.status in FREIGEGEBEN else alt.daten) if alt else None
-    return {"version": v.version, "mit_version": alt.version if alt else None, "aenderungen": vergleichen(alt_daten, neu_daten)}
+    return {"version": v.version, "mit_version": alt.version if alt else None, "aenderungen": vergleichen(alt_daten, neu_daten),
+            "abschnitte": abschnitte_vergleichen(alt_daten, neu_daten) if alt else []}
 
 
 # ---------- Routen: Ablauf ----------
