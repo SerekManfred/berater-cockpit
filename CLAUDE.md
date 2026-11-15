@@ -167,6 +167,11 @@ Ausführliches Fachkonzept: `docs/Konzept_Berater-Cockpit.docx` (falls abgelegt)
   (Startseite, Fördervergleich). Abgelaufen: Programme mit Schalter im Fördervergleich (`SCHALTER`, bisher `kfw_266 → kfw266`) sind nicht
   mehr wählbar; das Backend lehnt jede neue Berechnung damit ab (422). Gespeicherte Berichte bleiben lesbar. Tests laufen mit festem
   Datum 12.11.2026 (`conftest.py`).
+- **Vergleich** (`vergleichen`, `abschnitte_vergleichen`, Route `…/vergleich`): Zeilen je Feld mit `art` neu/geaendert/entfernt
+  (Oberfläche: „entfällt“), Auswahl-/Mehrfachfelder mit `optionen`; `abschnitte` nennt Programme, die nur in einer Version vorkommen.
+  Die Oberfläche (`anzeige`, `vergleichAufbereiten` in `Konditionen.jsx`) darf sich nie auf Feldbeschreibung oder Abschnitt verlassen
+  (Fehler 15.11.2026: Mehrfachauswahl `kfw_458.einkommensbonus_stufen` ohne Optionen → weiße Seite). Test mit echten Daten V2/V3:
+  `frontend/src/testdaten/`, `backend/tests/daten/konditionen_v2_v3.json`.
 - **Protokoll:** `konditionen_entwurf_angelegt`, `_entwurf_geaendert`, `_zur_pruefung`, `_zurueckgezogen`, `_freigegeben`, `_zurueckgewiesen`.
 - **Kommandozeile:** `python -m app.cli konditionen-entwurf DATEI.json --notiz "…"` legt einen Entwurf aus der aktiven Version plus den
   Abschnitten der Datei an (Ersteller „Kommandozeile“). So entstand am 12.11.2026 **Entwurf Version 2** mit den Fachwerten
@@ -218,6 +223,13 @@ Ausführliches Fachkonzept: `docs/Konzept_Berater-Cockpit.docx` (falls abgelegt)
   (0 ist ein Wert, leer blockiert) und – sobald ein Angebot einen Betrag hat – **A, C und D**; B bleibt optional und nur bei KfW 266.
   Leer → 0 nur bei Kosten Fachplanung/Baubegleitung, Honorar iSFP, neuen WE und Umbaukosten.
 - Frontend-Tests mit vitest (`npm test`, laufen beim Bauen von `cockpit-web`): `zahl.test.js`, `ZahlFeld.test.jsx`, `Foerdervergleich.test.js`.
+
+## Fehlergrenze und Zeitlimits (Stand 15.11.2026)
+- `frontend/src/Fehlergrenze.jsx` um die ganze Oberfläche (`main.jsx`) und um den Inhaltsbereich (`App.jsx`, Navigation bleibt
+  bedienbar): Meldung + „Neu laden“ statt weißer Seite.
+- Alle Anfragen über `api()`/`holen()` (`api.js`) mit Zeitlimit: Standard 30 s, `ZEITLIMIT_LANG_MS` (240 s) für KI-Vorschlag,
+  INIT erzeugen, Checkliste und Word; Upload 15 Min. Zeit- und Netzfehler kommen als Fehler mit `status = 0` und Meldung –
+  jede Ladeanzeige braucht einen Fehlerzweig (kein `.catch(() => setX(null))`, das „Lade …“ endlos stehen lässt).
 
 ## Beratungsbericht INIT (Stand 13.11.2026, Phase 2b)
 - **Weg A (Geschäftsführer 13.11.2026):** `init_foerderung(InitEingaben, kond)` → `{konditionen_version, saetze, werte}`, im Bericht als

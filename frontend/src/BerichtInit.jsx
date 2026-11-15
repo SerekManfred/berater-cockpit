@@ -1,5 +1,5 @@
 import React, { useEffect, useState } from "react";
-import { api, wordHerunterladen, zeit } from "./api.js";
+import { api, wordHerunterladen, ZEITLIMIT_LANG_MS, zeit } from "./api.js";
 import { ZahlFeld } from "./ZahlFeld.jsx";
 import { zahlUngueltig } from "./zahl.js";
 import { WeBestaetigung, WeHinweise } from "./Wohneinheiten.jsx";
@@ -123,7 +123,7 @@ export function BerichtInit({ ich, projekt, onZurueck }) {
       {schritt === "ki" && <KiSchritt e={e} ab={ab} darf={darf} laeuft={laeuft}
         onStart={auswahl => aktion("ki", async () => {
           if (geaendert && !(await speichern())) return;
-          uebernehmen(await api(pfad + "/ki-vorschlag", { method: "POST", body: { abschnitte: auswahl } }));
+          uebernehmen(await api(pfad + "/ki-vorschlag", { method: "POST", body: { abschnitte: auswahl }, zeitlimit: ZEITLIMIT_LANG_MS }));
           setMeldung("KI-Vorschläge eingetragen. Bitte jeden Abschnitt unter „4. Prüfen und freigeben“ prüfen.");
         })} />}
       {schritt === "pruefen" && <PruefSchritt e={e} d={d} z={z} ab={ab} aendern={aendern} geaendert={geaendert} laeuft={laeuft}
@@ -135,7 +135,7 @@ export function BerichtInit({ ich, projekt, onZurueck }) {
       {schritt === "erzeugen" && <ErzeugenSchritt e={e} geaendert={geaendert} laeuft={laeuft} darf={darf}
         onWeGeprueft={async () => uebernehmen(await api(pfad + "/wohneinheiten-geprueft", { method: "POST" }))}
         onErzeugen={() => aktion("erzeugen", async () => {
-          const r = await api(`/projekte/${projekt.id}/bericht-init/erzeugen`, { method: "POST" });
+          const r = await api(`/projekte/${projekt.id}/bericht-init/erzeugen`, { method: "POST", zeitlimit: ZEITLIMIT_LANG_MS });
           uebernehmen(await api(pfad));
           setMeldung(`Bericht Version ${r.versionsnummer} erzeugt (Konditionen-Version ${r.konditionen_version}) und in den Unterlagen abgelegt.`);
           try { await wordHerunterladen(r.bericht_id); } catch { /* Download optional – liegt in den Unterlagen */ }

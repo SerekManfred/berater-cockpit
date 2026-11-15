@@ -1,0 +1,939 @@
+{
+ "programme": [
+  {
+   "id": "allgemein",
+   "titel": "Allgemein",
+   "quelle_pflicht": false,
+   "felder": [
+    {
+     "pfad": "gueltig_ab",
+     "label": "Stand der Förderbedingungen (gültig ab) – erscheint im Bericht",
+     "typ": "datum",
+     "pflicht": true,
+     "kern": true
+    },
+    {
+     "pfad": "hinweis",
+     "label": "Allgemeiner Hinweis zur Version",
+     "typ": "text_lang",
+     "pflicht": false,
+     "kern": false
+    }
+   ]
+  },
+  {
+   "id": "beg_em",
+   "titel": "BEG EM – Gebäudehülle und Anlagentechnik (BAFA)",
+   "felder": [
+    {
+     "pfad": "beg_em.quelle",
+     "label": "Quelle",
+     "typ": "text",
+     "pflicht": true,
+     "kern": true
+    },
+    {
+     "pfad": "beg_em.geprueft_am",
+     "label": "Geprüft am",
+     "typ": "datum",
+     "pflicht": true,
+     "kern": true
+    },
+    {
+     "pfad": "beg_em.foerdersatz",
+     "label": "Fördersatz",
+     "typ": "prozent",
+     "pflicht": true,
+     "kern": true
+    },
+    {
+     "pfad": "beg_em.isfp_bonus",
+     "label": "iSFP-Bonus",
+     "typ": "prozent",
+     "pflicht": true,
+     "kern": true
+    },
+    {
+     "pfad": "beg_em.isfp_bonus_regel",
+     "label": "Regel iSFP-Bonus",
+     "typ": "text_lang",
+     "pflicht": true,
+     "kern": false
+    },
+    {
+     "pfad": "beg_em.wpb_bonus",
+     "label": "WPB-Bonus",
+     "typ": "prozent",
+     "pflicht": true,
+     "kern": true
+    },
+    {
+     "pfad": "beg_em.wpb_bonus_regel",
+     "label": "Regel WPB-Bonus",
+     "typ": "text_lang",
+     "pflicht": true,
+     "kern": false
+    },
+    {
+     "pfad": "beg_em.wpb_bonus_ab",
+     "label": "WPB-Bonus gilt für Anträge ab",
+     "typ": "datum",
+     "pflicht": true,
+     "kern": false
+    },
+    {
+     "pfad": "beg_em.hoechstgrenze_ohne_isfp.erste_we",
+     "label": "Höchstgrenze ohne iSFP – 1. WE",
+     "typ": "euro",
+     "pflicht": true,
+     "kern": true
+    },
+    {
+     "pfad": "beg_em.hoechstgrenze_ohne_isfp.we_2_bis_6",
+     "label": "Höchstgrenze ohne iSFP – 2. bis 6. WE",
+     "typ": "euro",
+     "pflicht": true,
+     "kern": false
+    },
+    {
+     "pfad": "beg_em.hoechstgrenze_ohne_isfp.ab_we_7",
+     "label": "Höchstgrenze ohne iSFP – ab 7. WE",
+     "typ": "euro",
+     "pflicht": true,
+     "kern": false
+    },
+    {
+     "pfad": "beg_em.hoechstgrenze_mit_isfp.erste_we",
+     "label": "Höchstgrenze mit iSFP – 1. WE",
+     "typ": "euro",
+     "pflicht": true,
+     "kern": true
+    },
+    {
+     "pfad": "beg_em.hoechstgrenze_mit_isfp.we_2_bis_6",
+     "label": "Höchstgrenze mit iSFP – 2. bis 6. WE",
+     "typ": "euro",
+     "pflicht": true,
+     "kern": false
+    },
+    {
+     "pfad": "beg_em.hoechstgrenze_mit_isfp.ab_we_7",
+     "label": "Höchstgrenze mit iSFP – ab 7. WE",
+     "typ": "euro",
+     "pflicht": true,
+     "kern": false
+    },
+    {
+     "pfad": "beg_em.hoechstgrenze_bezug",
+     "label": "Bezug der Höchstgrenzen",
+     "typ": "text",
+     "pflicht": true,
+     "kern": false
+    },
+    {
+     "pfad": "beg_em.isfp_bonus_mindestbetrag",
+     "label": "iSFP-Bonus – Mindestbetrag (Schwelle, ab Version 3)",
+     "typ": "euro",
+     "pflicht": true,
+     "kern": true
+    },
+    {
+     "pfad": "beg_em.baubegleitung.satz",
+     "label": "Fachplanung/Baubegleitung – Fördersatz",
+     "typ": "prozent",
+     "pflicht": true,
+     "kern": false
+    },
+    {
+     "pfad": "beg_em.baubegleitung.efh_zfh_max",
+     "label": "Fachplanung/Baubegleitung – max. EFH/ZFH",
+     "typ": "euro",
+     "pflicht": true,
+     "kern": false
+    },
+    {
+     "pfad": "beg_em.baubegleitung.mfh_je_we",
+     "label": "Fachplanung/Baubegleitung – je WE (MFH)",
+     "typ": "euro",
+     "pflicht": true,
+     "kern": false
+    },
+    {
+     "pfad": "beg_em.baubegleitung.mfh_max",
+     "label": "Fachplanung/Baubegleitung – max. MFH",
+     "typ": "euro",
+     "pflicht": true,
+     "kern": false
+    },
+    {
+     "pfad": "beg_em.ergaenzungskredit.programm",
+     "label": "Ergänzungskredit – Programm",
+     "typ": "text",
+     "pflicht": true,
+     "kern": false
+    },
+    {
+     "pfad": "beg_em.ergaenzungskredit.je_we",
+     "label": "Ergänzungskredit – Kreditrahmen je WE",
+     "typ": "euro",
+     "pflicht": true,
+     "kern": false
+    },
+    {
+     "pfad": "beg_em.antragsfrist",
+     "label": "Antragsfrist (leer = keine)",
+     "typ": "datum",
+     "pflicht": false,
+     "kern": true
+    }
+   ]
+  },
+  {
+   "id": "beg_em_heizung",
+   "titel": "BEG EM – Heizung",
+   "felder": [
+    {
+     "pfad": "beg_em_heizung.quelle",
+     "label": "Quelle",
+     "typ": "text",
+     "pflicht": true,
+     "kern": true
+    },
+    {
+     "pfad": "beg_em_heizung.geprueft_am",
+     "label": "Geprüft am",
+     "typ": "datum",
+     "pflicht": true,
+     "kern": true
+    },
+    {
+     "pfad": "beg_em_heizung.stromdirektheizung_foerderfaehig",
+     "label": "Stromdirektheizung förderfähig",
+     "typ": "janein",
+     "pflicht": true,
+     "kern": true
+    },
+    {
+     "pfad": "beg_em_heizung.brauchwasser_wp_regel",
+     "label": "Regel Brauchwasser-Wärmepumpe",
+     "typ": "text_lang",
+     "pflicht": true,
+     "kern": true
+    },
+    {
+     "pfad": "beg_em_heizung.antragsfrist",
+     "label": "Antragsfrist (leer = keine)",
+     "typ": "datum",
+     "pflicht": false,
+     "kern": true
+    }
+   ]
+  },
+  {
+   "id": "isfp_beratung",
+   "titel": "BAFA Energieberatung (iSFP)",
+   "felder": [
+    {
+     "pfad": "isfp_beratung.quelle",
+     "label": "Quelle",
+     "typ": "text",
+     "pflicht": true,
+     "kern": true
+    },
+    {
+     "pfad": "isfp_beratung.geprueft_am",
+     "label": "Geprüft am",
+     "typ": "datum",
+     "pflicht": true,
+     "kern": true
+    },
+    {
+     "pfad": "isfp_beratung.satz",
+     "label": "Fördersatz",
+     "typ": "prozent",
+     "pflicht": true,
+     "kern": true
+    },
+    {
+     "pfad": "isfp_beratung.efh_zfh_max",
+     "label": "Höchstbetrag EFH/ZFH",
+     "typ": "euro",
+     "pflicht": true,
+     "kern": true
+    },
+    {
+     "pfad": "isfp_beratung.mfh_max",
+     "label": "Höchstbetrag ab 3 WE",
+     "typ": "euro",
+     "pflicht": true,
+     "kern": true
+    },
+    {
+     "pfad": "isfp_beratung.antragsfrist",
+     "label": "Antragsfrist (leer = keine)",
+     "typ": "datum",
+     "pflicht": false,
+     "kern": true
+    }
+   ]
+  },
+  {
+   "id": "beg_wg",
+   "titel": "BEG WG – Effizienzhaus (KfW 261)",
+   "felder": [
+    {
+     "pfad": "beg_wg.quelle",
+     "label": "Quelle",
+     "typ": "text",
+     "pflicht": true,
+     "kern": true
+    },
+    {
+     "pfad": "beg_wg.geprueft_am",
+     "label": "Geprüft am",
+     "typ": "datum",
+     "pflicht": true,
+     "kern": true
+    },
+    {
+     "pfad": "beg_wg.ee_klasse_pflicht",
+     "label": "EE-Klasse ist Pflicht",
+     "typ": "janein",
+     "pflicht": true,
+     "kern": true
+    },
+    {
+     "pfad": "beg_wg.tilgungszuschuss.EH40EE",
+     "label": "Tilgungszuschuss EH 40 EE",
+     "typ": "prozent",
+     "pflicht": true,
+     "kern": true
+    },
+    {
+     "pfad": "beg_wg.tilgungszuschuss.EH55EE",
+     "label": "Tilgungszuschuss EH 55 EE",
+     "typ": "prozent",
+     "pflicht": true,
+     "kern": true
+    },
+    {
+     "pfad": "beg_wg.tilgungszuschuss.EH70EE",
+     "label": "Tilgungszuschuss EH 70 EE",
+     "typ": "prozent",
+     "pflicht": true,
+     "kern": false
+    },
+    {
+     "pfad": "beg_wg.tilgungszuschuss.EH85EE",
+     "label": "Tilgungszuschuss EH 85 EE",
+     "typ": "prozent",
+     "pflicht": true,
+     "kern": false
+    },
+    {
+     "pfad": "beg_wg.tilgungszuschuss.DenkmalEE",
+     "label": "Tilgungszuschuss Denkmal EE",
+     "typ": "prozent",
+     "pflicht": true,
+     "kern": false
+    },
+    {
+     "pfad": "beg_wg.wpb_bonus",
+     "label": "WPB-Bonus",
+     "typ": "prozent",
+     "pflicht": true,
+     "kern": true
+    },
+    {
+     "pfad": "beg_wg.wpb_bonus_stufen",
+     "label": "WPB-Bonus für die Stufen",
+     "typ": "mehrfach",
+     "pflicht": true,
+     "kern": false,
+     "optionen": [
+      [
+       "EH40EE",
+       "EH 40 EE"
+      ],
+      [
+       "EH55EE",
+       "EH 55 EE"
+      ],
+      [
+       "EH70EE",
+       "EH 70 EE"
+      ],
+      [
+       "EH85EE",
+       "EH 85 EE"
+      ],
+      [
+       "DenkmalEE",
+       "Denkmal EE"
+      ]
+     ]
+    },
+    {
+     "pfad": "beg_wg.kredit_je_we",
+     "label": "Kreditrahmen je WE",
+     "typ": "euro",
+     "pflicht": true,
+     "kern": true
+    },
+    {
+     "pfad": "beg_wg.tilgungszuschuss_max",
+     "label": "Tilgungszuschuss – Höchstsatz inkl. Boni (ab Version 3)",
+     "typ": "prozent",
+     "pflicht": true,
+     "kern": true
+    },
+    {
+     "pfad": "beg_wg.baubegleitung.satz",
+     "label": "Fachplanung/Baubegleitung – Fördersatz",
+     "typ": "prozent",
+     "pflicht": true,
+     "kern": false
+    },
+    {
+     "pfad": "beg_wg.baubegleitung.efh_zfh_max",
+     "label": "Fachplanung/Baubegleitung – max. EFH/ZFH",
+     "typ": "euro",
+     "pflicht": true,
+     "kern": false
+    },
+    {
+     "pfad": "beg_wg.baubegleitung.mfh_je_we",
+     "label": "Fachplanung/Baubegleitung – je WE (MFH)",
+     "typ": "euro",
+     "pflicht": true,
+     "kern": false
+    },
+    {
+     "pfad": "beg_wg.baubegleitung.mfh_max",
+     "label": "Fachplanung/Baubegleitung – max. MFH",
+     "typ": "euro",
+     "pflicht": true,
+     "kern": false
+    },
+    {
+     "pfad": "beg_wg.kombination_mit_beg_em",
+     "label": "Kombination mit BEG EM",
+     "typ": "text_lang",
+     "pflicht": true,
+     "kern": false
+    },
+    {
+     "pfad": "beg_wg.antragsfrist",
+     "label": "Antragsfrist (leer = keine)",
+     "typ": "datum",
+     "pflicht": false,
+     "kern": true
+    }
+   ]
+  },
+  {
+   "id": "kfw_266",
+   "titel": "KfW 266 – Gewerbe zu Wohnen",
+   "felder": [
+    {
+     "pfad": "kfw_266.quelle",
+     "label": "Quelle",
+     "typ": "text",
+     "pflicht": true,
+     "kern": true
+    },
+    {
+     "pfad": "kfw_266.geprueft_am",
+     "label": "Geprüft am",
+     "typ": "datum",
+     "pflicht": true,
+     "kern": true
+    },
+    {
+     "pfad": "kfw_266.satz",
+     "label": "Fördersatz",
+     "typ": "prozent",
+     "pflicht": true,
+     "kern": true
+    },
+    {
+     "pfad": "kfw_266.max_kosten_je_neue_we",
+     "label": "Förderfähige Kosten je neuer WE (max.)",
+     "typ": "euro",
+     "pflicht": true,
+     "kern": true
+    },
+    {
+     "pfad": "kfw_266.mindeststufe",
+     "label": "Mindeststandard",
+     "typ": "auswahl",
+     "pflicht": true,
+     "kern": true,
+     "optionen": [
+      [
+       "EH40EE",
+       "EH 40 EE"
+      ],
+      [
+       "EH55EE",
+       "EH 55 EE"
+      ],
+      [
+       "EH70EE",
+       "EH 70 EE"
+      ],
+      [
+       "EH85EE",
+       "EH 85 EE"
+      ],
+      [
+       "DenkmalEE",
+       "Denkmal EE"
+      ]
+     ]
+    },
+    {
+     "pfad": "kfw_266.ee_ausnahme",
+     "label": "Ausnahme von der EE-Klasse",
+     "typ": "text_lang",
+     "pflicht": true,
+     "kern": false
+    },
+    {
+     "pfad": "kfw_266.antragsfrist",
+     "label": "Antragsfrist (leer = keine)",
+     "typ": "datum",
+     "pflicht": false,
+     "kern": true
+    }
+   ]
+  },
+  {
+   "id": "kfw_458",
+   "titel": "KfW 458 – Heizungsförderung (Zuschuss)",
+   "felder": [
+    {
+     "pfad": "kfw_458.quelle",
+     "label": "Quelle",
+     "typ": "text",
+     "pflicht": true,
+     "kern": true
+    },
+    {
+     "pfad": "kfw_458.geprueft_am",
+     "label": "Geprüft am",
+     "typ": "datum",
+     "pflicht": true,
+     "kern": true
+    },
+    {
+     "pfad": "kfw_458.hoechstkosten.erste_we",
+     "label": "Förderfähige Kosten – 1. WE",
+     "typ": "euro",
+     "pflicht": true,
+     "kern": true
+    },
+    {
+     "pfad": "kfw_458.hoechstkosten.we_2_bis_6",
+     "label": "Förderfähige Kosten – 2. bis 6. WE",
+     "typ": "euro",
+     "pflicht": true,
+     "kern": true
+    },
+    {
+     "pfad": "kfw_458.hoechstkosten.ab_we_7",
+     "label": "Förderfähige Kosten – ab 7. WE",
+     "typ": "euro",
+     "pflicht": true,
+     "kern": true
+    },
+    {
+     "pfad": "kfw_458.hoechstkosten_hinweis",
+     "label": "Hinweis zu den förderfähigen Kosten",
+     "typ": "text",
+     "pflicht": false,
+     "kern": false
+    },
+    {
+     "pfad": "kfw_458.grundfoerderung",
+     "label": "Grundförderung",
+     "typ": "prozent",
+     "pflicht": true,
+     "kern": true
+    },
+    {
+     "pfad": "kfw_458.klimabonus",
+     "label": "Klimageschwindigkeitsbonus",
+     "typ": "prozent",
+     "pflicht": true,
+     "kern": true
+    },
+    {
+     "pfad": "kfw_458.klimabonus_hinweis",
+     "label": "Regel Klimageschwindigkeitsbonus",
+     "typ": "text_lang",
+     "pflicht": false,
+     "kern": false
+    },
+    {
+     "pfad": "kfw_458.einkommensbonus_stufen",
+     "label": "Einkommensbonus – Stufen",
+     "typ": "mehrfach",
+     "pflicht": true,
+     "kern": true,
+     "optionen": [
+      [
+       0.1,
+       "10 %"
+      ],
+      [
+       0.3,
+       "30 %"
+      ],
+      [
+       0.4,
+       "40 %"
+      ]
+     ]
+    },
+    {
+     "pfad": "kfw_458.deckel",
+     "label": "Höchstsatz (Deckel)",
+     "typ": "prozent",
+     "pflicht": true,
+     "kern": true
+    },
+    {
+     "pfad": "kfw_458.deckel_einkommensbonus_40",
+     "label": "Höchstsatz bei Einkommensbonus 40 %",
+     "typ": "prozent",
+     "pflicht": true,
+     "kern": true
+    },
+    {
+     "pfad": "kfw_458.antragsfrist",
+     "label": "Antragsfrist (leer = keine)",
+     "typ": "datum",
+     "pflicht": false,
+     "kern": true
+    }
+   ]
+  },
+  {
+   "id": "steuer_35c",
+   "titel": "§ 35c EStG – Steuerermäßigung",
+   "felder": [
+    {
+     "pfad": "steuer_35c.quelle",
+     "label": "Quelle",
+     "typ": "text",
+     "pflicht": true,
+     "kern": true
+    },
+    {
+     "pfad": "steuer_35c.geprueft_am",
+     "label": "Geprüft am",
+     "typ": "datum",
+     "pflicht": true,
+     "kern": true
+    },
+    {
+     "pfad": "steuer_35c.quote_text",
+     "label": "Quote (Text im Bericht, z. B. „20 % / 3 J.“)",
+     "typ": "text",
+     "pflicht": true,
+     "kern": true
+    },
+    {
+     "pfad": "steuer_35c.max_kosten_objekt",
+     "label": "Max. Aufwendungen je Objekt",
+     "typ": "euro",
+     "pflicht": true,
+     "kern": true
+    },
+    {
+     "pfad": "steuer_35c.max_ermaessigung_objekt",
+     "label": "Max. Steuerermäßigung je Objekt",
+     "typ": "euro",
+     "pflicht": true,
+     "kern": true
+    },
+    {
+     "pfad": "steuer_35c.antragsfrist",
+     "label": "Antragsfrist (leer = keine)",
+     "typ": "datum",
+     "pflicht": false,
+     "kern": true
+    }
+   ]
+  },
+  {
+   "id": "fachwerte",
+   "titel": "Fachwerte für den Bericht",
+   "quelle_pflicht": false,
+   "felder": [
+    {
+     "pfad": "fachwerte.tma_em.quelle",
+     "label": "Quelle",
+     "typ": "text",
+     "pflicht": true,
+     "kern": false,
+     "gruppe": "U-Werte BEG EM (Technische Mindestanforderungen)"
+    },
+    {
+     "pfad": "fachwerte.tma_em.geprueft_am",
+     "label": "Geprüft am",
+     "typ": "datum",
+     "pflicht": true,
+     "kern": false,
+     "gruppe": "U-Werte BEG EM (Technische Mindestanforderungen)"
+    },
+    {
+     "pfad": "fachwerte.tma_em.bauteile",
+     "label": "Anforderungen je Bauteil",
+     "typ": "tabelle",
+     "pflicht": true,
+     "kern": false,
+     "gruppe": "U-Werte BEG EM (Technische Mindestanforderungen)",
+     "spalten": [
+      {
+       "name": "bauteil",
+       "label": "Bauteil / Anlage",
+       "typ": "text"
+      },
+      {
+       "name": "anforderung",
+       "label": "Anforderung",
+       "typ": "text"
+      }
+     ]
+    },
+    {
+     "pfad": "fachwerte.eh_stufen.quelle",
+     "label": "Quelle",
+     "typ": "text",
+     "pflicht": true,
+     "kern": false,
+     "gruppe": "Effizienzhaus-Stufen"
+    },
+    {
+     "pfad": "fachwerte.eh_stufen.geprueft_am",
+     "label": "Geprüft am",
+     "typ": "datum",
+     "pflicht": true,
+     "kern": false,
+     "gruppe": "Effizienzhaus-Stufen"
+    },
+    {
+     "pfad": "fachwerte.eh_stufen.stufen.EH40EE.name",
+     "label": "EH 40 EE – Bezeichnung im Bericht",
+     "typ": "text",
+     "pflicht": true,
+     "kern": false,
+     "gruppe": "Effizienzhaus-Stufen"
+    },
+    {
+     "pfad": "fachwerte.eh_stufen.stufen.EH40EE.qp",
+     "label": "EH 40 EE – Primärenergiebedarf Qp (% Referenz)",
+     "typ": "zahl",
+     "pflicht": true,
+     "kern": false,
+     "gruppe": "Effizienzhaus-Stufen"
+    },
+    {
+     "pfad": "fachwerte.eh_stufen.stufen.EH40EE.ht",
+     "label": "EH 40 EE – Transmissionsverlust H′T (% Referenz)",
+     "typ": "zahl",
+     "pflicht": true,
+     "kern": false,
+     "gruppe": "Effizienzhaus-Stufen"
+    },
+    {
+     "pfad": "fachwerte.eh_stufen.stufen.EH55EE.name",
+     "label": "EH 55 EE – Bezeichnung im Bericht",
+     "typ": "text",
+     "pflicht": true,
+     "kern": false,
+     "gruppe": "Effizienzhaus-Stufen"
+    },
+    {
+     "pfad": "fachwerte.eh_stufen.stufen.EH55EE.qp",
+     "label": "EH 55 EE – Primärenergiebedarf Qp (% Referenz)",
+     "typ": "zahl",
+     "pflicht": true,
+     "kern": false,
+     "gruppe": "Effizienzhaus-Stufen"
+    },
+    {
+     "pfad": "fachwerte.eh_stufen.stufen.EH55EE.ht",
+     "label": "EH 55 EE – Transmissionsverlust H′T (% Referenz)",
+     "typ": "zahl",
+     "pflicht": true,
+     "kern": false,
+     "gruppe": "Effizienzhaus-Stufen"
+    },
+    {
+     "pfad": "fachwerte.eh_stufen.stufen.EH70EE.name",
+     "label": "EH 70 EE – Bezeichnung im Bericht",
+     "typ": "text",
+     "pflicht": true,
+     "kern": false,
+     "gruppe": "Effizienzhaus-Stufen"
+    },
+    {
+     "pfad": "fachwerte.eh_stufen.stufen.EH70EE.qp",
+     "label": "EH 70 EE – Primärenergiebedarf Qp (% Referenz)",
+     "typ": "zahl",
+     "pflicht": true,
+     "kern": false,
+     "gruppe": "Effizienzhaus-Stufen"
+    },
+    {
+     "pfad": "fachwerte.eh_stufen.stufen.EH70EE.ht",
+     "label": "EH 70 EE – Transmissionsverlust H′T (% Referenz)",
+     "typ": "zahl",
+     "pflicht": true,
+     "kern": false,
+     "gruppe": "Effizienzhaus-Stufen"
+    },
+    {
+     "pfad": "fachwerte.eh_stufen.stufen.EH85EE.name",
+     "label": "EH 85 EE – Bezeichnung im Bericht",
+     "typ": "text",
+     "pflicht": true,
+     "kern": false,
+     "gruppe": "Effizienzhaus-Stufen"
+    },
+    {
+     "pfad": "fachwerte.eh_stufen.stufen.EH85EE.qp",
+     "label": "EH 85 EE – Primärenergiebedarf Qp (% Referenz)",
+     "typ": "zahl",
+     "pflicht": true,
+     "kern": false,
+     "gruppe": "Effizienzhaus-Stufen"
+    },
+    {
+     "pfad": "fachwerte.eh_stufen.stufen.EH85EE.ht",
+     "label": "EH 85 EE – Transmissionsverlust H′T (% Referenz)",
+     "typ": "zahl",
+     "pflicht": true,
+     "kern": false,
+     "gruppe": "Effizienzhaus-Stufen"
+    },
+    {
+     "pfad": "fachwerte.eh_stufen.stufen.DenkmalEE.name",
+     "label": "Denkmal EE – Bezeichnung im Bericht",
+     "typ": "text",
+     "pflicht": true,
+     "kern": false,
+     "gruppe": "Effizienzhaus-Stufen"
+    },
+    {
+     "pfad": "fachwerte.eh_stufen.stufen.DenkmalEE.qp",
+     "label": "Denkmal EE – Primärenergiebedarf Qp (% Referenz)",
+     "typ": "zahl",
+     "pflicht": true,
+     "kern": false,
+     "gruppe": "Effizienzhaus-Stufen"
+    },
+    {
+     "pfad": "fachwerte.eh_stufen.stufen.DenkmalEE.ht",
+     "label": "Denkmal EE – Transmissionsverlust H′T (% Referenz)",
+     "typ": "zahl",
+     "pflicht": true,
+     "kern": false,
+     "gruppe": "Effizienzhaus-Stufen"
+    },
+    {
+     "pfad": "fachwerte.ee_klasse.quelle",
+     "label": "Quelle",
+     "typ": "text",
+     "pflicht": true,
+     "kern": false,
+     "gruppe": "EE-Klasse"
+    },
+    {
+     "pfad": "fachwerte.ee_klasse.geprueft_am",
+     "label": "Geprüft am",
+     "typ": "datum",
+     "pflicht": true,
+     "kern": false,
+     "gruppe": "EE-Klasse"
+    },
+    {
+     "pfad": "fachwerte.ee_klasse.text",
+     "label": "Definition EE-Klasse",
+     "typ": "text_lang",
+     "pflicht": true,
+     "kern": false,
+     "gruppe": "EE-Klasse"
+    },
+    {
+     "pfad": "fachwerte.kumulierung.quelle",
+     "label": "Quelle",
+     "typ": "text",
+     "pflicht": true,
+     "kern": false,
+     "gruppe": "Kumulierung"
+    },
+    {
+     "pfad": "fachwerte.kumulierung.geprueft_am",
+     "label": "Geprüft am",
+     "typ": "datum",
+     "pflicht": true,
+     "kern": false,
+     "gruppe": "Kumulierung"
+    },
+    {
+     "pfad": "fachwerte.kumulierung.regeln",
+     "label": "Kombinationen",
+     "typ": "tabelle",
+     "pflicht": true,
+     "kern": false,
+     "gruppe": "Kumulierung",
+     "spalten": [
+      {
+       "name": "kombination",
+       "label": "Kombination",
+       "typ": "text"
+      },
+      {
+       "name": "zulaessig",
+       "label": "zulässig",
+       "typ": "janein"
+      },
+      {
+       "name": "hinweis",
+       "label": "Hinweis",
+       "typ": "text"
+      }
+     ]
+    },
+    {
+     "pfad": "fachwerte.haftung.quelle",
+     "label": "Quelle",
+     "typ": "text",
+     "pflicht": true,
+     "kern": false,
+     "gruppe": "Haftungshinweis"
+    },
+    {
+     "pfad": "fachwerte.haftung.geprueft_am",
+     "label": "Geprüft am",
+     "typ": "datum",
+     "pflicht": true,
+     "kern": false,
+     "gruppe": "Haftungshinweis"
+    },
+    {
+     "pfad": "fachwerte.haftung.text",
+     "label": "Haftungshinweis im Bericht",
+     "typ": "text_lang",
+     "pflicht": true,
+     "kern": false,
+     "gruppe": "Haftungshinweis"
+    }
+   ]
+  }
+ ]
+}

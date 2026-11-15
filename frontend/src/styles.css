@@ -143,6 +143,8 @@ h1 .status { vertical-align: middle; font-size: 13px; margin-left: 8px; }
 table.vergleich tr.z-geaendert td { background: var(--gold-l); }
 table.vergleich tr.z-neu td { background: var(--gruen-l); }
 table.vergleich tr.z-entfernt td { background: var(--rot-l); }
+table.vergleich tr.abschnitt th { text-align: left; font-weight: bold; padding-top: 10px; }
+table.vergleich tr.z-neu.abschnitt th { background: var(--gruen-l); } table.vergleich tr.z-entfernt.abschnitt th { background: var(--rot-l); }
 table.vergleich td.alt { color: #5A5A64; text-decoration: line-through; text-decoration-color: rgba(142, 42, 32, .5); }
 table.vergleich td.neu { font-weight: bold; }
 .legende .lg { display: inline-block; padding: 2px 10px; border-radius: 6px; margin-right: 6px; }

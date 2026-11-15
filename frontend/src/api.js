@@ -9,12 +9,31 @@ function fehlertext(daten) {
   return "";
 }
 
-export async function api(pfad, { method = "GET", body } = {}) {
-  const r = await fetch("/api" + pfad, {
+// Zeitlimit je Anfrage: ohne Antwort wird aus „Lade …“ eine Fehlermeldung statt einer endlosen Anzeige.
+export const ZEITLIMIT_MS = 30_000;
+export const ZEITLIMIT_LANG_MS = 240_000; // KI-Vorschlag (Backend-Limit 180 s), Bericht erzeugen, Word, Checkliste
+
+/** fetch mit Zeitlimit; Netz- und Zeitfehler als verständliche Meldung. */
+export async function holen(url, optionen = {}, zeitlimit = ZEITLIMIT_MS) {
+  const ac = new AbortController();
+  const uhr = setTimeout(() => ac.abort(), zeitlimit);
+  try {
+    return await fetch(url, { ...optionen, signal: ac.signal });
+  } catch (e) {
+    const fehler = new Error(ac.signal.aborted
+      ? `Keine Antwort vom Server nach ${Math.round(zeitlimit / 1000)} Sekunden. Bitte erneut versuchen.`
+      : "Keine Verbindung zum Server. Bitte Netzwerk prüfen und erneut versuchen.");
+    fehler.status = 0; fehler.zeitlimit = ac.signal.aborted;
+    throw fehler;
+  } finally { clearTimeout(uhr); }
+}
+
+export async function api(pfad, { method = "GET", body, zeitlimit = ZEITLIMIT_MS } = {}) {
+  const r = await holen("/api" + pfad, {
     method, credentials: "same-origin",
     headers: body !== undefined ? { "Content-Type": "application/json" } : {},
     body: body !== undefined ? JSON.stringify(body) : undefined,
-  });
+  }, zeitlimit);
   let daten = null;
   try { daten = await r.json(); } catch { /* leere Antwort */ }
   if (!r.ok) {
@@ -49,6 +68,8 @@ export function dateiHochladen(projektId, datei, kategorie, onFortschritt) {
       const e = new Error(text); e.status = xhr.status; fehler(e);
     };
     xhr.onerror = () => fehler(new Error("Verbindung unterbrochen."));
+    xhr.timeout = 15 * 60_000; // 25 MB auch über langsame Leitungen; danach Fehlermeldung statt endlosem Fortschritt
+    xhr.ontimeout = () => fehler(new Error("Der Upload hat zu lange gedauert. Bitte erneut versuchen."));
     xhr.send(datei);
   });
 }
@@ -58,7 +79,7 @@ export const groesseText = b => b >= 1_000_000 ? (b / 1_000_000).toLocaleString(
 
 // Word-Bericht eines gespeicherten Berichts laden und als Datei speichern (Fehler als verständliche Meldung)
 export async function wordHerunterladen(berichtId) {
-  const r = await fetch(`/api/berichte/${berichtId}/word`, { credentials: "same-origin" });
+  const r = await holen(`/api/berichte/${berichtId}/word`, { credentials: "same-origin" }, ZEITLIMIT_LANG_MS);
   if (!r.ok) {
     let daten = null;
     try { daten = await r.json(); } catch { /* keine JSON-Antwort */ }

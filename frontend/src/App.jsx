@@ -4,6 +4,7 @@ import { Anmeldung, PasswortFormular, PasswortPflicht, ZweiFaktor, ZweiFaktorEin
 import { Angebotsvorlagen } from "./Angebotsvorlagen.jsx";
 import { Benutzerverwaltung, Protokoll } from "./Benutzer.jsx";
 import { Foerdervergleich } from "./Foerdervergleich.jsx";
+import { Fehlergrenze } from "./Fehlergrenze.jsx";
 import { FristHinweise, Konditionen } from "./Konditionen.jsx";
 import { Papierkorb } from "./Papierkorb.jsx";
 import { MeineProjekte, Projekte } from "./Projekte.jsx";
@@ -11,7 +12,11 @@ import { MeineProjekte, Projekte } from "./Projekte.jsx";
 export default function App() {
   const [ich, setIch] = useState(undefined); // undefined = lädt, null = nicht angemeldet
   const [hinweis, setHinweis] = useState("");
-  const laden = useCallback(() => api("/auth/ich").then(setIch).catch(() => setIch(null)), []);
+  const [ladefehler, setLadefehler] = useState("");
+  const laden = useCallback(() => {
+    setLadefehler("");
+    return api("/auth/ich").then(setIch).catch(e => { if (e.status === 0) setLadefehler(e.message); else setIch(null); });
+  }, []);
   const abmelden = useCallback(async (text = "") => {
     try { await api("/auth/abmelden", { method: "POST" }); } catch { /* ohnehin abgemeldet */ }
     setHinweis(typeof text === "string" ? text : ""); setIch(null);
@@ -24,7 +29,9 @@ export default function App() {
   }, [laden]);
   const weiter = () => { setHinweis(""); laden(); };
 
-  if (ich === undefined) return <p style={{ padding: 24 }}>Lade …</p>;
+  if (ich === undefined) return ladefehler
+    ? <div className="fehler" role="alert" style={{ margin: 24 }}>{ladefehler}<div className="aktionen"><button className="btn" onClick={laden}>Erneut versuchen</button></div></div>
+    : <p style={{ padding: 24 }}>Lade …</p>;
   if (!ich) return <Anmeldung key={hinweis} hinweis={hinweis} onWeiter={weiter} />;
   if (ich.stufe === "2fa_einrichten") return <ZweiFaktorEinrichten onWeiter={weiter} onAbbrechen={abmelden} />;
   if (ich.stufe === "2fa") return <ZweiFaktor onWeiter={weiter} onAbbrechen={abmelden} />;
@@ -69,6 +76,7 @@ function Cockpit({ ich, onAbmelden }) {
           {nav.map(([id, t]) => <button key={id} className={ansicht === id ? "aktiv" : ""} aria-current={ansicht === id ? "page" : undefined} onClick={() => gehe(id)}>{t}</button>)}
         </nav>
         <main>
+          <Fehlergrenze key={ansicht + projektZiel.n + konditionenZiel.n}>
           {ansicht === "start" && <Start ich={ich} onOpen={gehe} onProjekt={projektOeffnen} onKonditionen={konditionenOeffnen} darfRechnen={hatRolle(ich, "berater")} />}
           {ansicht === "projekte" && <Projekte key={projektZiel.n} ich={ich} startProjekt={projektZiel.id} />}
           {ansicht === "schnell" && <Foerdervergleich titel="Schnellrechnung Fördervergleich EM/EH"
@@ -79,6 +87,7 @@ function Cockpit({ ich, onAbmelden }) {
           {ansicht === "protokoll" && <Protokoll />}
           {ansicht === "papierkorb" && <Papierkorb />}
           {ansicht === "passwort" && <><h1>Passwort ändern</h1><section className="karte" style={{ maxWidth: 520 }}><PasswortFormular /></section></>}
+          </Fehlergrenze>
         </main>
       </div>
     </>

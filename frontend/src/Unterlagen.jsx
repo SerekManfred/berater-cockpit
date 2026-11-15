@@ -1,5 +1,5 @@
 import React, { useRef, useState } from "react";
-import { api, dateiHochladen, groesseText, hatRolle, zeit } from "./api.js";
+import { api, dateiHochladen, ZEITLIMIT_LANG_MS, groesseText, hatRolle, zeit } from "./api.js";
 
 export const KATEGORIEN_DATEI = [["kostenschaetzung", "Kostenschätzung"], ["energieausweis", "Energieausweis"], ["plaene", "Pläne"],
   ["fotos", "Fotos"], ["checkliste", "Checkliste"], ["angebote", "Angebote"], ["bericht", "Berichte (erzeugt)"], ["sonstiges", "Sonstiges"]];
@@ -137,7 +137,7 @@ export function VorOrtCheckliste({ projekt, onGeaendert }) {
   async function erzeugen() {
     setFehler(""); setMeldung(""); setLaeuft(true);
     try {
-      const d = await api(`/projekte/${projekt.id}/checkliste?modul=${modul}`, { method: "POST" });
+      const d = await api(`/projekte/${projekt.id}/checkliste?modul=${modul}`, { method: "POST", zeitlimit: ZEITLIMIT_LANG_MS });
       setMeldung(`Checkliste ${titel} erzeugt (Stand ${d.checkliste_stand || "unbekannt"}).`);
       onGeaendert();
     } catch (e) { setFehler(e.message); } finally { setLaeuft(false); }

@@ -20,15 +20,18 @@ function setzen(daten, pfad, wert) {
   return kopie;
 }
 
-function anzeige(feld, w) {
+/** Anzeigetext eines Werts. Robust: fehlt die Feldbeschreibung oder ihre Optionen (Feld nur in einer Version), zeigt sie den Rohwert. */
+export function anzeige(feld, w) {
   if (w === null || w === undefined || w === "" || (Array.isArray(w) && !w.length)) return "–";
   const typ = feld?.typ;
   if (typ === "prozent" && typeof w === "number") return zahlDe(w * 100) + " %";
   if (typ === "euro" && typeof w === "number") return zahlDe(w, 0) + " €";
   if (typ === "datum") return datumDe(w);
   if (typ === "janein" || typeof w === "boolean") return w ? "ja" : "nein";
-  if (typ === "auswahl") return (feld.optionen.find(o => o[0] === w) || [w, w])[1];
-  if (typ === "mehrfach" && Array.isArray(w)) return w.map(x => (feld.optionen.find(o => o[0] === x) || [x, x])[1]).join(", ");
+  const optionen = Array.isArray(feld?.optionen) ? feld.optionen : [];
+  const text = x => String((optionen.find(o => Array.isArray(o) && o[0] === x) || [x, x])[1]);
+  if (typ === "auswahl") return text(w);
+  if (typ !== "tabelle" && Array.isArray(w) && !w.some(x => x && typeof x === "object")) return w.map(text).join(", ");
   if (typ === "tabelle" && Array.isArray(w)) return `${w.length} Zeile(n)`;
   return typeof w === "object" ? JSON.stringify(w) : String(w);
 }
@@ -66,11 +69,13 @@ export function Konditionen({ ich, startVersion = null }) {
 
 function Uebersicht({ formular }) {
   const [k, setK] = useState(null);
+  const [fehler, setFehler] = useState("");
   const [fristen, setFristen] = useState([]);
   useEffect(() => {
-    api("/konditionen").then(setK).catch(() => setK(null));
+    api("/konditionen").then(setK).catch(e => setFehler(e.message));
     api("/konditionen/fristen").then(f => setFristen(f.fristen)).catch(() => setFristen([]));
   }, []);
+  if (fehler) return <div className="fehler" role="alert">Konditionen konnten nicht geladen werden: {fehler}</div>;
   if (!k) return <p>Lade Konditionen …</p>;
   return (
     <>
@@ -80,14 +85,15 @@ function Uebersicht({ formular }) {
       <div className="programm-kacheln">
         {formular.filter(p => p.id !== "allgemein").map(p => {
           const vorhanden = lesen(k, p.id) !== undefined;
-          const quelleFeld = p.felder.find(f => f.pfad.endsWith(".quelle"));
+          const felder = Array.isArray(p.felder) ? p.felder : [];
+          const quelleFeld = felder.find(f => f.pfad.endsWith(".quelle"));
           return (
             <section key={p.id} className="karte programm">
               <h2>{p.titel}</h2>
               {!vorhanden ? <p className="hinweis">In dieser Version noch nicht enthalten.</p> : p.id === "fachwerte" ? (
                 <dl className="daten">
-                  {[...new Set(p.felder.map(f => f.gruppe))].map(g => {
-                    const pf = p.felder.find(f => f.gruppe === g);
+                  {[...new Set(felder.map(f => f.gruppe))].map(g => {
+                    const pf = felder.find(f => f.gruppe === g);
                     const basis = pf.pfad.split(".").slice(0, 2).join(".");
                     return <React.Fragment key={g}><dt>{g}</dt><dd>{lesen(k, basis + ".quelle") || "–"}<br /><span className="klein">geprüft am {datumDe(lesen(k, basis + ".geprueft_am")) || "–"}</span></dd></React.Fragment>;
                   })}
@@ -95,10 +101,10 @@ function Uebersicht({ formular }) {
               ) : (
                 <>
                   <dl className="daten">
-                    {p.felder.filter(f => f.kern && !f.pfad.endsWith(".quelle") && !f.pfad.endsWith(".geprueft_am")).map(f =>
+                    {felder.filter(f => f.kern && !f.pfad.endsWith(".quelle") && !f.pfad.endsWith(".geprueft_am")).map(f =>
                       <React.Fragment key={f.pfad}><dt>{f.label}</dt><dd>{anzeige(f, lesen(k, f.pfad))}</dd></React.Fragment>)}
                   </dl>
-                  <p className="klein quelle">Quelle: {lesen(k, quelleFeld.pfad) || "–"} · geprüft am {datumDe(lesen(k, p.id + ".geprueft_am")) || "–"}</p>
+                  <p className="klein quelle">Quelle: {(quelleFeld && lesen(k, quelleFeld.pfad)) || "–"} · geprüft am {datumDe(lesen(k, p.id + ".geprueft_am")) || "–"}</p>
                 </>
               )}
             </section>
@@ -237,7 +243,7 @@ function Werte({ formular, daten }) {
   return formular.map(p => (
     <section key={p.id} className="karte">
       <h2>{p.titel}</h2>
-      {gruppiert(p.felder).map(([gruppe, felder]) => (
+      {p.id !== "allgemein" && lesen(daten, p.id) === undefined ? <p className="hinweis">In dieser Version nicht enthalten.</p> : gruppiert(p.felder || []).map(([gruppe, felder]) => (
         <div key={gruppe || "-"}>
           {gruppe && <h3>{gruppe}</h3>}
           <dl className="daten">
@@ -252,7 +258,7 @@ function Werte({ formular, daten }) {
 }
 
 function LeseTabelle({ feld, zeilen }) {
-  if (!Array.isArray(zeilen) || !zeilen.length) return "–";
+  if (!Array.isArray(zeilen) || !zeilen.length || !Array.isArray(feld?.spalten)) return "–";
   return (
     <div className="tabelle"><table>
       <thead><tr>{feld.spalten.map(s => <th key={s.name}>{s.label}</th>)}</tr></thead>
@@ -272,27 +278,62 @@ const gruppiert = felder => {
 
 // ---------- Vergleich alt ↔ neu ----------
 
+export const ART_TEXT = { geaendert: "geändert", neu: "neu", entfernt: "entfällt" };
+
+/**
+ * Vergleichsantwort für die Anzeige aufbereiten: nach Programm-Abschnitt gruppiert, mit Kennzeichen, ob der ganze Abschnitt
+ * nur in einer Version vorkommt. Robust gegen fehlende Teile der Antwort (ältere API, Abschnitte nur in einer Version).
+ */
+export function vergleichAufbereiten(d) {
+  const zeilen = Array.isArray(d?.aenderungen) ? d.aenderungen.filter(z => z && typeof z === "object") : [];
+  const abschnittArt = Object.fromEntries((Array.isArray(d?.abschnitte) ? d.abschnitte : []).map(a => [a.programm, a.art]));
+  const gruppen = [];
+  for (const z of zeilen) {
+    const programm = z.programm || "allgemein";
+    let g = gruppen.find(x => x.programm === programm);
+    if (!g) gruppen.push(g = { programm, titel: z.programm_titel || programm, abschnitt: abschnittArt[programm] || null, zeilen: [] });
+    const art = ART_TEXT[z.art] ? z.art : (z.alt === undefined || z.alt === null ? "neu" : z.neu === undefined || z.neu === null ? "entfernt" : "geaendert");
+    g.zeilen.push({ ...z, art, pfad: z.pfad || `${programm}.${g.zeilen.length}` });
+  }
+  // Abschnitte, die nur in einer Version vorkommen, aber (z. B. leer) keine Feldzeile haben, trotzdem nennen
+  for (const a of Array.isArray(d?.abschnitte) ? d.abschnitte : [])
+    if (!gruppen.some(g => g.programm === a.programm)) gruppen.push({ programm: a.programm, titel: a.programm_titel || a.programm, abschnitt: a.art, zeilen: [] });
+  return { anzahl: zeilen.length, gruppen };
+}
+
 function Vergleich({ id }) {
   const [d, setD] = useState(null);
   const [fehler, setFehler] = useState("");
   useEffect(() => { api(`/konditionen/versionen/${id}/vergleich`).then(setD).catch(e => setFehler(e.message)); }, [id]);
-  if (fehler) return <div className="fehler" role="alert">{fehler}</div>;
+  if (fehler) return <div className="fehler" role="alert">Vergleich konnte nicht geladen werden: {fehler}</div>;
   if (!d) return <p>Lade Vergleich …</p>;
-  if (d.mit_version === null) return <p className="hinweis">Diese Version hat keine Vorgängerversion.</p>;
-  const art = { geaendert: "geändert", neu: "neu", entfernt: "entfernt" };
+  return <VergleichTabelle d={d} />;
+}
+
+export function VergleichTabelle({ d }) {
+  if (d.mit_version === null || d.mit_version === undefined) return <p className="hinweis">Diese Version hat keine Vorgängerversion.</p>;
+  const { anzahl, gruppen } = vergleichAufbereiten(d);
   return (
     <section className="karte">
-      <h2>Version {d.mit_version} → Version {d.version}: {d.aenderungen.length} Änderung(en)</h2>
-      <p className="legende klein"><span className="lg geaendert">geändert</span> <span className="lg neu">neu</span> <span className="lg entfernt">entfernt</span></p>
-      {d.aenderungen.length === 0 ? <p>Keine inhaltlichen Änderungen.</p> : (
+      <h2>Version {d.mit_version} → Version {d.version}: {anzahl} Änderung(en)</h2>
+      <p className="legende klein"><span className="lg geaendert">geändert</span> <span className="lg neu">neu</span> <span className="lg entfernt">entfällt</span></p>
+      {gruppen.length === 0 ? <p>Keine inhaltlichen Änderungen.</p> : (
         <div className="tabelle"><table className="vergleich">
           <thead><tr><th>Programm</th><th>Feld</th><th>Version {d.mit_version}</th><th>Version {d.version}</th><th>Art</th></tr></thead>
-          <tbody>{d.aenderungen.map(z => (
-            <tr key={z.pfad} className={"z-" + z.art}>
-              <td>{z.programm_titel}</td><td>{z.label}</td>
-              <td className="alt">{anzeige(z, z.alt)}</td><td className="neu">{anzeige(z, z.neu)}</td><td>{art[z.art]}</td>
-            </tr>))}
-          </tbody>
+          {gruppen.map(g => (
+            <tbody key={g.programm}>
+              {g.abschnitt && (
+                <tr className={"z-" + g.abschnitt + " abschnitt"}>
+                  <th colSpan={5} scope="rowgroup">{g.titel}: {g.abschnitt === "neu"
+                    ? `Abschnitt neu in Version ${d.version}`
+                    : `Abschnitt entfällt in Version ${d.version}`}</th>
+                </tr>)}
+              {g.zeilen.map(z => (
+                <tr key={z.pfad} className={"z-" + z.art}>
+                  <td>{g.titel}</td><td>{z.label || z.pfad}</td>
+                  <td className="alt">{anzeige(z, z.alt)}</td><td className="neu">{anzeige(z, z.neu)}</td><td>{ART_TEXT[z.art]}</td>
+                </tr>))}
+            </tbody>))}
         </table></div>
       )}
     </section>

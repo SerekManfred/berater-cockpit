@@ -1,0 +1,226 @@
+{
+ "version": 3,
+ "mit_version": 2,
+ "aenderungen": [
+  {
+   "pfad": "beg_em.isfp_bonus_mindestbetrag",
+   "programm": "beg_em",
+   "programm_titel": "BEG EM – Gebäudehülle und Anlagentechnik (BAFA)",
+   "label": "iSFP-Bonus – Mindestbetrag (Schwelle, ab Version 3)",
+   "typ": "euro",
+   "alt": null,
+   "neu": 30000,
+   "art": "neu"
+  },
+  {
+   "pfad": "beg_wg.tilgungszuschuss_max",
+   "programm": "beg_wg",
+   "programm_titel": "BEG WG – Effizienzhaus (KfW 261)",
+   "label": "Tilgungszuschuss – Höchstsatz inkl. Boni (ab Version 3)",
+   "typ": "prozent",
+   "alt": null,
+   "neu": 0.4,
+   "art": "neu"
+  },
+  {
+   "pfad": "kfw_458.deckel",
+   "programm": "kfw_458",
+   "programm_titel": "KfW 458 – Heizungsförderung (Zuschuss)",
+   "label": "Höchstsatz (Deckel)",
+   "typ": "prozent",
+   "alt": null,
+   "neu": 0.7,
+   "art": "neu"
+  },
+  {
+   "pfad": "kfw_458.deckel_einkommensbonus_40",
+   "programm": "kfw_458",
+   "programm_titel": "KfW 458 – Heizungsförderung (Zuschuss)",
+   "label": "Höchstsatz bei Einkommensbonus 40 %",
+   "typ": "prozent",
+   "alt": null,
+   "neu": 0.8,
+   "art": "neu"
+  },
+  {
+   "pfad": "kfw_458.einkommensbonus_stufen",
+   "programm": "kfw_458",
+   "programm_titel": "KfW 458 – Heizungsförderung (Zuschuss)",
+   "label": "Einkommensbonus – Stufen",
+   "typ": "mehrfach",
+   "alt": null,
+   "neu": [
+    0.1,
+    0.3,
+    0.4
+   ],
+   "art": "neu",
+   "optionen": [
+    [
+     0.1,
+     "10 %"
+    ],
+    [
+     0.3,
+     "30 %"
+    ],
+    [
+     0.4,
+     "40 %"
+    ]
+   ]
+  },
+  {
+   "pfad": "kfw_458.geprueft_am",
+   "programm": "kfw_458",
+   "programm_titel": "KfW 458 – Heizungsförderung (Zuschuss)",
+   "label": "Geprüft am",
+   "typ": "datum",
+   "alt": null,
+   "neu": "2026-11-12",
+   "art": "neu"
+  },
+  {
+   "pfad": "kfw_458.grundfoerderung",
+   "programm": "kfw_458",
+   "programm_titel": "KfW 458 – Heizungsförderung (Zuschuss)",
+   "label": "Grundförderung",
+   "typ": "prozent",
+   "alt": null,
+   "neu": 0.3,
+   "art": "neu"
+  },
+  {
+   "pfad": "kfw_458.hoechstkosten.ab_we_7",
+   "programm": "kfw_458",
+   "programm_titel": "KfW 458 – Heizungsförderung (Zuschuss)",
+   "label": "Förderfähige Kosten – ab 7. WE",
+   "typ": "euro",
+   "alt": null,
+   "neu": 8000,
+   "art": "neu"
+  },
+  {
+   "pfad": "kfw_458.hoechstkosten.erste_we",
+   "programm": "kfw_458",
+   "programm_titel": "KfW 458 – Heizungsförderung (Zuschuss)",
+   "label": "Förderfähige Kosten – 1. WE",
+   "typ": "euro",
+   "alt": null,
+   "neu": 28000,
+   "art": "neu"
+  },
+  {
+   "pfad": "kfw_458.hoechstkosten.we_2_bis_6",
+   "programm": "kfw_458",
+   "programm_titel": "KfW 458 – Heizungsförderung (Zuschuss)",
+   "label": "Förderfähige Kosten – 2. bis 6. WE",
+   "typ": "euro",
+   "alt": null,
+   "neu": 15000,
+   "art": "neu"
+  },
+  {
+   "pfad": "kfw_458.hoechstkosten_hinweis",
+   "programm": "kfw_458",
+   "programm_titel": "KfW 458 – Heizungsförderung (Zuschuss)",
+   "label": "Hinweis zu den förderfähigen Kosten",
+   "typ": "text",
+   "alt": null,
+   "neu": "1. WE ab 01.02.2027 halbjährlich -750 EUR",
+   "art": "neu"
+  },
+  {
+   "pfad": "kfw_458.klimabonus",
+   "programm": "kfw_458",
+   "programm_titel": "KfW 458 – Heizungsförderung (Zuschuss)",
+   "label": "Klimageschwindigkeitsbonus",
+   "typ": "prozent",
+   "alt": null,
+   "neu": 0.16,
+   "art": "neu"
+  },
+  {
+   "pfad": "kfw_458.klimabonus_hinweis",
+   "programm": "kfw_458",
+   "programm_titel": "KfW 458 – Heizungsförderung (Zuschuss)",
+   "label": "Regel Klimageschwindigkeitsbonus",
+   "typ": "text_lang",
+   "alt": null,
+   "neu": "ab 01.02.2027 12 %, 01.08.2027 8 %, 01.02.2028 4 %, ab 01.08.2028 0 %; bei Gasheizung nur, wenn Inbetriebnahme mind. 20 Jahre zurückliegt",
+   "art": "neu"
+  },
+  {
+   "pfad": "kfw_458.quelle",
+   "programm": "kfw_458",
+   "programm_titel": "KfW 458 – Heizungsförderung (Zuschuss)",
+   "label": "Quelle",
+   "typ": "text",
+   "alt": null,
+   "neu": "KfW-Produktseite 458 und Hausbankenmitteilung 61/2026; Ökozentrum NRW Zusammenfassung BEG-Reform 18.08.2026",
+   "art": "neu"
+  },
+  {
+   "pfad": "steuer_35c.geprueft_am",
+   "programm": "steuer_35c",
+   "programm_titel": "§ 35c EStG – Steuerermäßigung",
+   "label": "Geprüft am",
+   "typ": "datum",
+   "alt": null,
+   "neu": "2026-11-12",
+   "art": "neu"
+  },
+  {
+   "pfad": "steuer_35c.max_ermaessigung_objekt",
+   "programm": "steuer_35c",
+   "programm_titel": "§ 35c EStG – Steuerermäßigung",
+   "label": "Max. Steuerermäßigung je Objekt",
+   "typ": "euro",
+   "alt": null,
+   "neu": 40000,
+   "art": "neu"
+  },
+  {
+   "pfad": "steuer_35c.max_kosten_objekt",
+   "programm": "steuer_35c",
+   "programm_titel": "§ 35c EStG – Steuerermäßigung",
+   "label": "Max. Aufwendungen je Objekt",
+   "typ": "euro",
+   "alt": null,
+   "neu": 200000,
+   "art": "neu"
+  },
+  {
+   "pfad": "steuer_35c.quelle",
+   "programm": "steuer_35c",
+   "programm_titel": "§ 35c EStG – Steuerermäßigung",
+   "label": "Quelle",
+   "typ": "text",
+   "alt": null,
+   "neu": "§ 35c EStG (gesetze-im-internet.de)",
+   "art": "neu"
+  },
+  {
+   "pfad": "steuer_35c.quote_text",
+   "programm": "steuer_35c",
+   "programm_titel": "§ 35c EStG – Steuerermäßigung",
+   "label": "Quote (Text im Bericht, z. B. „20 % / 3 J.“)",
+   "typ": "text",
+   "alt": null,
+   "neu": "20 % / 3 J.",
+   "art": "neu"
+  }
+ ],
+ "abschnitte": [
+  {
+   "programm": "kfw_458",
+   "programm_titel": "KfW 458 – Heizungsförderung (Zuschuss)",
+   "art": "neu"
+  },
+  {
+   "programm": "steuer_35c",
+   "programm_titel": "§ 35c EStG – Steuerermäßigung",
+   "art": "neu"
+  }
+ ]
+}
