@@ -57,7 +57,7 @@ def _zusammenfuehren(ziel: dict, quelle: dict):
             ziel[k] = v
 
 
-def konditionen_entwurf(dateien: list[str] | str, notiz: str) -> int:
+def konditionen_entwurf(dateien: list[str] | str, notiz: str, sofort: bool = False) -> int:
     """Entwurf als Kopie der aktiven Version anlegen und die Abschnitte aus einer oder mehreren JSON-Dateien einsetzen
     (z. B. app/konditionen/ergaenzung_init_v3.json – ergänzt einzelne Felder, der Rest bleibt wie in der aktiven Version).
     Ersteller bleibt leer („Kommandozeile“) – freigeben muss eine Person mit Rolle pruefer/admin über die Oberfläche."""
@@ -68,11 +68,14 @@ def konditionen_entwurf(dateien: list[str] | str, notiz: str) -> int:
     from fastapi import HTTPException
 
     from app.konditionen_zentrale import entwurf_anlegen, pruefen, standard_basis
+    from app.modelle import KonditionenVersion
 
     if isinstance(dateien, str):
         dateien = [dateien]
     with SessionLocal() as db:
-        basis = standard_basis(db)      # geplante Version, sonst die aktive
+        # geplante Version, sonst die aktive; --sofort: immer die aktive (Sofort-Korrektur neben einer Planung)
+        basis = (db.scalar(select(KonditionenVersion).where(KonditionenVersion.status == "aktiv")) if sofort
+                 else standard_basis(db))
         aenderungen = copy.deepcopy(basis.daten)
         for datei in dateien:
             _zusammenfuehren(aenderungen, json.loads(Path(datei).read_text(encoding="utf-8")))
@@ -141,6 +144,7 @@ def main(argv=None) -> int:
     k.add_argument("datei", nargs="+", help="JSON-Datei(en) mit den zu setzenden Abschnitten, "
                    "z. B. app/konditionen/ergaenzung_init_v3.json")
     k.add_argument("--notiz", required=True, help="Änderungsnotiz für die Prüfung")
+    k.add_argument("--sofort", action="store_true", help="Kopie der aktiven statt der geplanten Version (Sofort-Korrektur)")
     g = befehle.add_parser("konditionen-entwurf-ergaenzen", help="Offenen Entwurf um Abschnitte aus JSON-Datei(en) ergänzen")
     g.add_argument("version", type=int, help="Versionsnummer des offenen Entwurfs")
     g.add_argument("datei", nargs="+", help="JSON-Datei(en), z. B. app/konditionen/korrektur_kfw261_v3.json")
@@ -150,7 +154,7 @@ def main(argv=None) -> int:
     if args.befehl == "admin-anlegen":
         return admin_anlegen()
     if args.befehl == "konditionen-entwurf":
-        return konditionen_entwurf(args.datei, args.notiz)
+        return konditionen_entwurf(args.datei, args.notiz, sofort=args.sofort)
     if args.befehl == "konditionen-aktivieren":
         return konditionen_aktivieren()
     if args.befehl == "konditionen-entwurf-ergaenzen":

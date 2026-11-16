@@ -413,6 +413,7 @@ def _detail(db: Session, v: KonditionenVersion, ich: Benutzer) -> dict:
     namen = _namen(db, [v.erstellt_von_id, v.geprueft_von_id])
     vorg = _vorgaenger(db, v)
     return {**_kurz(v, namen), "daten": konditionen_daten(v) if v.status in SICHTBAR else {**v.daten, "version": v.version},
+            "korrektur_fuer_geplant": korrektur_fuer_geplant(db, v) if _darf_entwuerfe_sehen(ich) else None,
             "vorgaenger_id": vorg.id if vorg else None, "vorgaenger_version": vorg.version if vorg else None,
             "fehler": pruefen(v.daten, v.aenderungsnotiz or "") if v.status == "entwurf" else [],
             "darf_pruefen": v.status == "zur_pruefung" and ("admin" in ich.rollen or "pruefer" in ich.rollen) and not _beteiligt(v, ich),
@@ -610,16 +611,18 @@ def freigeben(versions_id: int, daten: Pruefung, request: Request, ich: Benutzer
     fehler = pruefen(v.daten)
     if fehler:
         raise HTTPException(422, {"meldung": "Die Version verletzt Prüfregeln und kann nicht freigegeben werden.", "fehler": fehler})
-    # Eine neue Freigabe ersetzt eine geplante Version (neue Entwürfe sind Kopien davon, siehe standard_basis)
-    alt_geplant = db.scalar(select(KonditionenVersion).where(KonditionenVersion.status == "geplant").with_for_update())
-    if alt_geplant is not None:
-        alt_geplant.status, alt_geplant.geprueft_von_id, alt_geplant.geprueft_am = "zurueckgewiesen", ich.id, jetzt()
-        alt_geplant.pruefnotiz = f"Planung aufgehoben: ersetzt durch Version {v.version}."
-        protokollieren(db, request, "konditionen_planung_aufgehoben", ich.id, version=alt_geplant.version, ersetzt_durch=v.version)
-        db.flush()
     v.geprueft_von_id, v.geprueft_am, v.pruefnotiz = ich.id, jetzt(), (daten.notiz or None)
     v.daten = {**v.daten, "version": v.version, "gueltig_ab": v.gueltig_ab.isoformat()}
     if v.gueltig_ab > fristen.heute():
+        # Eine neue geplante Freigabe ersetzt eine bereits geplante Version (höchstens eine; neue Entwürfe sind deren Kopie).
+        # Eine sofort gültige Freigabe lässt die geplante Version dagegen stehen (Geschäftsführer 16.11.2026) – siehe
+        # korrektur_fuer_geplant: Hinweis, die Korrektur auch in die geplante Version zu übernehmen.
+        alt_geplant = db.scalar(select(KonditionenVersion).where(KonditionenVersion.status == "geplant").with_for_update())
+        if alt_geplant is not None:
+            alt_geplant.status, alt_geplant.geprueft_von_id, alt_geplant.geprueft_am = "zurueckgewiesen", ich.id, jetzt()
+            alt_geplant.pruefnotiz = f"Planung aufgehoben: ersetzt durch Version {v.version}."
+            protokollieren(db, request, "konditionen_planung_aufgehoben", ich.id, version=alt_geplant.version, ersetzt_durch=v.version)
+            db.flush()
         # im Voraus freigegeben: wird am Stichtag automatisch aktiv (Zeitplan bzw. beim Laden, app/rechnen.py)
         v.status = "geplant"
         protokollieren(db, request, "konditionen_freigegeben", ich.id, version=v.version, geplant_ab=v.gueltig_ab.isoformat())
@@ -634,6 +637,72 @@ def freigeben(versions_id: int, daten: Pruefung, request: Request, ich: Benutzer
                    abgeloest=bisher.version if bisher else None)
     db.commit()
     return _detail(db, v, ich)
+
+
+def _gleich(a, b) -> bool:
+    if isinstance(a, (int, float)) and isinstance(b, (int, float)) and not isinstance(a, bool) and not isinstance(b, bool):
+        return abs(a - b) < 1e-9
+    return a == b
+
+
+def _wert_text(feld: dict, w) -> str:
+    if w is None or w == "" or w == []:
+        return "–"
+    if feld.get("typ") == "prozent" and isinstance(w, (int, float)):
+        return f"{w * 100:.2f}".rstrip("0").rstrip(".").replace(".", ",") + " %"
+    if feld.get("typ") == "euro" and isinstance(w, (int, float)):
+        return f"{w:,.0f}".replace(",", ".") + " €"
+    return str(w)
+
+
+def korrektur_fuer_geplant(db: Session, v: KonditionenVersion) -> dict | None:
+    """Sofort gültige Version neben einer geplanten (Geschäftsführer 16.11.2026): Welche Änderungen gegenüber der zuvor aktiven
+    Version fehlen in der geplanten? Diese gingen am Stichtag verloren → Hinweis „Korrektur auch in geplante Version N
+    übernehmen?“. Nur solange v aktiv ist und eine geplante Version besteht."""
+    if v.status != "aktiv":
+        return None
+    g = db.scalar(select(KonditionenVersion).where(KonditionenVersion.status == "geplant"))
+    vorg = _vorgaenger(db, v)
+    if g is None or vorg is None:
+        return None
+    felder, gesehen = [], set()
+    for z in vergleichen(vorg.daten, v.daten):
+        pfad = z["pfad"]
+        fp = pfad if pfad in FELDER else next((p for p in FELDER if pfad.startswith(p + ".")), None)
+        if fp is None or fp in ("gueltig_ab", "version") or fp in gesehen:
+            continue
+        gesehen.add(fp)
+        neu, geplant = lesen_pfad(v.daten, fp), lesen_pfad(g.daten, fp)
+        if not _gleich(neu, geplant):
+            feld = FELDER[fp]
+            felder.append({"pfad": fp, "programm_titel": TITEL.get(fp.split(".")[0], "Allgemein"), "label": feld["label"],
+                           "aktiv": neu, "geplant": geplant, "aktiv_text": _wert_text(feld, neu), "geplant_text": _wert_text(feld, geplant)})
+    if not felder:
+        return None
+    return {"geplant_id": g.id, "geplant_version": g.version, "geplant_ab": g.gueltig_ab.isoformat(), "aus_version": v.version,
+            "frage": f"Korrektur auch in geplante Version {g.version} übernehmen?", "felder": felder}
+
+
+@router.post("/konditionen/versionen/{versions_id}/korrektur-in-geplante", status_code=201)
+def korrektur_in_geplante(versions_id: int, request: Request, ich: Benutzer = Depends(nur_admin), db: Session = Depends(get_db)):
+    """„Entwurf aus geplanter Version + Korrektur“: Kopie der geplanten Version mit den Werten der Korrektur. Gilt ab dem Datum der
+    geplanten Version und durchläuft die Vier-Augen-Freigabe; bei Freigabe ersetzt er die bisherige Planung."""
+    v = _laden(db, versions_id, ich)
+    k = korrektur_fuer_geplant(db, v)
+    if k is None:
+        raise HTTPException(409, "Es gibt keine geplante Version, der diese Korrektur fehlt.")
+    g = db.get(KonditionenVersion, k["geplant_id"])
+    aenderungen: dict = {}
+    for f in k["felder"]:
+        setzen_pfad(aenderungen, f["pfad"], copy.deepcopy(f["aktiv"]))
+    notiz = "\n".join([f"Korrektur aus Version {v.version} (sofort gültig) in die geplante Version {g.version} "
+                        f"(gilt ab {g.gueltig_ab.strftime('%d.%m.%Y')}) übernommen:",
+                        *[f"- {f['programm_titel']} – {f['label']}: {f['geplant_text']} → {f['aktiv_text']}" for f in k["felder"]]])
+    neu = entwurf_anlegen(db, request, ich.id, g, aenderungen, notiz)
+    protokollieren(db, request, "konditionen_korrektur_uebernommen", ich.id, aus_version=v.version, geplant_version=g.version,
+                   entwurf_version=neu.version, felder=[f["pfad"] for f in k["felder"]][:100])
+    db.commit()
+    return _detail(db, neu, ich)
 
 
 @router.post("/konditionen/versionen/{versions_id}/planung-aufheben")

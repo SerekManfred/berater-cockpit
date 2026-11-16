@@ -227,3 +227,83 @@ def test_foerderpruefung_kennzeichnet_bereits_geplante_abweichungen(monkeypatch,
         basis = db.get(KonditionenVersion, v.basis_id)
         assert basis.status == "geplant" and v.daten["beg_em"]["foerdersatz"] == 0.2
         assert v.daten["isfp_beratung"]["mfh_max"] == 1300 and "Kopie der geplanten Version 2" in v.aenderungsnotiz
+
+
+# ---------- Sofort-Korrektur neben einer geplanten Version (Geschäftsführer 16.11.2026) ----------
+
+def sofort_korrektur(admin, pruefer, aktiv_id, **pfade):
+    """Entwurf als Kopie der aktiven Version (nicht der geplanten), Stichtag heute, einreichen und freigeben."""
+    import copy
+    e = admin.post("/konditionen/versionen", json={"basis_id": aktiv_id}).json()
+    daten = copy.deepcopy(e["daten"])
+    from tests.test_konditionen import FACHWERTE, mit_ergaenzung
+    daten.update(copy.deepcopy(FACHWERTE))
+    mit_ergaenzung(daten)
+    daten["gueltig_ab"] = "2026-11-12"
+    for pfad, wert in pfade.items():
+        ziel, teile = daten, pfad.split("__")
+        for t in teile[:-1]:
+            ziel = ziel[t]
+        ziel[teile[-1]] = wert
+    assert admin.put(f"/konditionen/versionen/{e['id']}", json={"daten": daten, "aenderungsnotiz": "Sofort-Korrektur"}).status_code == 200
+    assert admin.post(f"/konditionen/versionen/{e['id']}/einreichen").status_code == 200
+    r = pruefer.post(f"/konditionen/versionen/{e['id']}/freigeben", json={})
+    assert r.status_code == 200, r.text
+    return r.json()
+
+
+def test_sofort_freigabe_laesst_geplante_stehen_und_fragt_nach_uebernahme(monkeypatch):
+    admin, pruefer = nutzer("admin"), nutzer("pruefer")
+    with SessionLocal() as db:
+        aktiv_id = db.scalar(select(KonditionenVersion.id).where(KonditionenVersion.status == "aktiv"))
+    g = geplant_freigeben(admin, pruefer, beg_em__foerdersatz=0.2)                    # Version 2 ab 01.02.2027
+    k = sofort_korrektur(admin, pruefer, aktiv_id, isfp_beratung__mfh_max=1300)       # Version 3 sofort
+    assert k["status"] == "aktiv" and status() == {1: "abgeloest", 2: "geplant", 3: "aktiv"}   # nebeneinander
+    hinweis = k["korrektur_fuer_geplant"]
+    assert hinweis["frage"] == "Korrektur auch in geplante Version 2 übernehmen?"
+    assert [(f["pfad"], f["geplant"], f["aktiv"]) for f in hinweis["felder"] if f["pfad"] == "isfp_beratung.mfh_max"] == \
+        [("isfp_beratung.mfh_max", 850, 1300)]
+    assert all(f["pfad"] != "beg_em.foerdersatz" for f in hinweis["felder"])            # gehört nur zur Planung
+    assert all(f["pfad"] != "gueltig_ab" for f in hinweis["felder"])
+    assert lade_konditionen()["isfp_beratung"]["mfh_max"] == 1300 and lade_konditionen()["version"] == 3
+    # Knopf „Entwurf aus geplanter Version + Korrektur“ – nur Admin; Prüfer sieht den Hinweis
+    assert pruefer.get(f"/konditionen/versionen/{k['id']}").json()["korrektur_fuer_geplant"]["geplant_version"] == 2
+    assert nutzer("verwaltung").get(f"/konditionen/versionen/{k['id']}").json()["korrektur_fuer_geplant"] is None
+    assert pruefer.post(f"/konditionen/versionen/{k['id']}/korrektur-in-geplante").status_code == 403
+    r = admin.post(f"/konditionen/versionen/{k['id']}/korrektur-in-geplante")
+    assert r.status_code == 201, r.text
+    e = r.json()
+    assert e["status"] == "entwurf" and e["basis_id"] == g["id"] and e["gueltig_ab"] == STICHTAG
+    assert e["daten"]["beg_em"]["foerdersatz"] == 0.2 and e["daten"]["isfp_beratung"]["mfh_max"] == 1300   # Planung + Korrektur
+    assert e["aenderungsnotiz"].startswith("Korrektur aus Version 3 (sofort gültig) in die geplante Version 2 (gilt ab 01.02.2027)")
+    assert "850 € → 1.300 €" in e["aenderungsnotiz"] and e["fehler"] == []
+    # Freigabe (andere Person) ersetzt die alte Planung; am Stichtag gelten beide Änderungen
+    assert admin.post(f"/konditionen/versionen/{e['id']}/einreichen").status_code == 200
+    assert pruefer.post(f"/konditionen/versionen/{e['id']}/freigeben", json={}).json()["status"] == "geplant"
+    assert status() == {1: "abgeloest", 2: "zurueckgewiesen", 3: "aktiv", 4: "geplant"}
+    assert admin.get(f"/konditionen/versionen/{k['id']}").json()["korrektur_fuer_geplant"] is None   # erledigt
+    heute(monkeypatch, STICHTAG)
+    neu = lade_konditionen()
+    assert neu["version"] == 4 and neu["beg_em"]["foerdersatz"] == 0.2 and neu["isfp_beratung"]["mfh_max"] == 1300
+
+
+def test_ohne_uebernahme_geht_die_korrektur_am_stichtag_verloren_kein_hinweis_wenn_schon_geplant(monkeypatch):
+    admin, pruefer = nutzer("admin"), nutzer("pruefer")
+    with SessionLocal() as db:
+        aktiv_id = db.scalar(select(KonditionenVersion.id).where(KonditionenVersion.status == "aktiv"))
+    geplant_freigeben(admin, pruefer, beg_em__foerdersatz=0.2)
+    k = sofort_korrektur(admin, pruefer, aktiv_id, beg_em__foerdersatz=0.2)          # dieselbe Änderung wie geplant
+    assert k["korrektur_fuer_geplant"] is None                                         # nichts zu übernehmen
+    assert admin.post(f"/konditionen/versionen/{k['id']}/korrektur-in-geplante").status_code == 409
+    heute(monkeypatch, STICHTAG)
+    assert lade_konditionen()["version"] == 2 and status()[3] == "abgeloest"           # Planung löst die Korrektur ab
+
+
+def test_cli_sofort_kopiert_die_aktive(capsys):
+    from tests.test_konditionen import KOND_DIR
+    admin, pruefer = nutzer("admin"), nutzer("pruefer")
+    geplant_freigeben(admin, pruefer, beg_em__foerdersatz=0.2)
+    assert cli.main(["konditionen-entwurf", str(KOND_DIR / "korrektur_beg_em_quelle_v4.json"), "--notiz", "x", "--sofort"]) == 0
+    assert "Kopie von Version 1)" in capsys.readouterr().out
+    with SessionLocal() as db:
+        assert db.scalar(select(KonditionenVersion).where(KonditionenVersion.version == 3)).daten["beg_em"]["foerdersatz"] == 0.15

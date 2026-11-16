@@ -236,3 +236,4 @@ td.angekuendigt { background: var(--gold-l); }
 /* Vorschau mit geplanten Konditionen (nicht speicherbar, 16.11.2026) */
 .vorschau-karte { border: 3px dashed var(--gold); background: repeating-linear-gradient(135deg, #fff, #fff 18px, #FBF6EC 18px, #FBF6EC 36px); }
 .vorschau-band { background: var(--gold); color: #2F2F36; font-weight: bold; padding: 10px 14px; border-radius: 6px; font-size: 15px; }
+.warnung-karte { border-left: 4px solid var(--gold); background: #FFFDF7; }

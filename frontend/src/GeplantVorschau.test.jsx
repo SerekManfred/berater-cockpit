@@ -14,7 +14,7 @@ vi.mock("./api.js", async original => ({
 }));
 
 import { Foerdervergleich, Vorschau } from "./Foerdervergleich.jsx";
-import { GeplantHinweis, freigabeText } from "./Konditionen.jsx";
+import { GeplantHinweis, KorrekturFuerGeplant, freigabeText } from "./Konditionen.jsx";
 
 afterEach(() => { cleanup(); aufrufe.length = 0; antworten = {}; });
 
@@ -61,5 +61,24 @@ describe("Geplante Konditionen", () => {
     render(<Foerdervergleich onSpeichern={onSpeichern} />);
     await screen.findByRole("button", { name: "Berechnen" });
     expect(screen.queryByRole("button", { name: /Vorschau mit Konditionen/ })).toBeNull();
+  });
+});
+
+describe("Sofort-Korrektur neben geplanter Version", () => {
+  const K = { geplant_id: 2, geplant_version: 2, geplant_ab: "2027-02-01", aus_version: 3,
+    frage: "Korrektur auch in geplante Version 2 übernehmen?",
+    felder: [{ pfad: "isfp_beratung.mfh_max", programm_titel: "BAFA Energieberatung", label: "Höchstbetrag ab 3 WE",
+               geplant: 850, aktiv: 1300, geplant_text: "850 €", aktiv_text: "1.300 €" }] };
+  it("zeigt Frage, Werte und Knopf (nur Admin)", () => {
+    const onEntwurf = vi.fn();
+    render(<KorrekturFuerGeplant k={K} darf onEntwurf={onEntwurf} />);
+    expect(screen.getByRole("heading", { name: "Korrektur auch in geplante Version 2 übernehmen?" })).toBeTruthy();
+    expect(screen.getByText("1.300 €")).toBeTruthy();
+    fireEvent.click(screen.getByRole("button", { name: "Entwurf aus geplanter Version + Korrektur" }));
+    expect(onEntwurf).toHaveBeenCalled();
+    cleanup();
+    render(<KorrekturFuerGeplant k={K} darf={false} onEntwurf={onEntwurf} />);
+    expect(screen.queryByRole("button")).toBeNull();
+    expect(screen.getByText("Den Entwurf legt ein Admin an.")).toBeTruthy();
   });
 });

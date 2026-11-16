@@ -187,7 +187,14 @@ Ausführliches Fachkonzept: `docs/Konzept_Berater-Cockpit.docx` (falls abgelegt)
 - Geplante Versionen lesen alle Angemeldeten (`SICHTBAR`); Hinweis „Ab TT.MM.JJJJ gelten neue Konditionen (Version N)“
   (`GET /konditionen/geplant`, Startseite und Fördervergleich). **Planung aufheben** (`POST …/planung-aufheben`, pruefer/admin,
   Begründung Pflicht) → `zurueckgewiesen`, wird nie aktiv. **Neue Entwürfe = Kopie der geplanten Version** (`standard_basis`, auch
-  CLI und „Entwurf aus Meldung“); eine neue Freigabe **ersetzt** eine geplante Version (diese → `zurueckgewiesen`, „ersetzt durch Version N“).
+  CLI und „Entwurf aus Meldung“); eine neue **geplante** Freigabe **ersetzt** die bisher geplante (diese → `zurueckgewiesen`,
+  „ersetzt durch Version N“). **Eine sofort gültige Freigabe ersetzt sie nicht** (Geschäftsführer 16.11.2026): aktiv und geplant
+  bestehen nebeneinander. Sofort-Korrektur = Entwurf als Kopie der **aktiven** Version (Knopf „Sofort-Korrektur“ in der Liste,
+  CLI `--sofort`). Fehlen deren Änderungen in der geplanten Version, zeigt die aktive Version (für admin/pruefer)
+  „Korrektur auch in geplante Version N übernehmen?“ (`korrektur_fuer_geplant`, Felder geplant → jetzt) mit Knopf
+  „Entwurf aus geplanter Version + Korrektur“ (`POST …/korrektur-in-geplante`, admin; Kopie der geplanten Version + Korrekturwerte,
+  Datum der Planung, Protokoll `konditionen_korrektur_uebernommen`) – nach dessen Freigabe ersetzt er die alte Planung.
+  Ohne Übernahme löst die geplante Version am Stichtag die Korrektur ab (Test).
 - **Vorschau im Fördervergleich:** `POST /module/foerderung-em-eh/vorschau-geplant` (berater) rechnet mit der geplanten Version und
   liefert `vorschau.text`; die Oberfläche zeigt sie gestreift mit Band „VORSCHAU – noch nicht gültig“ in eigenem Zustand – nie an
   „Speichern“ übergeben, und Speichern rechnet ohnehin mit der aktiven Version.

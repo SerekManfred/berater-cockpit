@@ -149,17 +149,24 @@ function Versionsliste({ ich, onGehe }) {
   const [fehler, setFehler] = useState("");
   useEffect(() => { api("/konditionen/versionen").then(setListe).catch(e => setFehler(e.message)); }, []);
   const offen = liste?.find(v => v.status === "entwurf" || v.status === "zur_pruefung");
-  async function neu() {
+  const geplant = liste?.find(v => v.status === "geplant");
+  const aktiv = liste?.find(v => v.status === "aktiv");
+  async function neu(basis_id) {
     setFehler("");
-    try { const v = await api("/konditionen/versionen", { method: "POST", body: {} }); onGehe({ art: "bearbeiten", id: v.id }); }
+    try { const v = await api("/konditionen/versionen", { method: "POST", body: basis_id ? { basis_id } : {} }); onGehe({ art: "bearbeiten", id: v.id }); }
     catch (e) { setFehler(e.message); }
   }
   return (
     <>
       <div className="titelzeile">
         <h1>Konditionen-Versionen</h1>
-        {hatRolle(ich) && <button className="btn" onClick={neu} disabled={!!offen} title={offen ? `Version ${offen.version} ist noch offen` : undefined}>
-          Neuer Entwurf (Kopie der {liste?.some(v => v.status === "geplant") ? "geplanten" : "aktiven"} Version)</button>}
+        {hatRolle(ich) && <div className="aktionen" style={{ marginTop: 0 }}>
+          <button className="btn" onClick={() => neu()} disabled={!!offen} title={offen ? `Version ${offen.version} ist noch offen` : undefined}>
+            Neuer Entwurf (Kopie der {geplant ? `geplanten Version ${geplant.version}` : "aktiven Version"})</button>
+          {geplant && aktiv && <button className="btn2" onClick={() => neu(aktiv.id)} disabled={!!offen}
+            title="Sofort gültige Korrektur: Kopie der aktiven Version, die geplante Version bleibt bestehen">
+            Sofort-Korrektur (Kopie der aktiven Version {aktiv.version})</button>}
+        </div>}
       </div>
       <p className="hinweis">Jede Version ist lesbar und mit ihrer Vorgängerversion vergleichbar. Freigabe nur im Vier-Augen-Prinzip.</p>
       {offen && hatRolle(ich) && <div className="info" role="status" style={{ marginBottom: 12 }}>Version {offen.version} ist {STATUS[offen.status]} – erst abschließen, dann neuen Entwurf anlegen.</div>}
@@ -226,6 +233,8 @@ function VersionAnsicht({ ich, id, reiter: startReiter, formular, onGehe }) {
       </div>
       {v.status === "zur_pruefung" && !v.darf_pruefen && hatRolle(ich, "pruefer") &&
         <div className="info" role="status" style={{ marginBottom: 12 }}>Sie haben diese Version erstellt oder bearbeitet – prüfen und freigeben muss eine andere Person (Vier-Augen-Prinzip).</div>}
+      {v.korrektur_fuer_geplant && <KorrekturFuerGeplant k={v.korrektur_fuer_geplant} darf={hatRolle(ich)}
+        onEntwurf={async () => { setFehler(""); try { const n = await api(`/konditionen/versionen/${v.id}/korrektur-in-geplante`, { method: "POST" }); onGehe({ art: "bearbeiten", id: n.id }); } catch (e) { setFehler(e.message); } }} />}
       {v.status === "geplant" && <div className="warnung" role="status" style={{ marginBottom: 12 }}>
         <strong>Geplant:</strong> freigegeben, wird am {datumDe(v.gueltig_ab)} automatisch aktiv. Bis dahin rechnet das Cockpit mit der aktiven Version;
         neue Entwürfe entstehen als Kopie dieser Version.</div>}
@@ -241,6 +250,23 @@ function VersionAnsicht({ ich, id, reiter: startReiter, formular, onGehe }) {
       </div>
       {reiter === "werte" ? <Werte formular={formular} daten={v.daten} /> : <Vergleich id={v.id} />}
     </>
+  );
+}
+
+// Sofort gültige Version neben einer geplanten: fehlt die Korrektur dort, ginge sie am Stichtag verloren (16.11.2026)
+export function KorrekturFuerGeplant({ k, darf, onEntwurf }) {
+  return (
+    <section className="karte warnung-karte" role="region" aria-label={k.frage}>
+      <h2>{k.frage}</h2>
+      <p className="klein" style={{ marginTop: 0 }}>Version {k.aus_version} gilt sofort. Die geplante Version {k.geplant_version} (ab {datumDe(k.geplant_ab)})
+        enthält diese Werte nicht – am {datumDe(k.geplant_ab)} würden sie sonst wieder überschrieben.</p>
+      <div className="tabelle"><table>
+        <thead><tr><th>Programm</th><th>Feld</th><th>geplante Version {k.geplant_version}</th><th>jetzt (Version {k.aus_version})</th></tr></thead>
+        <tbody>{k.felder.map(f => <tr key={f.pfad}><td>{f.programm_titel}</td><td>{f.label}</td><td>{f.geplant_text}</td><td><strong>{f.aktiv_text}</strong></td></tr>)}</tbody>
+      </table></div>
+      {darf ? <div className="aktionen"><button className="btn" onClick={onEntwurf}>Entwurf aus geplanter Version + Korrektur</button></div>
+        : <p className="klein">Den Entwurf legt ein Admin an.</p>}
+    </section>
   );
 }
 
