@@ -5,7 +5,7 @@ from fastapi import Depends, FastAPI
 from pydantic import BaseModel, Field
 from sqlalchemy.orm import Session
 
-from app import (angebotsvorlagen_api, auth, bericht_init, benutzer_api, checkliste, dateien_api, konditionen_zentrale,
+from app import (angebotsvorlagen_api, auth, bericht_init, benutzer_api, checkliste, dateien_api, foerderpruefung, konditionen_zentrale,
                  projekte_api, word)
 from app import wohneinheiten
 from app.auth import aktueller_benutzer, rolle
@@ -30,6 +30,7 @@ app.include_router(checkliste.router)
 app.include_router(konditionen_zentrale.router)
 app.include_router(bericht_init.router)
 app.include_router(angebotsvorlagen_api.router)
+app.include_router(foerderpruefung.router)
 
 
 @app.get("/health")

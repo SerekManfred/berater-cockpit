@@ -11,7 +11,7 @@ Rechte (im Backend erzwungen):
 import copy
 from datetime import date
 
-from fastapi import APIRouter, Depends, HTTPException, Request
+from fastapi import APIRouter, BackgroundTasks, Depends, HTTPException, Request
 from pydantic import BaseModel, Field
 from sqlalchemy import func, select
 from sqlalchemy.orm import Session
@@ -527,7 +527,8 @@ def entwurf_speichern(versions_id: int, daten: EntwurfAenderung, request: Reques
 
 
 @router.post("/konditionen/versionen/{versions_id}/einreichen")
-def einreichen(versions_id: int, request: Request, ich: Benutzer = Depends(nur_admin), db: Session = Depends(get_db)):
+def einreichen(versions_id: int, request: Request, hintergrund: BackgroundTasks, ich: Benutzer = Depends(nur_admin),
+               db: Session = Depends(get_db)):
     v = _laden(db, versions_id, ich, sperren=True)
     if v.status != "entwurf":
         raise HTTPException(409, "Nur Entwürfe können zur Prüfung gesendet werden")
@@ -537,6 +538,9 @@ def einreichen(versions_id: int, request: Request, ich: Benutzer = Depends(nur_a
     v.status = "zur_pruefung"
     protokollieren(db, request, "konditionen_zur_pruefung", ich.id, version=v.version)
     db.commit()
+    # Mail „wartet auf Freigabe“ an die Empfänger (nicht an den Einreicher) – nach der Antwort, Fehler blockieren nie
+    from app.foerderpruefung import benachrichtigen_einreichung
+    hintergrund.add_task(benachrichtigen_einreichung, v.id, ich.id)
     return _detail(db, v, ich)
 
 

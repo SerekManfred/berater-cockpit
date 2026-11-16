@@ -52,6 +52,8 @@ class Benutzer(Base):
     gesperrt_bis: Mapped[datetime | None] = mapped_column(UTCZeit)
     erstellt_am: Mapped[datetime] = mapped_column(UTCZeit, nullable=False, default=jetzt)
     letzter_login: Mapped[datetime | None] = mapped_column(UTCZeit)
+    # Migration 0009: „Erhält Benachrichtigungen Förderkonditionen“ (nur Admin setzt ihn)
+    benachrichtigung_konditionen: Mapped[bool] = mapped_column(Boolean, nullable=False, default=False, server_default=text("false"))
 
 
 class Sitzung(Base):
@@ -242,3 +244,20 @@ class Angebotsvorlage(Base):
     standardbetrag: Mapped[float | None] = mapped_column(Numeric(12, 2, asdecimal=False))  # leer = kein Standard
     geaendert_von_id: Mapped[int | None] = mapped_column(ForeignKey("benutzer.id", ondelete="SET NULL"))
     geaendert_am: Mapped[datetime] = mapped_column(UTCZeit, nullable=False, default=jetzt)
+
+
+class FoerderMeldung(Base):
+    """Ergebnis eines Laufs der Förderprüfung (Migration 0009). Neue Konditionen entstehen daraus nur über einen Entwurf
+    mit Vier-Augen-Freigabe – nie automatisch."""
+    __tablename__ = "foerder_meldungen"
+    id: Mapped[int] = mapped_column(Integer, primary_key=True)
+    zeit: Mapped[datetime] = mapped_column(UTCZeit, nullable=False, default=jetzt, index=True)
+    konditionen_version: Mapped[int] = mapped_column(Integer, nullable=False)
+    ergebnis: Mapped[dict] = mapped_column(DETAILS_TYP, nullable=False)   # abweichungen, merkblaetter, lauf
+    status: Mapped[str] = mapped_column(String(20), nullable=False)       # keine_abweichung | offen | entwurf_angelegt | verworfen
+    ausgeloest_von_id: Mapped[int | None] = mapped_column(ForeignKey("benutzer.id", ondelete="SET NULL"))  # leer = Zeitplan
+    bearbeitet_von_id: Mapped[int | None] = mapped_column(ForeignKey("benutzer.id", ondelete="SET NULL"))
+    bearbeitet_am: Mapped[datetime | None] = mapped_column(UTCZeit)
+    begruendung: Mapped[str | None] = mapped_column(Text)
+    entwurf_id: Mapped[int | None] = mapped_column(ForeignKey("konditionen_versionen.id", ondelete="SET NULL"))
+    benachrichtigung: Mapped[dict | None] = mapped_column(DETAILS_TYP)    # {an, fehler} der E-Mail

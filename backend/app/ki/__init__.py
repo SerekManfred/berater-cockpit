@@ -29,17 +29,23 @@ class KiAntwort:
 class KiAnbieter(Protocol):
     def strukturiert(self, system: str, inhalt: list[dict], schema: dict, zeitlimit: float) -> KiAntwort: ...
 
+    # Recherche mit Websuche (Förderprüfung, Phase 2f): nur auf den genannten Domains, höchstens max_suchen Suchen und
+    # max_abrufe Seitenabrufe. Antwort = Text der KI (JSON wird in app/foerderpruefung.py geprüft); nutzung enthält
+    # zusätzlich „suchen“ und „abrufe“.
+    def websuche(self, system: str, text: str, domains: tuple[str, ...], max_suchen: int, max_abrufe: int,
+                 zeitlimit: float) -> KiAntwort: ...
+
 
 # Nur für Tests: fester Anbieter statt des konfigurierten (kein Netzwerk in Tests)
 TEST_ANBIETER: KiAnbieter | None = None
 
 
-def anbieter() -> KiAnbieter:
+def anbieter(modell: str | None = None) -> KiAnbieter:
     if TEST_ANBIETER is not None:
         return TEST_ANBIETER
     if config.KI_ANBIETER == "anthropic":
         from app.ki.anthropic_anbieter import AnthropicAnbieter
-        return AnthropicAnbieter(config.KI_MODELL)
+        return AnthropicAnbieter(modell or config.KI_MODELL)
     if config.KI_ANBIETER == "langdock":
         raise KiFehler(503, "Der KI-Anbieter „langdock“ ist noch nicht angebunden. Bitte KI_ANBIETER=anthropic setzen.")
     raise KiFehler(503, f"Unbekannter KI-Anbieter „{config.KI_ANBIETER}“ (erlaubt: anthropic, langdock).")

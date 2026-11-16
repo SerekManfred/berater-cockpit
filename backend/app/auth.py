@@ -146,7 +146,8 @@ def _stufe(s: Sitzung, b: Benutzer) -> str:
 
 
 def benutzer_daten(b: Benutzer) -> dict:
-    return {"id": b.id, "email": b.email, "name": b.name, "rollen": list(b.rollen)}
+    return {"id": b.id, "email": b.email, "name": b.name, "rollen": list(b.rollen),
+            "benachrichtigung_konditionen": bool(b.benachrichtigung_konditionen)}
 
 
 # ---------- Routen ----------

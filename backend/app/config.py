@@ -62,3 +62,25 @@ KI_MAX_LAEUFE_TAG = _zahl("KI_MAX_LAEUFE_TAG", 10)        # je Entwurf und Kalen
 KI_ZEITLIMIT = float(_zahl("KI_ZEITLIMIT", 180, 10))      # Sekunden je KI-Lauf
 KI_MAX_FOTOS = _zahl("KI_MAX_FOTOS", 20)                  # so viele Fotos (verkleinert) gehen höchstens an die KI
 GENERATOR_TIMEOUT_BERICHT = 150.0  # Berichte mit Fotos brauchen länger als Checklisten (Generator-Zeitlimit 120 s)
+
+# Wöchentliche Förderprüfung (Phase 2f). An die KI gehen nur Förderwerte und Quellen – keine Personen- oder Projektdaten –,
+# deshalb ein eigener Schalter unabhängig von KI_AKTIV. Standard AUS; der Geschäftsführer schaltet ein.
+FOERDERPRUEFUNG_AKTIV = _schalter(os.environ.get("FOERDERPRUEFUNG_AKTIV"), False)
+FOERDERPRUEFUNG_MODELL = os.environ.get("FOERDERPRUEFUNG_MODELL", "claude-opus-5-5").strip() or "claude-opus-5-5"
+FOERDERPRUEFUNG_MAX_SUCHEN = _zahl("FOERDERPRUEFUNG_MAX_SUCHEN", 15)     # Websuchen je Lauf (Kosten: 10 $ je 1.000 Suchen)
+FOERDERPRUEFUNG_MAX_ABRUFE = _zahl("FOERDERPRUEFUNG_MAX_ABRUFE", 10, 0)  # Seiten/Merkblätter direkt lesen (nur Treffer der Suche)
+FOERDERPRUEFUNG_ZEITLIMIT = float(_zahl("FOERDERPRUEFUNG_ZEITLIMIT", 600, 30))  # Sekunden je Lauf
+FOERDERPRUEFUNG_MAX_LAEUFE_TAG = _zahl("FOERDERPRUEFUNG_MAX_LAEUFE_TAG", 5)    # Kostenbremse für „Jetzt prüfen“ + Zeitplan
+FOERDERPRUEFUNG_VERALTET_TAGE = 30
+# Nur offizielle Quellen (Unterdomains eingeschlossen)
+FOERDERPRUEFUNG_DOMAINS = ("kfw.de", "bafa.de", "energiewechsel.de", "bmwk.de", "bmwe.de", "gesetze-im-internet.de")
+
+# E-Mail-Benachrichtigungen (Phase 2f). Zugangsdaten nur in der .env. Testsystem: Gmail-Testkonto mit App-Passwort.
+SMTP_HOST = os.environ.get("SMTP_HOST", "").strip()
+SMTP_PORT = _zahl("SMTP_PORT", 587)
+SMTP_USER = os.environ.get("SMTP_USER", "").strip()
+SMTP_PASSWORT = os.environ.get("SMTP_PASSWORT", "")
+SMTP_ABSENDER = os.environ.get("SMTP_ABSENDER", "").strip() or SMTP_USER
+SMTP_NUR_PROTOKOLL = _schalter(os.environ.get("SMTP_NUR_PROTOKOLL"), False)  # true: Mails nur ins Log (Tests, Probebetrieb)
+SMTP_ZEITLIMIT = 20.0
+COCKPIT_URL = (os.environ.get("COCKPIT_URL", "").strip() or "https://cockpit.mybase-test.de").rstrip("/")

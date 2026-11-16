@@ -26,6 +26,19 @@ services:
       KI_MODELL: ${KI_MODELL:-claude-sonnet-5-5}
       KI_MAX_LAEUFE_TAG: ${KI_MAX_LAEUFE_TAG:-10}
       ANTHROPIC_API_KEY: ${ANTHROPIC_API_KEY:-}
+      # Wöchentliche Förderprüfung (Phase 2f): nur Förderwerte gehen an die KI, daher eigener Schalter. Standard AUS.
+      FOERDERPRUEFUNG_AKTIV: ${FOERDERPRUEFUNG_AKTIV:-false}
+      FOERDERPRUEFUNG_MODELL: ${FOERDERPRUEFUNG_MODELL:-claude-opus-5-5}
+      FOERDERPRUEFUNG_MAX_SUCHEN: ${FOERDERPRUEFUNG_MAX_SUCHEN:-15}
+      FOERDERPRUEFUNG_MAX_LAEUFE_TAG: ${FOERDERPRUEFUNG_MAX_LAEUFE_TAG:-5}
+      # E-Mail-Benachrichtigungen (Phase 2f). Zugangsdaten nur in der .env.
+      SMTP_HOST: ${SMTP_HOST:-}
+      SMTP_PORT: ${SMTP_PORT:-587}
+      SMTP_USER: ${SMTP_USER:-}
+      SMTP_PASSWORT: ${SMTP_PASSWORT:-}
+      SMTP_ABSENDER: ${SMTP_ABSENDER:-}
+      SMTP_NUR_PROTOKOLL: ${SMTP_NUR_PROTOKOLL:-false}
+      COCKPIT_URL: ${COCKPIT_URL:-https://cockpit.mybase-test.de}
     networks: [default, cockpit-intern]
     depends_on:
       cockpit-db: { condition: service_healthy }   # Migrationen laufen beim Start der API

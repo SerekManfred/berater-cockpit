@@ -22,11 +22,13 @@ class BenutzerNeu(BaseModel):
     email: str = Field(pattern=r"^[^@\s]+@[^@\s]+\.[^@\s]+$", max_length=254)
     name: str = Field(min_length=1, max_length=200)
     rollen: list[Rolle] = Field(min_length=1)
+    benachrichtigung_konditionen: bool = False   # „Erhält Benachrichtigungen Förderkonditionen“
 
 
 class BenutzerAenderung(BaseModel):
     name: str | None = Field(None, min_length=1, max_length=200)
     rollen: list[Rolle] | None = Field(None, min_length=1)
+    benachrichtigung_konditionen: bool | None = None
 
 
 def _aus(b: Benutzer) -> dict:
@@ -34,7 +36,7 @@ def _aus(b: Benutzer) -> dict:
         "id": b.id, "email": b.email, "name": b.name, "rollen": list(b.rollen), "aktiv": b.aktiv,
         "zwei_faktor_eingerichtet": bool(b.totp_geheimnis), "muss_passwort_aendern": b.muss_passwort_aendern,
         "fehlversuche": b.fehlversuche, "gesperrt_bis": b.gesperrt_bis, "erstellt_am": b.erstellt_am,
-        "letzter_login": b.letzter_login,
+        "letzter_login": b.letzter_login, "benachrichtigung_konditionen": bool(b.benachrichtigung_konditionen),
     }
 
 
@@ -62,10 +64,12 @@ def anlegen(daten: BenutzerNeu, request: Request, admin: Benutzer = Depends(nur_
         raise HTTPException(409, "Für diese E-Mail-Adresse gibt es bereits ein Konto")
     pw = startpasswort()
     b = Benutzer(email=email, name=daten.name.strip(), rollen=sorted(set(daten.rollen)),
-                 passwort_hash=passwort_hash(pw), muss_passwort_aendern=True)
+                 passwort_hash=passwort_hash(pw), muss_passwort_aendern=True,
+                 benachrichtigung_konditionen=daten.benachrichtigung_konditionen)
     db.add(b)
     db.flush()
-    protokollieren(db, request, "benutzer_angelegt", admin.id, ziel=b.id, email=email, rollen=b.rollen)
+    protokollieren(db, request, "benutzer_angelegt", admin.id, ziel=b.id, email=email, rollen=b.rollen,
+                   benachrichtigung_konditionen=b.benachrichtigung_konditionen)
     db.commit()
     # Das Startpasswort wird nur in dieser Antwort übermittelt und nirgends im Klartext gespeichert.
     return {"benutzer": _aus(b), "startpasswort": pw}
@@ -86,6 +90,9 @@ def aendern(benutzer_id: int, daten: BenutzerAenderung, request: Request,
         if neu != sorted(b.rollen):
             aenderungen["rollen"] = {"alt": list(b.rollen), "neu": neu}
             b.rollen = neu
+    if daten.benachrichtigung_konditionen is not None and daten.benachrichtigung_konditionen != b.benachrichtigung_konditionen:
+        aenderungen["benachrichtigung_konditionen"] = {"alt": b.benachrichtigung_konditionen, "neu": daten.benachrichtigung_konditionen}
+        b.benachrichtigung_konditionen = daten.benachrichtigung_konditionen
     if aenderungen:
         protokollieren(db, request, "benutzer_geaendert", admin.id, ziel=b.id, **aenderungen)
     db.commit()
