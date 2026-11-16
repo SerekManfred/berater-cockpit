@@ -224,6 +224,49 @@ Ausführliches Fachkonzept: `docs/Konzept_Berater-Cockpit.docx` (falls abgelegt)
   Leer → 0 nur bei Kosten Fachplanung/Baubegleitung, Honorar iSFP, neuen WE und Umbaukosten.
 - Frontend-Tests mit vitest (`npm test`, laufen beim Bauen von `cockpit-web`): `zahl.test.js`, `ZahlFeld.test.jsx`, `Foerdervergleich.test.js`.
 
+## Förderprüfung, Meldungen, E-Mail (Stand 16.11.2026, Phase 2f)
+- **Nie automatisch aktivieren.** Eine Meldung führt höchstens zu einem Entwurf (Vier-Augen-Freigabe wie jeder Entwurf).
+- `app/foerderpruefung.py`: Lauf per Zeitplan (`scripts/foerderpruefung.sh`, Cron als dev, montags 06:10 Europe/Berlin – zwei
+  UTC-Einträge 04:10/05:10, das Skript läuft nur um 06 Uhr Berlin) oder Knopf „Jetzt prüfen“ (nur Admin, Hintergrundlauf,
+  Oberfläche fragt `/foerderpruefung/lauf` ab). Vergleichswerte = **aktive Version aus der Datenbank**, alle Programme außer
+  `allgemein`/`fachwerte`, Feldtypen prozent/euro/zahl/datum/janein/auswahl/mehrfach (inkl. Fristen und Baubegleitung).
+- KI über `app/ki/` (`websuche()`, Regel 7): `web_search_20260209` mit `allowed_domains` kfw.de, bafa.de, energiewechsel.de,
+  bmwk.de, bmwe.de, gesetze-im-internet.de, `max_uses` = `FOERDERPRUEFUNG_MAX_SUCHEN` (15), dazu `web_fetch_20260209` auf
+  denselben Domains (`FOERDERPRUEFUNG_MAX_ABRUFE`, 10). Modell `FOERDERPRUEFUNG_MODELL` (Standard `claude-opus-5-5`), Zeitlimit
+  600 s, `pause_turn` wird fortgesetzt. Prompt `app/ki/prompts/foerderpruefung_v1.md` (`PROMPT-VERSION: foerderpruefung-1`).
+  Antwort = JSON im ```json-Block (kein `output_config.format`, weil Websuche Zitate erzeugt) – **streng geprüft** in `auswerten()`:
+  nur bekannte Felder, gültiges Format, echter Unterschied; „hinterlegt“ immer aus der Datenbank; „offiziell“ nur mit Quelle auf
+  einer offiziellen Domain, sonst `zu_pruefen`. Verworfene Angaben stehen mit Grund im Ergebnis.
+- **Datenschutz:** nur Förderwerte, Feldnamen, Quellen – keine Personen- oder Projektdaten. Daher unabhängig von `KI_AKTIV`;
+  eigener Schalter **`FOERDERPRUEFUNG_AKTIV`** (Standard aus, Geschäftsführer schaltet ein). Kostenbremse
+  `FOERDERPRUEFUNG_MAX_LAEUFE_TAG` (5, Zeitplan + manuell). Kosten je Lauf (Listenpreis-Schätzung) im Ergebnis und im Protokoll.
+- **Tabelle `foerder_meldungen`** (Migration 0009): zeit, konditionen_version, ergebnis (abweichungen, verworfen, merkblaetter,
+  hinweise, zusammenfassung, lauf, rohtext), status `keine_abweichung | offen | entwurf_angelegt | verworfen`, ausgeloest_von
+  (leer = Zeitplan), bearbeitet_von/am, begruendung, entwurf_id, benachrichtigung. Fehlgeschlagene Läufe legen keine Meldung an
+  (nur Protokoll + Anzeige „Letzter Lauf fehlgeschlagen“).
+- **Rechte (Entscheidung Geschäftsführer 16.11.2026):** Meldungen lesen admin, pruefer und Empfänger; „Jetzt prüfen“ nur admin;
+  **„Entwurf aus Meldung anlegen“: admin und alle mit dem Haken** (Ausnahme zu „Entwurf anlegen nur admin“; wer anlegt, ist
+  Ersteller und damit von der Freigabe ausgeschlossen; Bearbeiten/Einreichen des Entwurfs bleibt admin, Empfänger ohne
+  admin/pruefer können Entwürfe nicht öffnen und sehen nur eine Bestätigung); **„Verwerfen“ nur admin**, Begründung Pflicht.
+  Entwurf aus Meldung: nur wenn die geprüfte Version noch
+  aktiv ist und kein Entwurf offen ist; übernimmt die neuen Werte, hängt die Quell-URL an die Quelle des Programms an, setzt
+  `geprueft_am` = heute, Änderungsnotiz mit alt → neu und gilt-ab; „Stand der Förderbedingungen“ setzt der Mensch.
+- **Hinweis „veraltet“** (`GET /foerderpruefung/stand`, Fördervergleich + INIT): letzte Prüfung = jüngerer Wert aus letztem
+  Prüflauf und dem **ältesten** `geprueft_am` der Programme der aktiven Version; > 30 Tage → Hinweis, blockiert nicht.
+- **E-Mail** (`app/mail.py`, SMTP aus der `.env`: `SMTP_HOST/_PORT/_USER/_PASSWORT/_ABSENDER`, 465 = SSL, sonst STARTTLS):
+  an aktive Konten mit **`benachrichtigung_konditionen`** („Erhält Benachrichtigungen Förderkonditionen“, nur Admin setzt ihn),
+  je Empfänger eine Mail. (1) Meldung `offen` → „Handlungsbedarf Förderkonditionen“ (Text + HTML-Tabelle, Quellen, Link
+  `COCKPIT_URL`), keine Mail bei „keine Abweichung“. (2) Einreichen eines Entwurfs → „Konditionen-Version N wartet auf Freigabe“
+  (Hintergrund, nicht an den Einreicher). Fehler werfen nie: Ergebnis in `benachrichtigung`, Protokoll `mail_versendet` /
+  `mail_fehlgeschlagen` (nur Art, Anzahl, Benutzer-IDs). `SMTP_NUR_PROTOKOLL=true`: nur Log (Tests).
+- Protokoll: `foerderpruefung_lauf` (Status, Abweichungen, Suchen, Kosten, Dauer), `foerderpruefung_fehlgeschlagen`,
+  `foerder_meldung_entwurf`, `foerder_meldung_verworfen`.
+- Oberfläche (`frontend/src/Foerderpruefung.jsx`): Startseite „Handlungsbedarf Förderkonditionen“ (Empfänger, Prüfer, Admins),
+  Reiter „Förderprüfung“ in den Förderkonditionen (Verlauf, Details, „Jetzt prüfen“), Haken in der Benutzerverwaltung.
+- **Stand-Angabe für Kunden:** „Förderbedingungen Stand TT.MM.JJJJ (interne Version N)“ – INIT `saetze.konditionen_stand`
+  (Patch `backend_stand_text.patch`), Word-Fördervergleich ab Generator 0.4.3, Oberfläche aus `konditionen_stand` (Rechnen,
+  gespeicherter Bericht; `app/rechnen.py: konditionen_stand()`).
+
 ## Fehlergrenze und Zeitlimits (Stand 15.11.2026)
 - `frontend/src/Fehlergrenze.jsx` um die ganze Oberfläche (`main.jsx`) und um den Inhaltsbereich (`App.jsx`, Navigation bleibt
   bedienbar): Meldung + „Neu laden“ statt weißer Seite.
@@ -289,6 +332,8 @@ Fachregeln, Rechenkern, Generator. Die Oberfläche soll Masken aus dieser Beschr
 - **Phase 2d (umgesetzt 14.11.2026, Abnahme offen):** Projektname, Auftraggeber/Kunde/Objekt, „Berichte adressiert an“, Ablaufgrafik im Cockpit.
 - **Phase 2e (umgesetzt 14.11.2026, Abnahme offen):** Plausibilität der Wohneinheiten mit „Wohneinheiten geprüft“, Angebotsvorlagen A–D, Generator 0.4.2.
 - **Phase 2b (umgesetzt 13.11.2026, Abnahme offen):** Beratungsbericht INIT mit KI-Textvorschlägen (siehe Abschnitte oben).
+- **Phase 2f (umgesetzt 16.11.2026, Abnahme offen):** Wöchentliche Förderprüfung mit Meldungen und E-Mail an Empfänger, Stand-Angabe
+  „Förderbedingungen Stand … (interne Version N)“, Generator 0.4.3.
 - **Phase 2:** MEH (danach) und Kirche nach demselben Muster; INIT und MEH mit KI (Checklisten-Erkennung, Fotozuordnung) – vorhandene Generatoren `generate_report.js` aus den Skills einbinden.
 - **Phase 3:** Kirche. **Phase 4:** Änderungs-Monitor für Förderquellen, Freigabe-Workflow, Anbindung IR-Planer.
 
