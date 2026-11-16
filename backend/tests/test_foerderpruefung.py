@@ -333,3 +333,32 @@ def test_kommandozeile(monkeypatch, capsys):
     assert "Status offen" in aus and "3 Abweichung(en)" in aus and "7 Suchen" in aus
     ersatz(monkeypatch, fehler=KiFehler(504, "Zeitlimit"))
     assert foerderpruefung.main([]) == 1 and "Zeitlimit" in capsys.readouterr().out
+
+
+# ---------- Fehlermeldungen der API (Abnahme 16.11.2026: „Status 200“ war nicht verständlich) ----------
+
+def _api_fehler(klasse, status, body):
+    import anthropic
+    import httpx
+    antwort = httpx.Response(status, request=httpx.Request("POST", "https://api.anthropic.com/v1/messages"))
+    return getattr(anthropic, klasse)("fehler", response=antwort, body=body)
+
+
+@pytest.mark.parametrize("klasse, status, body, erwartet, code", [
+    ("BadRequestError", 400, {"type": "error", "error": {"type": "invalid_request_error",
+                                                         "message": "Your credit balance is too low to access the Anthropic API."}},
+     "Guthaben des KI-Zugangs ist aufgebraucht", 503),
+    ("APIStatusError", 200, {"type": "error", "error": {"type": "overloaded_error", "message": "Overloaded"}}, "überlastet", 503),
+    ("APIStatusError", 200, {"type": "error", "error": {"type": "api_error", "message": "Internal"}},
+     "mittendrin abgebrochen (api_error)", 502),
+    ("APIStatusError", 200, {"type": "error", "error": {"type": "invalid_request_error", "message": "credit balance is too low"}},
+     "Guthaben", 503),
+    ("BadRequestError", 400, {"type": "error", "error": {"type": "invalid_request_error", "message": "tools: unbekannt"}},
+     "abgelehnt: tools: unbekannt", 502),
+    ("InternalServerError", 500, None, "Status 500", 502),
+])
+def test_api_fehler_werden_verstaendlich(klasse, status, body, erwartet, code):
+    from app.ki.anthropic_anbieter import _status_fehler
+    f = _status_fehler(_api_fehler(klasse, status, body))
+    assert erwartet in f.meldung and f.status == code
+    assert "Status 200" not in f.meldung

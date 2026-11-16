@@ -47,12 +47,29 @@ def _stream(client, anfrage: dict, frist: float, zeitlimit: float):
         raise KiFehler(503, "Der KI-Zugang hat keine Berechtigung für dieses Modell oder Werkzeug. Bitte einen Admin informieren.") from None
     except anthropic.RateLimitError:
         raise KiFehler(503, "Die KI ist gerade ausgelastet (Ratenlimit). Bitte in einigen Minuten erneut versuchen.") from None
-    except anthropic.BadRequestError as fehler:
-        raise KiFehler(502, f"Die KI hat die Anfrage abgelehnt: {str(fehler.message)[:300]}") from None
     except anthropic.APIStatusError as fehler:
-        raise KiFehler(502, f"Die KI hat mit einem Fehler geantwortet (Status {fehler.status_code}). Bitte später erneut versuchen.") from None
+        raise _status_fehler(fehler) from None
     except anthropic.APIConnectionError:
         raise KiFehler(503, "Die KI ist nicht erreichbar (Netzwerk). Bitte später erneut versuchen.") from None
+
+
+def _status_fehler(fehler: "anthropic.APIStatusError") -> KiFehler:
+    """Fehlerantwort der API → verständliche Meldung. Bricht der Antwortstrom mittendrin ab, kommt der Fehler als Ereignis
+    im Strom (HTTP-Status 200) – dann zählt der Fehlertyp aus dem Inhalt (z. B. overloaded_error), nicht der Status."""
+    koerper = fehler.body if isinstance(fehler.body, dict) else {}
+    inhalt = koerper.get("error") if isinstance(koerper.get("error"), dict) else koerper
+    art, text = str(inhalt.get("type") or ""), str(inhalt.get("message") or getattr(fehler, "message", "") or "")
+    if "credit balance" in text.lower():
+        return KiFehler(503, "Das Guthaben des KI-Zugangs ist aufgebraucht. Bitte einen Admin informieren "
+                             "(Anthropic Console → Plans & Billing).")
+    if art == "overloaded_error":
+        return KiFehler(503, "Die KI ist gerade überlastet. Bitte in einigen Minuten erneut versuchen.")
+    if isinstance(fehler, anthropic.BadRequestError) or art == "invalid_request_error":
+        return KiFehler(502, f"Die KI hat die Anfrage abgelehnt: {text[:300]}")
+    if fehler.status_code == 200:
+        return KiFehler(502, f"Die KI hat die Antwort mittendrin abgebrochen ({art or 'unbekannter Fehler'}). "
+                             "Bitte später erneut versuchen.")
+    return KiFehler(502, f"Die KI hat mit einem Fehler geantwortet (Status {fehler.status_code}). Bitte später erneut versuchen.")
 
 
 def _schluessel_pruefen():

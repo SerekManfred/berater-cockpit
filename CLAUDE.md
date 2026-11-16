@@ -259,6 +259,8 @@ Ausführliches Fachkonzept: `docs/Konzept_Berater-Cockpit.docx` (falls abgelegt)
   `COCKPIT_URL`), keine Mail bei „keine Abweichung“. (2) Einreichen eines Entwurfs → „Konditionen-Version N wartet auf Freigabe“
   (Hintergrund, nicht an den Einreicher). Fehler werfen nie: Ergebnis in `benachrichtigung`, Protokoll `mail_versendet` /
   `mail_fehlgeschlagen` (nur Art, Anzahl, Benutzer-IDs). `SMTP_NUR_PROTOKOLL=true`: nur Log (Tests).
+- API-Fehler (`_status_fehler` in `app/ki/anthropic_anbieter.py`): Abbruch mitten im Strom kommt als HTTP 200 mit Fehlertyp im
+  Inhalt – Meldung nennt den Typ; leeres Guthaben → „Guthaben des KI-Zugangs ist aufgebraucht“ (Abnahme 16.11.2026).
 - Protokoll: `foerderpruefung_lauf` (Status, Abweichungen, Suchen, Kosten, Dauer), `foerderpruefung_fehlgeschlagen`,
   `foerder_meldung_entwurf`, `foerder_meldung_verworfen`.
 - Oberfläche (`frontend/src/Foerderpruefung.jsx`): Startseite „Handlungsbedarf Förderkonditionen“ (Empfänger, Prüfer, Admins),
