@@ -298,7 +298,7 @@ def ki_eingabe(daten: dict, objekt: dict, kond: dict, fotos: list[dict]) -> str:
         "checkliste": daten.get("checkliste") or {},
         "photovoltaik": daten.get("pv") or {},
         "verbrauch": daten.get("verbrauch") or {},
-        "foerderwahl": {k: (daten.get("foerder") or {}).get(k) for k in ("klimabonus", "einkommensbonus", "eh_stufe", "eh_wpb")},
+        "foerderwahl": {k: (daten.get("foerder") or {}).get(k) for k in ("klimabonus", "einkommensbonus", "eh_stufe", "eh_wpb", "eh_sersan")},
         "notizen_des_beraters": daten.get("notizen") or "",
     }
     konditionen = konditionen_fuer_ki(kond)

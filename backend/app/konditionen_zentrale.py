@@ -104,6 +104,8 @@ PROGRAMME = [
         *[F(f"beg_wg.tilgungszuschuss.{s}", f"Tilgungszuschuss {EH_TEXT[s]}", "prozent", kern=s in ("EH40EE", "EH55EE")) for s in EH],
         F("beg_wg.wpb_bonus", "WPB-Bonus", "prozent", kern=True),
         F("beg_wg.wpb_bonus_stufen", "WPB-Bonus für die Stufen", "mehrfach", optionen=STUFEN_OPTIONEN),
+        # Bonus serielle Sanierung je Stufe (Merkblatt 261, Stand 09/2026; ab Version 3), Anteil wie der Tilgungszuschuss
+        *[F(f"beg_wg.sersan_bonus.{s}", f"Bonus serielle Sanierung {EH_TEXT[s]} (ab Version 3)", "prozent", kern=True) for s in EH],
         F("beg_wg.kredit_je_we", "Kreditrahmen je WE", "euro", kern=True),
         F("beg_wg.tilgungszuschuss_max", "Tilgungszuschuss – Höchstsatz inkl. Boni (ab Version 3)", "prozent", kern=True),
         *baubegleitung("beg_wg"),

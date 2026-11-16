@@ -14,6 +14,7 @@ felder:
   - { id: isfp, label: "iSFP wird erstellt", typ: ja_nein, standard: true }
   - { id: eh_stufe, label: "Effizienzhaus-Stufe", typ: auswahl, optionen: [EH40EE, EH55EE, EH70EE, EH85EE], standard: EH55EE }
   - { id: ee_klasse_erreichbar, label: "EE-Klasse rechnerisch erreichbar", typ: ja_nein, pflicht: true }
+  - { id: serielle_sanierung, label: "Serielle Sanierung (KfW 261 Bonus)", typ: ja_nein, standard: false }
   - { id: kfw266, label: "KfW 266 (Umnutzung zu Wohnraum)", typ: ja_nein }
   - { id: we_neu, label: "Davon neue WE", typ: zahl, sichtbar_wenn: kfw266 }
   - { id: umbaukosten_neue_we, label: "Umbaukosten neue WE (nicht energetisch)", typ: euro, sichtbar_wenn: kfw266 }

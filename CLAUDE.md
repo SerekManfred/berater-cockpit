@@ -247,9 +247,12 @@ Ausführliches Fachkonzept: `docs/Konzept_Berater-Cockpit.docx` (falls abgelegt)
 - **Prompt v2** (`foerderpruefung_v2.md`, `PROMPT-VERSION: foerderpruefung-2`): verlangt ausdrücklich, leere/fehlende Felder zu
   melden, wenn die Quelle einen Wert nennt (`hinterlegt: null`); in der Eingabe sind sie mit `"leer": true` markiert. v1 bleibt liegen.
 - **Keine falsche Entwarnung:** liest die gründliche Prüfung kein einziges Dokument (`merkblaetter` leer, z. B. Websuche
-  ausgefallen), gilt der Lauf als fehlgeschlagen – nie „keine Abweichung“. `lauf.werkzeug_fehler` zählt Fehler der Server-Werkzeuge.
+  ausgefallen), gilt der Lauf als fehlgeschlagen – nie „keine Abweichung“. `lauf.werkzeug_fehler` zählt Fehler der Server-Werkzeuge,
+  `lauf.werkzeug_fehler_details` nennt Typ, Code und letzte Zeile der Fehlermeldung. Auswertung 16.11.2026 (Opus, 12 Suchen):
+  Fehler sind eigene Programmierfehler des Modells im Filtercode (behebt es selbst) und „Server tool use limit exceeded“ –
+  begrenzend waren die 3 Abrufe, nicht die Suchen (8 von 12 genutzt).
 - KI über `app/ki/` (`websuche()`, Regel 7): `web_search_20260209` mit `allowed_domains` kfw.de, bafa.de, energiewechsel.de,
-  bmwk.de, bmwe.de, gesetze-im-internet.de, `max_uses` = `FOERDERPRUEFUNG_MAX_SUCHEN` (8), dazu `web_fetch_20260209` auf
+  bmwk.de, bmwe.de, gesetze-im-internet.de, `max_uses` = `FOERDERPRUEFUNG_MAX_SUCHEN` (12), dazu `web_fetch_20260209` auf
   denselben Domains (`FOERDERPRUEFUNG_MAX_ABRUFE`, 3, je Dokument höchstens `FOERDERPRUEFUNG_ABRUF_MAX_TOKENS` 60.000). Zeitlimit
   600 s, `pause_turn` wird fortgesetzt. Prompt `app/ki/prompts/foerderpruefung_v2.md` (`PROMPT-VERSION: foerderpruefung-2`).
   Kostenschätzung (`kosten_usd`): Cache schreiben 1,25 × Eingabe, Cache lesen nach Preisliste (Sonnet/Opus 5.5: 5 % der Eingabe).
@@ -289,6 +292,23 @@ Ausführliches Fachkonzept: `docs/Konzept_Berater-Cockpit.docx` (falls abgelegt)
   (Patch `backend_stand_text.patch`), Word-Fördervergleich ab Generator 0.4.3, Oberfläche aus `konditionen_stand` (Rechnen,
   gespeicherter Bericht; `app/rechnen.py: konditionen_stand()`).
 
+## KfW 261: WPB-Bonus und serielle Sanierung (Fachkorrektur Geschäftsführer 16.11.2026, Merkblatt 261 Stand 09/2026)
+- WPB-Bonus (+10 Prozentpunkte) nur für die Stufen in `beg_wg.wpb_bonus_stufen` (EH 40/55/70 EE – nicht EH 85, nicht Denkmal).
+  Bonus serielle Sanierung je Stufe in `beg_wg.sersan_bonus` (EH 40/55: 15 %, EH 70: 5 %, sonst 0; Pflichtfeld ab Version 3).
+  NH-Stufen kennt das Cockpit (noch) nicht – nur EE-Stufen und Denkmal.
+- Eingabe: Fördervergleich `serielle_sanierung`, INIT `foerder.eh_sersan` (Häkchen in der Oberfläche). Konditionen ohne
+  `sersan_bonus` (Version 1/2) → kein Bonus, Hinweis „nicht hinterlegt“.
+- **Der Bonus zählt zum Tilgungszuschuss** (der Generator kennt keinen eigenen Posten und wird nicht geändert): Fördervergleich →
+  Posten `tilgungszuschuss` (Titel „… + serielle Sanierung“, Hinweis mit Satz); INIT → `eh_tilgung_basis` = Stufe + SerSan
+  (`eh_tilgung_stufe`, `eh_sersan_bonus` getrennt in den Werten), Bezeichnung „Effizienzhaus 70 EE + Bonus serielle Sanierung“,
+  damit die Herleitung im Bericht stimmt. Höchstsatz `tilgungszuschuss_max` (ab Version 3) begrenzt Stufe + SerSan + WPB in beiden Kernen.
+- **INIT-Fehler behoben:** der WPB-Bonus galt bisher für jede Stufe; jetzt wie im Fördervergleich nur für `wpb_bonus_stufen`
+  (`eh_wpb` in den Werten = Bonus greift; im Bericht `eh_ziel.wpb` entsprechend). Der Golden-Test (Skill-Formel `rechne`) bleibt unverändert.
+- Version 3 wurde am 16.11.2026 freigegeben, bevor die Korrektur eingetragen war (ohne `sersan_bonus` → serielle Sanierung
+  „nicht hinterlegt“). Deshalb **Entwurf Version 4** = Version 3 + `app/konditionen/korrektur_kfw261_v3.json` per
+  `python -m app.cli konditionen-entwurf … --notiz …` (Ersteller Kommandozeile, Vier-Augen-Freigabe offen). Offene Entwürfe lassen
+  sich mit `konditionen-entwurf-ergaenzen VERSION DATEI… --notiz …` ergänzen. Tests: `tests/test_kfw261_boni.py`.
+
 ## Fehlergrenze und Zeitlimits (Stand 15.11.2026)
 - `frontend/src/Fehlergrenze.jsx` um die ganze Oberfläche (`main.jsx`) und um den Inhaltsbereich (`App.jsx`, Navigation bleibt
   bedienbar): Meldung + „Neu laden“ statt weißer Seite.
@@ -301,8 +321,8 @@ Ausführliches Fachkonzept: `docs/Konzept_Berater-Cockpit.docx` (falls abgelegt)
   `foerderung.rechenkern`. Rundung wie `Math.round` (gleich wie der Skill; Golden-Test `tests/test_init_foerderung.py`, 2.240 Fälle).
   Der Generator entfernt `foerderung.saetze`/`uebersicht` und lehnt ohne `rechenkern` ab (422). Rechner `bericht-init` in `RECHNER`;
   über die allgemeinen Routen `/projekte/{id}/berichte` und `/berichte/{id}/neue-version` **nicht** speicherbar (`NUR_UEBER_ENTWURF`).
-- **Konditionen ab Version 3:** Programme `kfw_458` und `steuer_35c`, dazu `beg_em.isfp_bonus_mindestbetrag`, `beg_wg.tilgungszuschuss_max`
-  (Startwerte `app/konditionen/ergaenzung_init_v3.json`). Pflicht in jeder neuen Version. Aktive Version ohne `kfw_458` → 422
+- **Konditionen ab Version 3:** Programme `kfw_458` und `steuer_35c`, dazu `beg_em.isfp_bonus_mindestbetrag`, `beg_wg.tilgungszuschuss_max`,
+  `beg_wg.sersan_bonus.<Stufe>` (Startwerte `app/konditionen/ergaenzung_init_v3.json`). Pflicht in jeder neuen Version. Aktive Version ohne `kfw_458` → 422
   „Konditionen ohne KfW 458 – Version 3 freigeben“. Einkommensbonus nur 0 oder eine Stufe aus `kfw_458.einkommensbonus_stufen`.
   CLI: `konditionen-entwurf DATEI.json [DATEI2.json …]` ergänzt einzelne Felder der aktiven Version.
 - **Generator 0.4.0:** `POST /bericht/init` mit `{daten, bilder}`; Bildverweise immer `bilder/<name>`; Fotos verkleinert das Backend

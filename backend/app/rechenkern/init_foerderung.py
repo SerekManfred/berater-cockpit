@@ -24,6 +24,7 @@ class InitEingaben:
     einkommensbonus: float = 0.0      # 0, 0.10, 0.30 oder 0.40
     eh_stufe: str | None = None       # z. B. "EH55EE"; None = kein Effizienzhaus-Ziel
     eh_wpb: bool = False
+    eh_sersan: bool = False           # Bonus serielle Sanierung (KfW 261)
 
 
 def saetze_aus_konditionen(k: dict) -> dict:
@@ -100,10 +101,28 @@ def init_foerderung(e: InitEingaben, kond: dict) -> dict:
     else:
         we_eigen = e.we_eigen or 0
         we_verm = max(e.we - we_eigen, 0) if e.we_verm is None else e.we_verm
-    tilgung = None
+    tilgung, wpb, sersan, hinweise = None, False, 0.0, []
     if e.eh_stufe:
-        if e.eh_stufe not in kond["beg_wg"]["tilgungszuschuss"]:
+        wg = kond["beg_wg"]
+        if e.eh_stufe not in wg["tilgungszuschuss"]:
             raise ValueError(f"Unbekannte EH-Stufe {e.eh_stufe}")
-        tilgung = kond["beg_wg"]["tilgungszuschuss"][e.eh_stufe]
-    werte = rechne(fs, e.we, we_eigen, we_verm, e.klimabonus, e.einkommensbonus, tilgung, e.eh_wpb)
+        stufe_satz = wg["tilgungszuschuss"][e.eh_stufe]
+        # WPB-Bonus nur für die Stufen laut Konditionen (Merkblatt 261: EH 40/55/70, nicht EH 85 und Denkmal)
+        wpb = e.eh_wpb and e.eh_stufe in wg.get("wpb_bonus_stufen", [])
+        if e.eh_wpb and not wpb:
+            hinweise.append("WPB-Bonus für diese Stufe nicht vorgesehen")
+        if e.eh_sersan:
+            tabelle = wg.get("sersan_bonus")
+            if tabelle is None:
+                hinweise.append("Bonus serielle Sanierung ist in dieser Konditionen-Version nicht hinterlegt")
+            elif not tabelle.get(e.eh_stufe):
+                hinweise.append("Bonus serielle Sanierung für diese Stufe nicht vorgesehen")
+            else:
+                sersan = tabelle[e.eh_stufe]
+        # Der Bonus serielle Sanierung zählt zum Satz der Stufe – so stimmt die Herleitung im Bericht
+        # („x % (EH … + Bonus serielle Sanierung) + 10 % WPB-Bonus = y %“); der Höchstsatz begrenzt in rechne().
+        tilgung = stufe_satz + sersan
+    werte = rechne(fs, e.we, we_eigen, we_verm, e.klimabonus, e.einkommensbonus, tilgung, wpb)
+    werte.update({"eh_tilgung_stufe": None if tilgung is None else tilgung - sersan, "eh_sersan_bonus": sersan,
+                  "eh_wpb": wpb, "eh_hinweise": hinweise})
     return {"konditionen_version": kond["version"], "saetze": fs, "werte": werte}

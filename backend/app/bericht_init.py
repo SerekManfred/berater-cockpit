@@ -125,6 +125,7 @@ class FoerderIn(_Frei):
     einkommensbonus: float = Field(0.0, ge=0, le=1)
     eh_stufe: str | None = None
     eh_wpb: bool = False
+    eh_sersan: bool = False                                    # Bonus serielle Sanierung (KfW 261)
     kosten_einzel: float | None = Field(None, ge=0)          # nur vom Berater (Goldene Regel 1 des Skills)
     kosten_effizienzhaus: float | None = Field(None, ge=0)
 
@@ -308,7 +309,8 @@ def _foerder_eingaben(d: dict) -> InitFoerderEingaben:
     try:
         return InitFoerderEingaben(we=f.get("we") or 0, we_eigen=f.get("we_eigen"), we_verm=f.get("we_verm"),
                                    klimabonus=bool(f.get("klimabonus")), einkommensbonus=float(f.get("einkommensbonus") or 0),
-                                   eh_stufe=f.get("eh_stufe") or None, eh_wpb=bool(f.get("eh_wpb")))
+                                   eh_stufe=f.get("eh_stufe") or None, eh_wpb=bool(f.get("eh_wpb")),
+                                   eh_sersan=bool(f.get("eh_sersan")))
     except ValidationError as fehler:
         meldung = "; ".join(str(x.get("msg", "")).removeprefix("Value error, ") for x in fehler.errors())
         raise HTTPException(422, f"Förderangaben unvollständig oder ungültig: {meldung}") from None
@@ -678,8 +680,10 @@ def generator_daten(p: Projekt, d: dict, z: dict, rk: dict, kond: dict, version:
             "quellen": _quellen(kond),
             "kfw458": {"klimageschwindigkeit": "ja" if f.get("klimabonus") else "nein",
                        "einkommensbonus": f"{float(f.get('einkommensbonus') or 0) * 100:.0f}" if f.get("einkommensbonus") else "nein"},
-            **({"eh_ziel": {"label": EH_LABEL.get(f["eh_stufe"], f["eh_stufe"]), "tilgung": w["eh_tilgung_basis"],
-                            "wpb": bool(f.get("eh_wpb"))}} if f.get("eh_stufe") else {}),
+            **({"eh_ziel": {"label": EH_LABEL.get(f["eh_stufe"], f["eh_stufe"])
+                                     + (" + Bonus serielle Sanierung" if w.get("eh_sersan_bonus") else ""),
+                            "tilgung": w["eh_tilgung_basis"],
+                            "wpb": bool(w.get("eh_wpb", f.get("eh_wpb")))}} if f.get("eh_stufe") else {}),
             **({"kosten_einzel": f["kosten_einzel"]} if f.get("kosten_einzel") is not None else {}),
             **({"kosten_effizienzhaus": f["kosten_effizienzhaus"]} if f.get("kosten_effizienzhaus") is not None else {}),
             "rechenkern": rk,

@@ -71,7 +71,7 @@ FOERDERPRUEFUNG_AKTIV = _schalter(os.environ.get("FOERDERPRUEFUNG_AKTIV"), False
 # Vorprüfung Sonnet 5.5
 FOERDERPRUEFUNG_MODELL = os.environ.get("FOERDERPRUEFUNG_MODELL", "claude-opus-5-5").strip() or "claude-opus-5-5"
 FOERDERPRUEFUNG_VOR_MODELL = os.environ.get("FOERDERPRUEFUNG_VOR_MODELL", "claude-sonnet-5-5").strip() or "claude-sonnet-5-5"
-FOERDERPRUEFUNG_MAX_SUCHEN = _zahl("FOERDERPRUEFUNG_MAX_SUCHEN", 8)      # Websuchen der gründlichen Prüfung (10 $ je 1.000 Suchen)
+FOERDERPRUEFUNG_MAX_SUCHEN = _zahl("FOERDERPRUEFUNG_MAX_SUCHEN", 12)     # gründliche Prüfung (16.11.: 8 reichten nicht für alle Felder)
 FOERDERPRUEFUNG_MAX_ABRUFE = _zahl("FOERDERPRUEFUNG_MAX_ABRUFE", 3, 0)   # Seiten/Merkblätter direkt lesen (nur Treffer der Suche)
 FOERDERPRUEFUNG_ABRUF_MAX_TOKENS = _zahl("FOERDERPRUEFUNG_ABRUF_MAX_TOKENS", 60000, 5000)  # Länge je abgerufenem Dokument
 # Stufe 1 (Vorprüfung): nur Stand-Angaben der Merkblätter und Pressemitteilungen; gründlich nur bei Änderung/Unklarheit

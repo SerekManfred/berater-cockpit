@@ -339,7 +339,8 @@ def vor_auswerten(rohtext: str) -> tuple[bool, dict]:
 
 
 def _summe(a: dict, b: dict) -> dict:
-    return {k: (a.get(k) or 0) + (b.get(k) or 0) for k in set(a) | set(b)}
+    return {k: (a.get(k) or []) + (b.get(k) or []) if isinstance(a.get(k, b.get(k)), list) else (a.get(k) or 0) + (b.get(k) or 0)
+            for k in set(a) | set(b)}
 
 
 # ---------- Lauf ----------
@@ -427,7 +428,8 @@ def lauf_ausfuehren(db: Session, ausgeloest_von_id: int | None, voll: bool = Fal
         ergebnis["vorpruefung"] = {**vor, "lauf": vor_lauf}
     ergebnis["lauf"] = {"art": art, "stufe": "voll" if voll else "vorpruefung", "modell": modell, "prompt_version": version,
                         "dauer_s": round(time.monotonic() - beginn, 1), "suchen": nutzung.get("suchen", 0),
-                        "abrufe": nutzung.get("abrufe", 0), "werkzeug_fehler": nutzung.get("werkzeug_fehler", 0), "tokens": {k: v for k, v in nutzung.items() if k.endswith("tokens")},
+                        "abrufe": nutzung.get("abrufe", 0), "werkzeug_fehler": nutzung.get("werkzeug_fehler", 0),
+                        "werkzeug_fehler_details": (nutzung.get("werkzeug_fehler_details") or [])[:30], "tokens": {k: v for k, v in nutzung.items() if k.endswith("tokens")},
                         "kosten_usd": None if None in kosten.values() else round(sum(kosten.values()), 4),
                         "kosten_stufen": kosten, "domains": list(config.FOERDERPRUEFUNG_DOMAINS)}
     status = "offen" if ergebnis["abweichungen"] else "keine_abweichung"

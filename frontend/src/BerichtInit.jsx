@@ -254,6 +254,7 @@ function DatenSchritt({ d, e, kond, projekt, aendern }) {
         <div className="schalter">
           <label><input type="checkbox" checked={!!f.klimabonus} onChange={x => aendern("foerder.klimabonus", x.target.checked)} /> Klimageschwindigkeitsbonus (KfW 458)</label>
           <label><input type="checkbox" checked={!!f.eh_wpb} onChange={x => aendern("foerder.eh_wpb", x.target.checked)} /> Worst Performing Building (WPB)</label>
+          <label><input type="checkbox" checked={!!f.eh_sersan} onChange={x => aendern("foerder.eh_sersan", x.target.checked)} /> Serielle Sanierung (Bonus KfW 261)</label>
         </div>
         <WeHinweise hinweise={e.wohneinheiten?.hinweise} onUebernehmen={w => aendern("foerder.we", w)} />
         <p className="klein">Klimabonus nur beim Austausch einer funktionstüchtigen fossilen Heizung – bei einer Gasheizung nur, wenn die Inbetriebnahme mindestens 20 Jahre zurückliegt.
@@ -445,6 +446,8 @@ function ErzeugenSchritt({ e, geaendert, laeuft, darf, onErzeugen, onWeGeprueft 
               <tr><td>§ 35c EStG – Steuerermäßigung</td><td className="z">{v.saetze.steuer_quote}</td><td className="z">{eur(v.saetze.steuer_kosten_objekt)} / Objekt</td><td className="z">{eur(v.saetze.steuer_max_objekt)} / Objekt</td></tr>
             </tbody>
           </table></div>
+          {w.eh_sersan_bonus > 0 && <p className="klein">Tilgungszuschuss inkl. Bonus serielle Sanierung +{proz(w.eh_sersan_bonus)}.</p>}
+          {(w.eh_hinweise || []).map(h => <p key={h} className="info" role="status">{h}</p>)}
         </>}
       </section>
       <WeBestaetigung we={e.wohneinheiten} darf={darf && !geaendert} onBestaetigen={onWeGeprueft} wofuer="dem Erzeugen" />

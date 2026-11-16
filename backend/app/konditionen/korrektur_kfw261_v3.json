@@ -1,0 +1,8 @@
+{
+ "_hinweis": "Fachkorrektur KfW 261 laut Merkblatt 261, Stand 09/2026 (Geschäftsführer 16.11.2026): WPB-Bonus +10 Prozentpunkte nur für EH 40, 55 und 70 (nicht EH 85 und Denkmal); Bonus serielle Sanierung +15 bei EH 40 und 55, +5 bei EH 70, sonst keiner. Version 3 war bereits freigegeben – eingespielt als Entwurf Version 4 (python -m app.cli konditionen-entwurf …).",
+ "beg_wg": {
+  "quelle": "KfW-Hausbankenmitteilung 61/2026 (20.07.2026); Produktseite KfW 261; KfW-Merkblatt 261 (Stand 09/2026)",
+  "wpb_bonus_stufen": ["EH40EE", "EH55EE", "EH70EE"],
+  "sersan_bonus": { "EH40EE": 0.15, "EH55EE": 0.15, "EH70EE": 0.05, "EH85EE": 0.0, "DenkmalEE": 0.0 }
+ }
+}

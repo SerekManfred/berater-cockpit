@@ -53,6 +53,7 @@ class Eingaben:
     isfp: bool = True
     eh_stufe: str = "EH55EE"
     ee_klasse_erreichbar: bool = True
+    serielle_sanierung: bool = False   # KfW 261 Bonus serielle Sanierung (Satz je Stufe aus beg_wg.sersan_bonus)
     kfw266: bool = False
     we_neu: int = 0
     umbaukosten_neue_we: float = 0.0
@@ -195,12 +196,33 @@ def effizienzhaus(e: Eingaben, kond: dict, wpb: bool) -> Szenario:
         s.hinweise.append("Nicht förderfähig: EE-Klasse ist Pflicht")
         return s
     ff = min(sum(m.kosten for m in e.massnahmen if m.eh_foerderfaehig), wg["kredit_je_we"] * e.we_nach_sanierung)
-    s.zuschuesse["tilgungszuschuss"] = _r(wg["tilgungszuschuss"][e.eh_stufe] * ff)
+    satz = wg["tilgungszuschuss"][e.eh_stufe]
+    # Bonus serielle Sanierung: Teil des Tilgungszuschusses (so auch im Word-Bericht unter „Tilgungszuschuss KfW 261“)
+    sersan = 0.0
+    if e.serielle_sanierung:
+        tabelle = wg.get("sersan_bonus")
+        if tabelle is None:
+            s.hinweise.append("Bonus serielle Sanierung ist in dieser Konditionen-Version nicht hinterlegt")
+        elif not tabelle.get(e.eh_stufe):
+            s.hinweise.append("Bonus serielle Sanierung für diese Stufe nicht vorgesehen")
+        else:
+            sersan = tabelle[e.eh_stufe]
+    wpb_satz = 0.0
     if wpb:
         if e.eh_stufe in wg["wpb_bonus_stufen"]:
-            s.zuschuesse["wpb_bonus"] = _r(wg["wpb_bonus"] * ff)
+            wpb_satz = wg["wpb_bonus"]
         else:
             s.hinweise.append("WPB-Bonus für diese Stufe nicht vorgesehen")
+    hoechst = wg.get("tilgungszuschuss_max")   # ab Version 3: Höchstsatz inkl. Boni
+    if hoechst is not None and satz + sersan + wpb_satz > hoechst + 1e-9:
+        sersan = max(0.0, hoechst - wpb_satz - satz)
+        s.hinweise.append(f"Höchstsatz Tilgungszuschuss inkl. Boni ({hoechst * 100:.0f} %) greift")
+    s.zuschuesse["tilgungszuschuss"] = _r((satz + sersan) * ff)
+    if sersan:
+        s.titel += " + serielle Sanierung"
+        s.hinweise.append(f"Tilgungszuschuss inkl. Bonus serielle Sanierung +{sersan * 100:.0f} %")
+    if wpb_satz:
+        s.zuschuesse["wpb_bonus"] = _r(wpb_satz * ff)
     s.zuschuesse["baubegleitung"] = _baubegleitung(e.we_nach_sanierung, e.bb_kosten("EH"), wg["baubegleitung"])
     s.angebotsweg = _angebotsweg(e, "EH", s.zuschuesse["baubegleitung"], wg["baubegleitung"]["satz"])
     s.kreditprogramm, s.kredit_pflicht = "KfW 261", True

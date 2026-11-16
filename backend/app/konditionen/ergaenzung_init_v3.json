@@ -1,7 +1,8 @@
 {
  "_hinweis": "Ergänzung für Konditionen-Version 3 (Phase 2b, INIT/MEH-Bericht). Werte = bisherige Standardwerte des INIT-Skills nach BEG-Reform 21.07.2026. Vor Freigabe im Vier-Augen-Prinzip gegen die Quellen prüfen.",
  "beg_em": { "isfp_bonus_mindestbetrag": 30000 },
- "beg_wg": { "tilgungszuschuss_max": 0.40 },
+ "beg_wg": { "tilgungszuschuss_max": 0.40,
+             "sersan_bonus": { "EH40EE": 0.15, "EH55EE": 0.15, "EH70EE": 0.05, "EH85EE": 0.0, "DenkmalEE": 0.0 } },
  "kfw_458": {
   "quelle": "KfW-Produktseite 458 und Hausbankenmitteilung 61/2026; Ökozentrum NRW Zusammenfassung BEG-Reform 18.08.2026",
   "geprueft_am": "2026-11-12",

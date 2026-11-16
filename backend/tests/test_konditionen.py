@@ -412,3 +412,31 @@ def test_referenzfall_mit_version_1_unveraendert():
     erg = berater.post("/module/foerderung-em-eh/berechnen", json={**REFERENZFALL, "konditionen_version": 1}).json()
     assert erg["konditionen_version"] == 1
     assert summen(erg) == SUMMEN_V1 == {"EM_ohne_WPB": 163600, "EM_WPB": 169155, "EH_ohne_WPB": 144355, "EH_WPB": 173065}
+
+
+def test_cli_entwurf_ergaenzen_fachkorrektur_kfw261(tmp_path, capsys):
+    """Offenen Entwurf um die Sätze der seriellen Sanierung ergänzen (Merkblatt 261, 09/2026)."""
+    ohne = json.loads(json.dumps(ERGAENZUNG))
+    del ohne["beg_wg"]["sersan_bonus"]                     # Stand des Entwurfs vor der Korrektur
+    datei = tmp_path / "ohne_sersan.json"
+    datei.write_text(json.dumps(ohne), encoding="utf-8")
+    assert cli.main(["konditionen-entwurf", str(KOND_DIR / "fachwerte_startbestand.json"), str(datei), "--notiz", "Version 3"]) == 0
+    with SessionLocal() as db:
+        v = db.scalar(select(KonditionenVersion).where(KonditionenVersion.status == "entwurf"))
+        nummer = v.version
+        assert any(f["pfad"] == "beg_wg.sersan_bonus.EH70EE" for f in pruefen(v.daten, v.aenderungsnotiz))  # Pflichtfeld
+    capsys.readouterr()
+    korrektur = str(KOND_DIR / "korrektur_kfw261_v3.json")
+    assert cli.main(["konditionen-entwurf-ergaenzen", str(nummer), korrektur, "--notiz", "Fachkorrektur KfW 261"]) == 0
+    aus = capsys.readouterr().out
+    assert "beg_wg.sersan_bonus.EH70EE" in aus and "Alle Prüfregeln erfüllt" in aus
+    with SessionLocal() as db:
+        v = db.scalar(select(KonditionenVersion).where(KonditionenVersion.version == nummer))
+        assert v.daten["beg_wg"]["sersan_bonus"] == {"EH40EE": 0.15, "EH55EE": 0.15, "EH70EE": 0.05, "EH85EE": 0.0, "DenkmalEE": 0.0}
+        assert v.daten["beg_wg"]["wpb_bonus_stufen"] == ["EH40EE", "EH55EE", "EH70EE"]
+        assert "Merkblatt 261 (Stand 09/2026)" in v.daten["beg_wg"]["quelle"] and v.daten["beg_wg"]["kredit_je_we"] == 150000
+        assert v.bearbeitet_von == [] and v.aenderungsnotiz.endswith("Fachkorrektur KfW 261") and v.aenderungsnotiz.startswith("Version 3")
+    assert "konditionen_entwurf_geaendert" in aktionen()
+    assert cli.main(["konditionen-entwurf-ergaenzen", str(nummer), korrektur, "--notiz", "x"]) == 0
+    assert "nichts geändert" in capsys.readouterr().out
+    assert cli.main(["konditionen-entwurf-ergaenzen", "1", korrektur, "--notiz", "x"]) == 1   # kein Entwurf

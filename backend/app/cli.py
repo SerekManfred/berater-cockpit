@@ -90,6 +90,41 @@ def konditionen_entwurf(dateien: list[str] | str, notiz: str) -> int:
     return 0
 
 
+def konditionen_entwurf_ergaenzen(version: int, dateien: list[str], notiz: str) -> int:
+    """Einen offenen Entwurf um die Abschnitte aus JSON-Dateien ergänzen (z. B. Fachkorrektur). Wie beim Anlegen per
+    Kommandozeile zählt keine Person als Bearbeiter – das Vier-Augen-Prinzip gilt beim Freigeben in der Oberfläche.
+    Die Notiz wird an die Änderungsnotiz angehängt; Protokoll konditionen_entwurf_geaendert mit den geänderten Feldern."""
+    import json
+    from pathlib import Path
+
+    from app.konditionen_zentrale import pruefen, uebernehmen, vergleichen
+    from app.modelle import KonditionenVersion
+    from app.protokoll import protokollieren
+
+    with SessionLocal() as db:
+        v = db.scalar(select(KonditionenVersion).where(KonditionenVersion.version == version).with_for_update())
+        if v is None or v.status != "entwurf":
+            print(f"Fehler: Version {version} ist kein offener Entwurf.", file=sys.stderr)
+            return 1
+        aenderungen: dict = {}
+        for datei in dateien:
+            _zusammenfuehren(aenderungen, json.loads(Path(datei).read_text(encoding="utf-8")))
+        neu = uebernehmen(v.daten, aenderungen)
+        geaendert = [z["pfad"] for z in vergleichen(v.daten, neu)]
+        if not geaendert:
+            print(f"Entwurf Version {version} enthält diese Werte bereits – nichts geändert.")
+            return 0
+        v.daten = neu
+        v.aenderungsnotiz = ((v.aenderungsnotiz or "").rstrip() + "\n\n" + notiz).strip()
+        protokollieren(db, None, "konditionen_entwurf_geaendert", None, version=v.version, felder=geaendert[:100],
+                       quelle="kommandozeile")
+        db.commit()
+        offen = pruefen(v.daten, v.aenderungsnotiz)
+        print(f"Entwurf Version {version} ergänzt: {', '.join(geaendert)}")
+        print("Alle Prüfregeln erfüllt." if not offen else f"Noch {len(offen)} offene Angabe(n), z. B. {offen[0]['pfad']}: {offen[0]['meldung']}")
+    return 0
+
+
 def main(argv=None) -> int:
     parser = argparse.ArgumentParser(prog="python -m app.cli", description="Berater-Cockpit – Verwaltung")
     befehle = parser.add_subparsers(dest="befehl", required=True)
@@ -98,11 +133,17 @@ def main(argv=None) -> int:
     k.add_argument("datei", nargs="+", help="JSON-Datei(en) mit den zu setzenden Abschnitten, "
                    "z. B. app/konditionen/ergaenzung_init_v3.json")
     k.add_argument("--notiz", required=True, help="Änderungsnotiz für die Prüfung")
+    g = befehle.add_parser("konditionen-entwurf-ergaenzen", help="Offenen Entwurf um Abschnitte aus JSON-Datei(en) ergänzen")
+    g.add_argument("version", type=int, help="Versionsnummer des offenen Entwurfs")
+    g.add_argument("datei", nargs="+", help="JSON-Datei(en), z. B. app/konditionen/korrektur_kfw261_v3.json")
+    g.add_argument("--notiz", required=True, help="wird an die Änderungsnotiz angehängt")
     args = parser.parse_args(argv)
     if args.befehl == "admin-anlegen":
         return admin_anlegen()
     if args.befehl == "konditionen-entwurf":
         return konditionen_entwurf(args.datei, args.notiz)
+    if args.befehl == "konditionen-entwurf-ergaenzen":
+        return konditionen_entwurf_ergaenzen(args.version, args.datei, args.notiz)
     return 2
 
 

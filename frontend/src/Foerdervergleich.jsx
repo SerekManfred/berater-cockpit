@@ -212,6 +212,7 @@ export function Foerdervergleich({ titel = "Fördervergleich Einzelmaßnahmen / 
         <div className="schalter">
           <label><input type="checkbox" checked={d.isfp} onChange={e => set("isfp", e.target.checked)} /> iSFP wird erstellt</label>
           <label><input type="checkbox" checked={d.ee_klasse_erreichbar} onChange={e => set("ee_klasse_erreichbar", e.target.checked)} /> EE-Klasse rechnerisch erreichbar</label>
+          <label><input type="checkbox" checked={!!d.serielle_sanierung} onChange={e => set("serielle_sanierung", e.target.checked)} /> Serielle Sanierung (Bonus KfW 261, Satz je Stufe laut Konditionen)</label>
           <label><input type="checkbox" checked={d.kfw266} disabled={frist266?.status === "abgelaufen" && !d.kfw266}
             onChange={e => setD(mitAngeboten({ ...d, kfw266: e.target.checked }, ang))} /> KfW 266 (Umnutzung zu Wohnraum)
             {frist266?.status === "abgelaufen" && <span className="frist-aus"> – Antragsfrist abgelaufen</span>}</label>

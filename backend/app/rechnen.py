@@ -92,6 +92,7 @@ class FoerdervergleichEingaben(BaseModel):
     isfp: bool = True
     eh_stufe: str = "EH55EE"
     ee_klasse_erreichbar: bool = True
+    serielle_sanierung: bool = False   # KfW 261 Bonus serielle Sanierung (nur Effizienzhaus)
     kfw266: bool = False
     we_neu: int = Field(0, ge=0)
     umbaukosten_neue_we: float = Field(0, ge=0)
@@ -148,6 +149,7 @@ class InitFoerderEingaben(BaseModel):
     einkommensbonus: float = 0.0                        # 0 oder eine Stufe aus kfw_458.einkommensbonus_stufen
     eh_stufe: str | None = None                         # z. B. "EH55EE"; leer = kein Effizienzhaus-Ziel
     eh_wpb: bool = False
+    eh_sersan: bool = False                             # KfW 261 Bonus serielle Sanierung
 
     @model_validator(mode="after")
     def _we(self):

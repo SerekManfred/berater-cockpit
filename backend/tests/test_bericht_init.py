@@ -558,3 +558,21 @@ def test_echter_generator_ohne_rechenkern_422():
     daten = {"kunde": {"name": "Test"}, "berichtsnummer": "2026-0001-V1", "objekt": {"wohneinheiten": "1"}, "foerderung": {}}
     r = httpx.post(os.environ["GENERATOR_TEST_URL"].rstrip("/") + "/bericht/init", json={"daten": daten, "bilder": {}}, timeout=60)
     assert r.status_code == 422 and "rechenkern" in r.json()["fehler"]
+
+
+@pytest.mark.parametrize("stufe, wpb, sersan, label, tilgung, wpb_im_bericht, foerder_satz", [
+    ("EH70EE", True, True, "Effizienzhaus 70 EE + Bonus serielle Sanierung", 0.05, True, 0.15),
+    ("EH85EE", True, False, "Effizienzhaus 85 EE", 0.0, False, 0.0),     # kein WPB-Bonus für EH 85 (Merkblatt 261)
+])
+def test_kfw261_boni_im_bericht(v3_aktiv, generator, stufe, wpb, sersan, label, tilgung, wpb_im_bericht, foerder_satz):
+    """Die Herleitung im Bericht („x % (Stufe) + 10 % WPB-Bonus = y %“) muss zu den Zahlen des Rechenkerns passen."""
+    berater = konto("berater")
+    p = efh(berater)
+    fertiger_entwurf(berater, p, eh_stufe=stufe, eh_wpb=wpb, eh_sersan=sersan)
+    alle_freigeben(berater, p["id"])
+    r = berater.post(f"/projekte/{p['id']}/bericht-init/erzeugen")
+    assert r.status_code == 201, r.text
+    daten = generator[-1]["daten"]["daten"]
+    w = daten["foerderung"]["rechenkern"]["werte"]
+    assert daten["foerderung"]["eh_ziel"] == {"label": label, "tilgung": pytest.approx(tilgung), "wpb": wpb_im_bericht}
+    assert w["eh_tilgung"] == pytest.approx(foerder_satz) and w["eh_foerder"] == round(foerder_satz * w["eh_kredit"])

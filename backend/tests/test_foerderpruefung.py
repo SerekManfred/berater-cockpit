@@ -376,7 +376,7 @@ def test_anfrage_mit_cache_aufwand_und_begrenzten_dokumenten():
     assert a["tools"][1]["max_content_tokens"] == 60000 and a["fallbacks"] == "default"
     assert "max_content_tokens" not in websuche_anfrage("m", "S", "T", ("kfw.de",), 3, 2)["tools"][1]
     assert config.FOERDERPRUEFUNG_MODELL == "claude-opus-5-5" and config.FOERDERPRUEFUNG_VOR_MODELL == "claude-sonnet-5-5"
-    assert (config.FOERDERPRUEFUNG_MAX_SUCHEN, config.FOERDERPRUEFUNG_MAX_ABRUFE) == (8, 3)
+    assert (config.FOERDERPRUEFUNG_MAX_SUCHEN, config.FOERDERPRUEFUNG_MAX_ABRUFE) == (12, 3)
 
 
 def test_kosten_mit_cache():
@@ -515,10 +515,13 @@ def test_werkzeugfehler_werden_gezaehlt():
                           server_tool_use=N(web_search_requests=2, web_fetch_requests=0)),
                   content=[N(type="web_search_tool_result", content=[N(url="https://kfw.de")]),
                            N(type="web_search_tool_result", content=N(error_code="max_uses_exceeded")),
-                           N(type="code_execution_tool_result", content=N(return_code=1))])
+                           N(type="code_execution_tool_result", content=N(return_code=1, stderr="Traceback …\nKeyError: 'content'"))])
     summe = {}
     _zaehlen(summe, nachricht)
     assert summe["werkzeug_fehler"] == 2 and summe["suchen"] == 2
+    assert summe["werkzeug_fehler_details"] == [{"typ": "web_search_tool_result", "code": "max_uses_exceeded"},
+                                                {"typ": "code_execution_tool_result", "code": "return_code 1", "text": "KeyError: 'content'"}]
+    assert foerderpruefung._summe({"a": 1, "l": [1]}, {"a": 2, "l": [2]}) == {"a": 3, "l": [1, 2]}
 
 
 

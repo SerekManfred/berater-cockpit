@@ -121,10 +121,18 @@ def _zaehlen(summe: dict, nachricht):
     # Fehler der Server-Werkzeuge kommen nicht als Ausnahme, sondern als Ergebnis-Block mit error_code (bzw. Rückgabecode ≠ 0)
     for block in getattr(nachricht, "content", None) or []:
         typ, inhalt = getattr(block, "type", ""), getattr(block, "content", None)
+        fehler = None
         if typ in ("web_search_tool_result", "web_fetch_tool_result") and getattr(inhalt, "error_code", None):
+            fehler = {"typ": typ, "code": str(inhalt.error_code)}
+        elif typ.endswith("code_execution_tool_result"):
+            rc = getattr(inhalt, "return_code", None) or getattr(block, "return_code", None)
+            if rc or getattr(inhalt, "error_code", None):
+                stderr = getattr(inhalt, "stderr", None) or getattr(block, "stderr", None) or ""
+                fehler = {"typ": typ, "code": str(getattr(inhalt, "error_code", None) or f"return_code {rc}"),
+                          "text": str(stderr).strip().splitlines()[-1][:300] if str(stderr).strip() else ""}
+        if fehler:   # Anzahl und Einzelheiten (Typ, Code, letzte Zeile der Fehlermeldung) für die Auswertung
             summe["werkzeug_fehler"] = summe.get("werkzeug_fehler", 0) + 1
-        elif typ.endswith("code_execution_tool_result") and (getattr(inhalt, "return_code", None) or getattr(block, "return_code", None)):
-            summe["werkzeug_fehler"] = summe.get("werkzeug_fehler", 0) + 1
+            summe.setdefault("werkzeug_fehler_details", []).append(fehler)
 
 
 class AnthropicAnbieter:

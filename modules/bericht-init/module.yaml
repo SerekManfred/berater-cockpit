@@ -30,6 +30,7 @@ felder_foerder:
   - { id: einkommensbonus, typ: auswahl, optionen: "kfw_458.einkommensbonus_stufen (Konditionen)" }
   - { id: eh_stufe, typ: auswahl, optionen: "beg_wg.tilgungszuschuss (Konditionen)" }
   - { id: eh_wpb, typ: ja_nein }
+  - { id: eh_sersan, typ: ja_nein }   # Bonus serielle Sanierung (KfW 261), Satz je Stufe aus beg_wg.sersan_bonus
 
 uploads:
   - { id: fotos, label: "Fotos", formate: [jpg, png, heic], hinweis: "Frontbild + Abschnitt + Bildunterschrift je Foto" }
