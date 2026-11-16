@@ -15,7 +15,7 @@ vi.mock("./api.js", async original => ({
   }),
 }));
 
-import { OffeneMeldungen, PruefungVeraltet, stufeText } from "./Foerderpruefung.jsx";
+import { OffeneMeldungen, PruefungVeraltet, kostenStufen, stufeText } from "./Foerderpruefung.jsx";
 import { standText } from "./Foerdervergleich.jsx";
 
 afterEach(() => { cleanup(); aufrufe.length = 0; antworten = {}; });
@@ -117,5 +117,14 @@ describe("Stufe der Prüfung", () => {
       .toBe("gründlich – Vorprüfung meldet mögliche Änderung");
     expect(stufeText({ lauf: {} })).toBe("gründlich");
     expect(stufeText(undefined)).toBe("gründlich");
+  });
+});
+
+describe("Kosten je Stufe", () => {
+  it("nennt Vorprüfung und gründliche Prüfung mit Modell", () => {
+    const e = { lauf: { modell: "claude-opus-5-5", kosten_stufen: { vorpruefung: 0.21, gruendlich: 1.1 } },
+                vorpruefung: { lauf: { modell: "claude-sonnet-5-5" } } };
+    expect(kostenStufen(e)).toBe("Vorprüfung ca. 0,21 US-$ (claude-sonnet-5-5) · gründlich ca. 1,1 US-$ (claude-opus-5-5)");
+    expect(kostenStufen({ lauf: { kosten_usd: 1 } })).toBeNull();
   });
 });

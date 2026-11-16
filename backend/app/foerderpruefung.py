@@ -42,7 +42,7 @@ log = logging.getLogger("cockpit.foerderpruefung")
 router = APIRouter(tags=["Förderprüfung"])
 BERLIN = ZoneInfo("Europe/Berlin")
 
-PROMPT_DATEI = Path(__file__).parent / "ki" / "prompts" / "foerderpruefung_v1.md"
+PROMPT_DATEI = Path(__file__).parent / "ki" / "prompts" / "foerderpruefung_v2.md"   # v2: auch leere Felder melden
 PROMPT_STAND_DATEI = Path(__file__).parent / "ki" / "prompts" / "foerderpruefung_stand_v1.md"
 VOR_ZEITLIMIT = 240.0                                       # Sekunden für Stufe 1
 OHNE_PRUEFUNG = ("allgemein", "fachwerte")                 # keine Förderwerte (Stand-Datum, Texte für den Bericht)
@@ -79,7 +79,10 @@ def programme_fuer_pruefung(kond: dict) -> list[dict]:
         for pfad, f in felder.items():
             if f["programm"] != pid:
                 continue
-            zeile = {"feld": pfad, "bezeichnung": f["label"], "typ": f["typ"], "hinterlegt": lesen_pfad(kond, pfad)}
+            wert = lesen_pfad(kond, pfad)
+            zeile = {"feld": pfad, "bezeichnung": f["label"], "typ": f["typ"], "hinterlegt": wert}
+            if wert is None or wert == "" or wert == []:
+                zeile["leer"] = True   # ausdrücklich prüfen (Prompt v2): fehlende Werte sind Lücken
             if f.get("optionen"):
                 zeile["optionen"] = [o[0] for o in f["optionen"]]
             zeilen.append(zeile)
@@ -370,22 +373,24 @@ def lauf_ausfuehren(db: Session, ausgeloest_von_id: int | None, voll: bool = Fal
         raise ki.KiFehler(429, f"Heute wurden bereits {config.FOERDERPRUEFUNG_MAX_LAEUFE_TAG} Prüfläufe gestartet (Kostenbremse). Bitte morgen erneut.")
     kond = lade_konditionen(db=db)
     art = "zeitplan" if ausgeloest_von_id is None else "manuell"
-    modell_cfg = config.FOERDERPRUEFUNG_MODELL
+    modell_cfg, vor_modell_cfg = config.FOERDERPRUEFUNG_MODELL, config.FOERDERPRUEFUNG_VOR_MODELL
     beginn = time.monotonic()
     basis = None if voll else basis_pruefung(db)
     if basis is not None and jetzt() - basis.zeit >= timedelta(days=config.FOERDERPRUEFUNG_VOLL_SPAETESTENS_TAGE):
         basis = None
-    vor, vor_lauf, nutzung, modell = None, None, {}, modell_cfg
+    vor, vor_lauf, nutzung, modell, kosten = None, None, {}, modell_cfg, {}
     try:
         if basis is not None:
             vor_version, vor_system = prompt(PROMPT_STAND_DATEI)
-            antwort = ki.anbieter(modell_cfg).websuche(
+            antwort = ki.anbieter(vor_modell_cfg).websuche(
                 vor_system, vor_eingabe_text(kond, basis), config.FOERDERPRUEFUNG_DOMAINS, config.FOERDERPRUEFUNG_VOR_SUCHEN,
                 0, VOR_ZEITLIMIT, effort="low", einfach=True)
             voll, vor = vor_auswerten(antwort.rohtext)
             nutzung, modell = dict(antwort.nutzung or {}), antwort.modell
+            kosten["vorpruefung"] = kosten_usd(antwort.modell, nutzung)
             vor_lauf = {"prompt_version": vor_version, "modell": antwort.modell, "basis_meldung_id": basis.id,
-                        "suchen": nutzung.get("suchen", 0), "kosten_usd": kosten_usd(antwort.modell, nutzung),
+                        "suchen": nutzung.get("suchen", 0), "kosten_usd": kosten["vorpruefung"],
+                        "tokens": {k: v for k, v in nutzung.items() if k.endswith("tokens")},
                         "dauer_s": round(time.monotonic() - beginn, 1)}
             vor_rohtext = antwort.rohtext
         else:
@@ -402,6 +407,7 @@ def lauf_ausfuehren(db: Session, ausgeloest_von_id: int | None, voll: bool = Fal
                 raise ki.KiFehler(502, "Die gründliche Prüfung hat keine Quelle gelesen (Websuche ohne verwertbare Treffer). "
                                        "Es wurde kein Ergebnis gespeichert – bitte später erneut prüfen.")
             voll_nutzung = dict(antwort.nutzung or {})
+            kosten["gruendlich"] = kosten_usd(antwort.modell, voll_nutzung)   # je Stufe mit dem Preis ihres Modells
             nutzung, modell = _summe(nutzung, voll_nutzung), antwort.modell
             ergebnis["rohtext"] = antwort.rohtext[:200_000]
         else:
@@ -422,7 +428,8 @@ def lauf_ausfuehren(db: Session, ausgeloest_von_id: int | None, voll: bool = Fal
     ergebnis["lauf"] = {"art": art, "stufe": "voll" if voll else "vorpruefung", "modell": modell, "prompt_version": version,
                         "dauer_s": round(time.monotonic() - beginn, 1), "suchen": nutzung.get("suchen", 0),
                         "abrufe": nutzung.get("abrufe", 0), "werkzeug_fehler": nutzung.get("werkzeug_fehler", 0), "tokens": {k: v for k, v in nutzung.items() if k.endswith("tokens")},
-                        "kosten_usd": kosten_usd(modell, nutzung), "domains": list(config.FOERDERPRUEFUNG_DOMAINS)}
+                        "kosten_usd": None if None in kosten.values() else round(sum(kosten.values()), 4),
+                        "kosten_stufen": kosten, "domains": list(config.FOERDERPRUEFUNG_DOMAINS)}
     status = "offen" if ergebnis["abweichungen"] else "keine_abweichung"
     m = FoerderMeldung(zeit=jetzt(), konditionen_version=kond["version"], ergebnis=ergebnis, status=status,
                        ausgeloest_von_id=ausgeloest_von_id)

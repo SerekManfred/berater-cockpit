@@ -232,22 +232,26 @@ Ausführliches Fachkonzept: `docs/Konzept_Berater-Cockpit.docx` (falls abgelegt)
   Oberfläche fragt `/foerderpruefung/lauf` ab). Vergleichswerte = **aktive Version aus der Datenbank**, alle Programme außer
   `allgemein`/`fachwerte`, Feldtypen prozent/euro/zahl/datum/janein/auswahl/mehrfach (inkl. Fristen und Baubegleitung).
 - **Zweistufig und kostenbegrenzt (Geschäftsführer 16.11.2026, Ziel < 1,50 $ je Lauf):** Opus 5.5 mit 15 Suchen/10 Abrufen
-  kostete 6,16 $. Jetzt Modell `FOERDERPRUEFUNG_MODELL` = `claude-sonnet-5-5`, Prompt-Caching (`cache_control` oben in der
+  kostete 6,16 $. **Modell je Stufe in der `.env`:** `FOERDERPRUEFUNG_VOR_MODELL` (Stufe 1, Standard `claude-sonnet-5-5`),
+  `FOERDERPRUEFUNG_MODELL` (Stufe 2, Standard `claude-opus-5-5` – Sonnet übersah den fehlenden iSFP-Mindestbetrag). Prompt-Caching (`cache_control` oben in der
   Anfrage – die Websuche liest bei jedem Zwischenschritt alle Treffer neu, aus dem Cache für 5 % des Preises).
   **Stufe 1** (`foerderpruefung_stand_v1.md`, `PROMPT-VERSION: foerderpruefung-stand-1`): nur Stand-Angaben der Merkblätter und
   Pressemitteilungen, verglichen mit den Merkblättern der letzten gründlichen Prüfung (`basis_pruefung`); einfache Websuche
   `web_search_20250305` (ohne Code-Ausführung – mit dynamischer Filterung verbrauchte Sonnet ein kleines `max_uses` durch
   wiederholte Suchen), `FOERDERPRUEFUNG_VOR_SUCHEN` (8), effort low. **Stufe 2** (gründlich, Prompt unten) nur bei Änderung,
   Unklarheit („null“, unlesbare Antwort), Pressemitteilung zu einem Programm, ohne frühere gründliche Prüfung oder nach
-  `FOERDERPRUEFUNG_VOLL_SPAETESTENS_TAGE` (56); `--voll` erzwingt sie. Testlauf 16.11.2026 (Kopie der DB, echte API):
-  Vorprüfung ≈ 0,21 $, gründlich ≈ 0,52–0,82 $, zusammen ≈ 0,95 $. Meldung zeigt `lauf.stufe`, `vorpruefung` (Grund, Stände,
-  Pressemitteilungen) und Kosten beider Stufen zusammen.
+  `FOERDERPRUEFUNG_VOLL_SPAETESTENS_TAGE` (56); `--voll` erzwingt sie. Testläufe 16.11.2026 (Kopie der DB, echte API):
+  Vorprüfung Sonnet ≈ 0,21 $; gründlich Sonnet ≈ 0,52–0,82 $, **gründlich Opus ≈ 1,14 $, zusammen 1,35 $** (fand iSFP-Mindestbetrag
+  30.000 € und Tilgungszuschuss 40 % – beide wie im Entwurf Version 3). Meldung zeigt `lauf.stufe`, `vorpruefung` (Grund, Stände,
+  Pressemitteilungen) und `lauf.kosten_stufen` (je Stufe mit dem Preis ihres Modells), `kosten_usd` = Summe.
+- **Prompt v2** (`foerderpruefung_v2.md`, `PROMPT-VERSION: foerderpruefung-2`): verlangt ausdrücklich, leere/fehlende Felder zu
+  melden, wenn die Quelle einen Wert nennt (`hinterlegt: null`); in der Eingabe sind sie mit `"leer": true` markiert. v1 bleibt liegen.
 - **Keine falsche Entwarnung:** liest die gründliche Prüfung kein einziges Dokument (`merkblaetter` leer, z. B. Websuche
   ausgefallen), gilt der Lauf als fehlgeschlagen – nie „keine Abweichung“. `lauf.werkzeug_fehler` zählt Fehler der Server-Werkzeuge.
 - KI über `app/ki/` (`websuche()`, Regel 7): `web_search_20260209` mit `allowed_domains` kfw.de, bafa.de, energiewechsel.de,
   bmwk.de, bmwe.de, gesetze-im-internet.de, `max_uses` = `FOERDERPRUEFUNG_MAX_SUCHEN` (8), dazu `web_fetch_20260209` auf
   denselben Domains (`FOERDERPRUEFUNG_MAX_ABRUFE`, 3, je Dokument höchstens `FOERDERPRUEFUNG_ABRUF_MAX_TOKENS` 60.000). Zeitlimit
-  600 s, `pause_turn` wird fortgesetzt. Prompt `app/ki/prompts/foerderpruefung_v1.md` (`PROMPT-VERSION: foerderpruefung-1`).
+  600 s, `pause_turn` wird fortgesetzt. Prompt `app/ki/prompts/foerderpruefung_v2.md` (`PROMPT-VERSION: foerderpruefung-2`).
   Kostenschätzung (`kosten_usd`): Cache schreiben 1,25 × Eingabe, Cache lesen nach Preisliste (Sonnet/Opus 5.5: 5 % der Eingabe).
   Antwort = JSON im ```json-Block (kein `output_config.format`, weil Websuche Zitate erzeugt) – **streng geprüft** in `auswerten()`:
   nur bekannte Felder, gültiges Format, echter Unterschied; „hinterlegt“ immer aus der Datenbank; „offiziell“ nur mit Quelle auf

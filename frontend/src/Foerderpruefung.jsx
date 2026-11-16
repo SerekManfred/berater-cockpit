@@ -180,6 +180,16 @@ export function stufeText(e) {
   return "gründlich";
 }
 
+// Kosten je Stufe (Vorprüfung Sonnet, gründlich Opus – Modell je Stufe in der .env)
+export function kostenStufen(e) {
+  const k = e?.lauf?.kosten_stufen;
+  if (!k) return null;
+  const teile = [];
+  if (typeof k.vorpruefung === "number") teile.push(`Vorprüfung ${kosten({ kosten_usd: k.vorpruefung })}${e.vorpruefung?.lauf?.modell ? ` (${e.vorpruefung.lauf.modell})` : ""}`);
+  if (typeof k.gruendlich === "number") teile.push(`gründlich ${kosten({ kosten_usd: k.gruendlich })}${e.lauf.modell ? ` (${e.lauf.modell})` : ""}`);
+  return teile.length ? teile.join(" · ") : null;
+}
+
 function MeldungDetails({ m, ich, onEntwurf, onFertig }) {
   const e = m.ergebnis;
   const presse = e.vorpruefung?.pressemitteilungen || [];
@@ -194,6 +204,7 @@ function MeldungDetails({ m, ich, onEntwurf, onFertig }) {
         <h3>Geprüfte Merkblätter</h3>
         <ul>{e.merkblaetter.map((x, i) => <li key={i}>{x.titel || x.programm} {x.stand && `(Stand ${x.stand})`} {istLink(x.quelle) && <a href={x.quelle} target="_blank" rel="noopener noreferrer">öffnen</a>}{!x.offiziell && " – keine offizielle Domain"}</li>)}</ul>
       </>}
+      {kostenStufen(e) && <p className="klein">Kosten: {kostenStufen(e)}</p>}
       {presse.length > 0 && <>
         <h3>Pressemitteilungen (Vorprüfung)</h3>
         <ul>{presse.map((x, i) => <li key={i}>{x.titel}{x.datum && ` (${x.datum})`} {istLink(x.quelle) && <a href={x.quelle} target="_blank" rel="noopener noreferrer">öffnen</a>}</li>)}</ul>

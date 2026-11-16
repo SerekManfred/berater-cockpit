@@ -67,7 +67,10 @@ GENERATOR_TIMEOUT_BERICHT = 150.0  # Berichte mit Fotos brauchen länger als Che
 # deshalb ein eigener Schalter unabhängig von KI_AKTIV. Standard AUS; der Geschäftsführer schaltet ein.
 FOERDERPRUEFUNG_AKTIV = _schalter(os.environ.get("FOERDERPRUEFUNG_AKTIV"), False)
 # Kosten (Abnahme 16.11.2026: Opus 5.5 mit 15 Suchen/10 Abrufen ≈ 6 $ je Lauf) → Sonnet 5.5, weniger Suchen, zweistufig
-FOERDERPRUEFUNG_MODELL = os.environ.get("FOERDERPRUEFUNG_MODELL", "claude-sonnet-5-5").strip() or "claude-sonnet-5-5"
+# Modell je Stufe (Geschäftsführer 16.11.2026): gründlich Opus 5.5 (fand als einziges den fehlenden iSFP-Mindestbetrag),
+# Vorprüfung Sonnet 5.5
+FOERDERPRUEFUNG_MODELL = os.environ.get("FOERDERPRUEFUNG_MODELL", "claude-opus-5-5").strip() or "claude-opus-5-5"
+FOERDERPRUEFUNG_VOR_MODELL = os.environ.get("FOERDERPRUEFUNG_VOR_MODELL", "claude-sonnet-5-5").strip() or "claude-sonnet-5-5"
 FOERDERPRUEFUNG_MAX_SUCHEN = _zahl("FOERDERPRUEFUNG_MAX_SUCHEN", 8)      # Websuchen der gründlichen Prüfung (10 $ je 1.000 Suchen)
 FOERDERPRUEFUNG_MAX_ABRUFE = _zahl("FOERDERPRUEFUNG_MAX_ABRUFE", 3, 0)   # Seiten/Merkblätter direkt lesen (nur Treffer der Suche)
 FOERDERPRUEFUNG_ABRUF_MAX_TOKENS = _zahl("FOERDERPRUEFUNG_ABRUF_MAX_TOKENS", 60000, 5000)  # Länge je abgerufenem Dokument

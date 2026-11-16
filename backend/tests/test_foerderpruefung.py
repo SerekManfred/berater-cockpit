@@ -49,7 +49,7 @@ class Ersatz:
         if self.fehler:
             raise self.fehler
         roh = "Ich habe die Merkblätter geprüft.\n```json\n" + json.dumps(self.antwort) + "\n```"
-        return KiAntwort(daten={}, rohtext=roh, modell="claude-opus-5-5",
+        return KiAntwort(daten={}, rohtext=roh, modell=getattr(self, "modell", None) or "claude-opus-5-5",
                          nutzung={"eingabe_tokens": 100_000, "ausgabe_tokens": 5_000, "suchen": 7, "abrufe": 2})
 
 
@@ -145,7 +145,7 @@ def test_jetzt_pruefen_ohne_abweichung(aktiv, monkeypatch):
     liste = meldungen(admin)
     assert len(liste) == 1 and liste[0]["status"] == "keine_abweichung" and liste[0]["ausgeloest_von"] == "admin"
     lauf = liste[0]["ergebnis"]["lauf"]
-    assert lauf["suchen"] == 7 and lauf["kosten_usd"] == 0.57 and lauf["prompt_version"] == "foerderpruefung-1" and lauf["art"] == "manuell"
+    assert lauf["suchen"] == 7 and lauf["kosten_usd"] == 0.57 and lauf["prompt_version"] == "foerderpruefung-2" and lauf["art"] == "manuell"
     assert "rohtext" not in liste[0]["ergebnis"] and "rohtext" in admin.get(f"/foerderpruefung/meldungen/{liste[0]['id']}").json()["ergebnis"]
     assert mail.GESENDET == []                       # keine Mail bei „keine Abweichung“
     assert "foerderpruefung_lauf" in aktionen(admin.benutzer_id)
@@ -375,7 +375,7 @@ def test_anfrage_mit_cache_aufwand_und_begrenzten_dokumenten():
     assert a["cache_control"] == {"type": "ephemeral"} and a["output_config"] == {"effort": "low"}
     assert a["tools"][1]["max_content_tokens"] == 60000 and a["fallbacks"] == "default"
     assert "max_content_tokens" not in websuche_anfrage("m", "S", "T", ("kfw.de",), 3, 2)["tools"][1]
-    assert config.FOERDERPRUEFUNG_MODELL == "claude-sonnet-5-5"
+    assert config.FOERDERPRUEFUNG_MODELL == "claude-opus-5-5" and config.FOERDERPRUEFUNG_VOR_MODELL == "claude-sonnet-5-5"
     assert (config.FOERDERPRUEFUNG_MAX_SUCHEN, config.FOERDERPRUEFUNG_MAX_ABRUFE) == (8, 3)
 
 
@@ -461,7 +461,7 @@ def test_bei_aenderung_oder_unklarheit_gruendlich(aktiv, monkeypatch, vor):
     else:
         e, _, status, erg = _lauf(monkeypatch, vor, MIT_ABWEICHUNG)
     assert len(e.aufrufe) == 2 and status == "offen" and erg["lauf"]["stufe"] == "voll"
-    assert erg["vorpruefung"]["grund"] and erg["lauf"]["prompt_version"] == "foerderpruefung-1"
+    assert erg["vorpruefung"]["grund"] and erg["lauf"]["prompt_version"] == "foerderpruefung-2"
     vor_kosten = erg["vorpruefung"]["lauf"]["kosten_usd"]
     assert erg["lauf"]["kosten_usd"] > vor_kosten > 0          # Kosten beider Stufen zusammen
 
@@ -519,3 +519,41 @@ def test_werkzeugfehler_werden_gezaehlt():
     summe = {}
     _zaehlen(summe, nachricht)
     assert summe["werkzeug_fehler"] == 2 and summe["suchen"] == 2
+
+
+
+# ---------- Modell je Stufe, leere Felder (16.11.2026) ----------
+
+def test_modell_je_stufe_und_kosten_je_stufe(aktiv, monkeypatch):
+    _lauf(monkeypatch, OHNE_ABWEICHUNG)                       # Basis für die Vorprüfung
+    e = Folge({**VOR_UNVERAENDERT, "aenderung_moeglich": True}, OHNE_ABWEICHUNG)
+    modelle = []
+
+    def anbieter(modell=None):
+        modelle.append(modell)
+        e.modell = modell
+        return e
+    monkeypatch.setattr(ki, "anbieter", anbieter)
+    with SessionLocal() as db:
+        lauf = foerderpruefung.lauf_ausfuehren(db, None).ergebnis["lauf"]
+    assert modelle == ["claude-sonnet-5-5", "claude-opus-5-5"]
+    n = {"eingabe_tokens": 100_000, "ausgabe_tokens": 5_000, "suchen": 7}
+    vor, gruendlich = foerderpruefung.kosten_usd("claude-sonnet-5-5", n), foerderpruefung.kosten_usd("claude-opus-5-5", n)
+    assert lauf["kosten_stufen"] == {"vorpruefung": vor, "gruendlich": gruendlich} and vor < gruendlich
+    assert lauf["kosten_usd"] == round(vor + gruendlich, 4) and lauf["modell"] == "claude-opus-5-5"
+
+
+def test_leere_felder_werden_markiert_und_gemeldet(aktiv, monkeypatch):
+    kond = lade_konditionen()
+    daten = json.loads(foerderpruefung.eingabe_text(kond).split("\n\n", 1)[1])
+    zeilen = {z["feld"]: z for p in daten["programme"] for z in p["felder"]}
+    leer = {f for f, z in zeilen.items() if z.get("leer")}
+    assert leer and all(zeilen[f]["hinterlegt"] in (None, "", []) for f in leer)
+    assert not zeilen["beg_em.foerdersatz"].get("leer")
+    version, system = foerderpruefung.prompt()
+    assert version == "foerderpruefung-2" and "Leere oder fehlende Felder" in system
+    # Meldung zu einem leeren Feld wird übernommen (hinterlegt null → neuer Wert)
+    feld = sorted(f for f in leer if foerderpruefung.pruefbare_felder()[f]["typ"] == "euro")[0]
+    erg = foerderpruefung.auswerten("```json\n" + json.dumps({"abweichungen": [{"feld": feld, "neu": 30000, "quelle": "https://www.bafa.de/r.pdf",
+                                                                              "sicherheit": "offiziell"}]}) + "\n```", kond)
+    assert [(a["feld"], a["hinterlegt"], a["neu"]) for a in erg["abweichungen"]] == [(feld, None, 30000)]
