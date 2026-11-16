@@ -226,3 +226,8 @@ ul.pruefliste li.nein::before { content: "✗"; color: var(--rot); }
 .warnung { background: var(--gold-l); border-left: 4px solid var(--gold); border-radius: 8px; padding: 12px 14px; font-size: 14px; margin-top: 12px; }
 .we-hinweise .btn2 { margin-top: 8px; }
 .we-pruefungen { margin: 12px 0 0; padding-left: 20px; }
+
+/* Angekündigte, noch nicht geltende Zuschüsse (WPB-Bonus Einzelmaßnahmen, 16.11.2026) */
+th.angekuendigt { box-shadow: inset 0 -4px 0 var(--gold); }
+td.angekuendigt { background: var(--gold-l); }
+.marke-angekuendigt { display: inline-block; margin-top: 2px; padding: 1px 6px; border-radius: 4px; background: var(--gold-l); color: #3C3C44; font-size: 11px; font-weight: bold; }

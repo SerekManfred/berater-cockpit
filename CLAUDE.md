@@ -312,6 +312,22 @@ Ausführliches Fachkonzept: `docs/Konzept_Berater-Cockpit.docx` (falls abgelegt)
   `python -m app.cli konditionen-entwurf … --notiz …` (Ersteller Kommandozeile, Vier-Augen-Freigabe offen). Offene Entwürfe lassen
   sich mit `konditionen-entwurf-ergaenzen VERSION DATEI… --notiz …` ergänzen. Tests: `tests/test_kfw261_boni.py`.
 
+## WPB-Bonus Einzelmaßnahmen „angekündigt“ (Geschäftsführer 16.11.2026)
+- Konditionen ab Version 4: `beg_em.wpb_bonus_status` (`angekuendigt` | `in_kraft`, Pflicht), `beg_em.wpb_bonus_ab_text`
+  (z. B. „voraussichtlich Q1 2027“), `wpb_bonus_ab` nur bei `in_kraft` Pflicht (Prüfregel). Version 1–3 ohne Status gelten als
+  angekündigt, solange `gueltig_ab` < `wpb_bonus_ab` (`wpb_em_angekuendigt` im Rechenkern). Startwerte `ergaenzung_v4_wpb.json`.
+- Rechenkern: `EM_WPB` behält den Betrag, bekommt aber `angekuendigt`, `angekuendigt_text`, `zuschuss_angekuendigt`;
+  jedes Szenario `summe_zuschuesse_in_kraft`. **„Beste Wahl“ nur nach Zuschüssen in Kraft**; würde der angekündigte Bonus sie
+  umdrehen: `beste_wahl_mit_angekuendigt` + `beste_wahl_hinweis`. Wird mit dem Bericht gespeichert.
+- Ältere gespeicherte Berichte: `kennzeichnung_nachtragen()` (`app/rechnen.py`) leitet die Kennzeichnung beim Lesen
+  (`GET /berichte/{id}`, Word) aus dem Snapshot ab – nichts gespeichert, Beträge und gespeicherte „beste Wahl“ unverändert
+  (geprüft 16.11.2026: bei den 3 vorhandenen Berichten dreht sich nichts um), `kennzeichnung_nachgetragen: true`.
+- Oberfläche (`Ergebnis` in `Foerdervergleich.jsx`): gelber Hinweis über der Tabelle, Spalte 1b „angekündigt“, „¹“ an
+  WPB-Bonus und Summen mit Fußnote, `beste_wahl_hinweis` als Hinweis. Test `ErgebnisAngekuendigt.test.jsx`, `tests/test_wpb_angekuendigt.py`.
+- **Word:** Datenvertrag für Generator 0.4.4 in `docs/Datenvertrag_Generator_WPB_angekuendigt.md` mit Fixtures in `docs/fixtures/`
+  (Lieferung durch den Geschäftsführer). Bis dahin zeigt der Word-Bericht den Bonus noch ohne Kennzeichnung; `wpb_bonus_ab` bleibt
+  deshalb gesetzt (0.4.3 druckt sonst „ab ****“).
+
 ## Fehlergrenze und Zeitlimits (Stand 15.11.2026)
 - `frontend/src/Fehlergrenze.jsx` um die ganze Oberfläche (`main.jsx`) und um den Inhaltsbereich (`App.jsx`, Navigation bleibt
   bedienbar): Meldung + „Neu laden“ statt weißer Seite.

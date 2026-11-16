@@ -13,6 +13,7 @@ from app.modelle import Benutzer, Bericht, Projekt
 from app.parteien import berichtskunde
 from app.projekte_api import _bericht_laden, _namen, we_pruefung
 from app.protokoll import protokollieren
+from app.rechnen import kennzeichnung_nachtragen
 
 router = APIRouter(tags=["Word-Berichte"])
 
@@ -38,7 +39,7 @@ def generator_daten(b: Bericht, p: Projekt, ersteller: str | None) -> dict:
         "bericht": {"versionsnummer": b.versionsnummer,
                     "erstellt_am": b.erstellt_am.astimezone(ZoneInfo("Europe/Berlin")).date().isoformat()},
         "eingaben": b.eingaben,
-        "ergebnis": b.ergebnis,
+        "ergebnis": kennzeichnung_nachtragen(b.ergebnis, b.konditionen_snapshot),   # ältere Berichte: „angekündigt“ ableiten
         "konditionen": b.konditionen_snapshot,
         "kosten_hinweis": (b.eingaben or {}).get("kosten_hinweis") or None,
     }

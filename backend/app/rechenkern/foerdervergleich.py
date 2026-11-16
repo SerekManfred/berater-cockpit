@@ -77,6 +77,11 @@ class Szenario:
     foerderfaehig: bool = True
     hinweise: list[str] = field(default_factory=list)
     angebotsweg: dict | None = None
+    # Angekündigte, noch nicht geltende Zuschüsse (WPB-Bonus Einzelmaßnahmen, Geschäftsführer 16.11.2026): im Betrag enthalten,
+    # aber gekennzeichnet und ohne Gewicht für die „beste Wahl“
+    angekuendigt: bool = False
+    angekuendigt_text: str | None = None
+    zuschuss_angekuendigt: float = 0.0
 
     @property
     def summe_zuschuesse_energetisch(self) -> float:
@@ -85,6 +90,10 @@ class Szenario:
     @property
     def summe_zuschuesse_gesamt(self) -> float:
         return round(self.summe_zuschuesse_energetisch + self.zuschuss_266, 2)
+
+    @property
+    def summe_zuschuesse_in_kraft(self) -> float:
+        return round(self.summe_zuschuesse_gesamt - self.zuschuss_angekuendigt, 2)
 
     @property
     def eigenanteil_energetisch(self) -> float:
@@ -103,6 +112,8 @@ class Szenario:
             "kosten_energetisch": self.kosten_energetisch, "eigenanteil_energetisch": self.eigenanteil_energetisch,
             "foerderquote_energetisch": self.foerderquote_energetisch, "hinweise": self.hinweise,
             "angebotsweg": self.angebotsweg,
+            "angekuendigt": self.angekuendigt, "angekuendigt_text": self.angekuendigt_text,
+            "zuschuss_angekuendigt": self.zuschuss_angekuendigt, "summe_zuschuesse_in_kraft": self.summe_zuschuesse_in_kraft,
         }
 
 
@@ -153,6 +164,23 @@ def _kfw266(e: Eingaben, k: dict, stufe_ok: bool) -> tuple[float, list[str]]:
     return _r(k["satz"] * min(e.umbaukosten_neue_we, k["max_kosten_je_neue_we"] * e.we_neu)), []
 
 
+def _datum_de(iso: str) -> str:
+    return ".".join(reversed(iso[:10].split("-")))
+
+
+def wpb_em_angekuendigt(kond: dict) -> tuple[bool, str | None]:
+    """WPB-Bonus Einzelmaßnahmen angekündigt? Ab Version 4 aus beg_em.wpb_bonus_status; ältere Versionen ohne Status gelten als
+    angekündigt, solange der Stand der Förderbedingungen vor wpb_bonus_ab liegt. → (angekündigt, Anzeigetext)."""
+    em = kond["beg_em"]
+    status, ab, ab_text = em.get("wpb_bonus_status"), em.get("wpb_bonus_ab"), em.get("wpb_bonus_ab_text")
+    if status == "in_kraft":
+        return False, None
+    if status != "angekuendigt" and not (ab and str(kond.get("gueltig_ab", ""))[:10] < str(ab)[:10]):
+        return False, None
+    zeit = ab_text or (f"ab {_datum_de(ab)}" if ab else None)
+    return True, "angekündigt, noch nicht in Kraft" + (f" ({zeit})" if zeit else "")
+
+
 def einzelmassnahmen(e: Eingaben, kond: dict, wpb: bool) -> Szenario:
     em, bera = kond["beg_em"], kond["isfp_beratung"]
     s = Szenario("EM_" + ("WPB" if wpb else "ohne_WPB"), "Einzelmaßnahmen " + ("mit" if wpb else "ohne") + " WPB")
@@ -167,7 +195,12 @@ def einzelmassnahmen(e: Eingaben, kond: dict, wpb: bool) -> Szenario:
     if wpb:
         if e.isfp:
             s.zuschuesse["wpb_bonus"] = _r(em["wpb_bonus"] * min(daemm, ff))
-            s.hinweise.append("WPB-Bonus Einzelmaßnahmen nur für BAFA-Anträge ab " + ".".join(reversed(em["wpb_bonus_ab"].split("-"))))
+            angekuendigt, text = wpb_em_angekuendigt(kond)
+            if angekuendigt and s.zuschuesse["wpb_bonus"] > 0:
+                s.angekuendigt, s.angekuendigt_text, s.zuschuss_angekuendigt = True, text, s.zuschuesse["wpb_bonus"]
+                s.hinweise.append(f"WPB-Bonus Einzelmaßnahmen {text} – Betrag unter Vorbehalt, zählt nicht für die beste Wahl")
+            elif em.get("wpb_bonus_ab"):
+                s.hinweise.append("WPB-Bonus Einzelmaßnahmen nur für BAFA-Anträge ab " + _datum_de(em["wpb_bonus_ab"]))
         else:
             s.hinweise.append("WPB-Bonus nur mit iSFP möglich")
     s.zuschuesse["baubegleitung"] = _baubegleitung(e.we_nach_sanierung, e.bb_kosten("EM"), em["baubegleitung"])
@@ -238,6 +271,23 @@ def vergleich(e: Eingaben, kond: dict) -> dict:
     sz = [einzelmassnahmen(e, kond, False), einzelmassnahmen(e, kond, True),
           effizienzhaus(e, kond, False), effizienzhaus(e, kond, True)]
     beste = {}
+    # „Beste Wahl“ nur nach Zuschüssen, die in Kraft sind (Geschäftsführer 16.11.2026)
     for wpb, paar in (("ohne_WPB", (sz[0], sz[2])), ("WPB", (sz[1], sz[3]))):
-        beste[wpb] = max(paar, key=lambda x: x.summe_zuschuesse_gesamt if x.foerderfaehig else -1).schluessel
-    return {"konditionen_version": kond["version"], "szenarien": [x.als_dict() for x in sz], "beste_wahl": beste}
+        beste[wpb] = max(paar, key=lambda x: x.summe_zuschuesse_in_kraft if x.foerderfaehig else -1).schluessel
+    ergebnis = {"konditionen_version": kond["version"], "szenarien": [x.als_dict() for x in sz], "beste_wahl": beste}
+    return {**ergebnis, **beste_wahl_angekuendigt(ergebnis)}
+
+
+def beste_wahl_angekuendigt(ergebnis: dict) -> dict:
+    """Würde ein angekündigter Zuschuss die beste Wahl umdrehen? → beste_wahl_mit_angekuendigt + beste_wahl_hinweis (sonst None).
+    Auch für gespeicherte Berichte ohne diese Angaben nutzbar (nur lesen, nichts neu rechnen)."""
+    s = {x["schluessel"]: x for x in ergebnis["szenarien"]}
+    mit, hinweis = {}, None
+    for wpb, paar in (("ohne_WPB", ("EM_ohne_WPB", "EH_ohne_WPB")), ("WPB", ("EM_WPB", "EH_WPB"))):
+        mit[wpb] = max(paar, key=lambda k: s[k]["summe_zuschuesse_gesamt"] if s[k]["foerderfaehig"] else -1)
+        if mit[wpb] != ergebnis["beste_wahl"][wpb]:
+            a, b = s[mit[wpb]], s[ergebnis["beste_wahl"][wpb]]
+            diff = f"{a['summe_zuschuesse_gesamt'] - b['summe_zuschuesse_gesamt']:,.0f}".replace(",", ".")
+            hinweis = (f"Sobald der angekündigte Zuschuss gilt, wäre „{a['titel']}“ um {diff} € günstiger. Bis dahin bleibt "
+                       f"„{b['titel']}“ die beste Wahl – der Zuschuss ist {a.get('angekuendigt_text') or 'noch nicht in Kraft'}.")
+    return {"beste_wahl_mit_angekuendigt": mit, "beste_wahl_hinweis": hinweis}

@@ -23,6 +23,10 @@ V1_DATEI = json.loads((KOND_DIR / "v1.json").read_text(encoding="utf-8"))
 FACHWERTE = json.loads((KOND_DIR / "fachwerte_startbestand.json").read_text(encoding="utf-8"))
 # Ab Phase 2b Pflicht in jeder neuen Version: KfW 458, § 35c und zwei Ergänzungen (Startwerte aus dem INIT-Skill)
 ERGAENZUNG = json.loads((KOND_DIR / "ergaenzung_init_v3.json").read_text(encoding="utf-8"))
+# Ab Version 4 Pflicht: Status des WPB-Bonus Einzelmaßnahmen (angekündigt/in Kraft)
+for _teil, _werte in json.loads((KOND_DIR / "ergaenzung_v4_wpb.json").read_text(encoding="utf-8")).items():
+    if not _teil.startswith("_"):
+        ERGAENZUNG.setdefault(_teil, {}).update(_werte)
 
 
 def mit_ergaenzung(daten: dict) -> dict:
@@ -357,7 +361,7 @@ def test_vergleich_api_liefert_abschnitte():
 # ---------- Kommandozeile: Entwurf mit Fachwerten ----------
 
 def test_cli_entwurf_fachwerte_ist_einreichbar(capsys):
-    assert cli.main(["konditionen-entwurf", str(KOND_DIR / "fachwerte_startbestand.json"), str(KOND_DIR / "ergaenzung_init_v3.json"),
+    assert cli.main(["konditionen-entwurf", str(KOND_DIR / "fachwerte_startbestand.json"), str(KOND_DIR / "ergaenzung_init_v3.json"), str(KOND_DIR / "ergaenzung_v4_wpb.json"),
                      "--notiz", "Fachwerte und INIT-Ergänzung aufnehmen"]) == 0
     assert "Alle Prüfregeln erfüllt" in capsys.readouterr().out
     with SessionLocal() as db:
@@ -446,7 +450,7 @@ def test_cli_entwurf_ergaenzen_fachkorrektur_kfw261(tmp_path, capsys):
 
 def test_einreicher_darf_nicht_freigeben_auch_bei_ersteller_kommandozeile(capsys):
     """Version 3 wurde am 16.11.2026 per Kommandozeile angelegt und von derselben Person eingereicht und freigegeben."""
-    assert cli.main(["konditionen-entwurf", str(KOND_DIR / "fachwerte_startbestand.json"), str(KOND_DIR / "ergaenzung_init_v3.json"),
+    assert cli.main(["konditionen-entwurf", str(KOND_DIR / "fachwerte_startbestand.json"), str(KOND_DIR / "ergaenzung_init_v3.json"), str(KOND_DIR / "ergaenzung_v4_wpb.json"),
                      "--notiz", "Entwurf per Kommandozeile"]) == 0
     with SessionLocal() as db:
         vid = db.scalar(select(KonditionenVersion.id).where(KonditionenVersion.status == "entwurf"))

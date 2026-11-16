@@ -76,7 +76,12 @@ PROGRAMME = [
         F("beg_em.isfp_bonus_regel", "Regel iSFP-Bonus", "text_lang"),
         F("beg_em.wpb_bonus", "WPB-Bonus", "prozent", kern=True),
         F("beg_em.wpb_bonus_regel", "Regel WPB-Bonus", "text_lang"),
-        F("beg_em.wpb_bonus_ab", "WPB-Bonus gilt für Anträge ab", "datum"),
+        # WPB-Bonus EM: angekündigt oder in Kraft (Geschäftsführer 16.11.2026) – angekündigt = im Fördervergleich gekennzeichnet,
+        # zählt nicht für die „beste Wahl“. Datum nur Pflicht, wenn in Kraft (offiziell oft nur „voraussichtlich Q1 2027“).
+        F("beg_em.wpb_bonus_status", "WPB-Bonus – Status (ab Version 4)", "auswahl", kern=True,
+          optionen=[["angekuendigt", "angekündigt, noch nicht in Kraft"], ["in_kraft", "in Kraft"]]),
+        F("beg_em.wpb_bonus_ab", "WPB-Bonus gilt für Anträge ab", "datum", pflicht=False),
+        F("beg_em.wpb_bonus_ab_text", "WPB-Bonus – Zeitpunkt als Text (z. B. „voraussichtlich Q1 2027“)", "text", pflicht=False),
         *hoechstgrenzen("beg_em", False), *hoechstgrenzen("beg_em", True),
         F("beg_em.hoechstgrenze_bezug", "Bezug der Höchstgrenzen", "text"),
         F("beg_em.isfp_bonus_mindestbetrag", "iSFP-Bonus – Mindestbetrag (Schwelle, ab Version 3)", "euro", kern=True),
@@ -246,6 +251,11 @@ def pruefen(daten: dict, aenderungsnotiz: str | None = None) -> list[dict]:
                             f(f"{pfad}.{i}.{sp['name']}", "Bitte ja oder nein wählen")
                     elif _leer(z) or not isinstance(z, str):
                         f(f"{pfad}.{i}.{sp['name']}", "Pflichtfeld")
+    status = lesen_pfad(daten, "beg_em.wpb_bonus_status")
+    if status == "in_kraft" and not lesen_pfad(daten, "beg_em.wpb_bonus_ab"):
+        f("beg_em.wpb_bonus_ab", "Bei „in Kraft“ ist das Datum Pflicht")
+    if status == "angekuendigt" and not (lesen_pfad(daten, "beg_em.wpb_bonus_ab_text") or lesen_pfad(daten, "beg_em.wpb_bonus_ab")):
+        f("beg_em.wpb_bonus_ab_text", "Bei „angekündigt“ bitte den erwarteten Zeitpunkt angeben (Text oder Datum)")
     for teil in ("erste_we", "we_2_bis_6", "ab_we_7"):
         ohne = lesen_pfad(daten, f"beg_em.hoechstgrenze_ohne_isfp.{teil}")
         mit = lesen_pfad(daten, f"beg_em.hoechstgrenze_mit_isfp.{teil}")
