@@ -147,7 +147,7 @@ function erstelleFoerdervergleich(d) {
     [{ t: "**Gebäudeart**", fill: C.grauL }, pj.gebaeudeart || "–", { t: "**Wohneinheiten**", fill: C.grauL },
      (e.we_vor_sanierung ? `${e.we_vor_sanierung} → ` : "") + `${e.we_nach_sanierung} nach Sanierung` + (mit266 && e.we_neu ? ` (${e.we_neu} neu)` : "")],
     [{ t: "**Bestandsheizung**", fill: C.grauL }, e.bestandsheizung || "keine Angabe", { t: "**Nutzung**", fill: C.grauL }, e.nutzung || "keine Angabe"],
-    [{ t: "**Stand Förderbedingungen**", fill: C.grauL }, `${datum(k.gueltig_ab)} (Version ${k.version})`, { t: "**Erstellt**", fill: C.grauL },
+    [{ t: "**Stand Förderbedingungen**", fill: C.grauL }, `${datum(k.gueltig_ab)} (interne Version ${k.version})`, { t: "**Erstellt**", fill: C.grauL },
      [datum(d.bericht?.erstellt_am), d.berater?.name].filter(Boolean).join(" · ") || "–"],
   ];
   ch.push(tabelle([2300, 2800, 2300, 2804], null, kopf));
@@ -327,7 +327,7 @@ function erstelleFoerdervergleich(d) {
   const quellen = [em.quelle, k["beg_em_heizung"]?.quelle, k.isfp_beratung?.quelle, wg.quelle, mit266 ? k266.quelle : null, FT.quelle_tma_em]
     .filter(Boolean);
   [...new Set(quellen)].forEach(q => ch.push(bullet(q, { size: 16 })));
-  ch.push(P(`Konditionen-Version ${k.version}, gültig ab ${datum(k.gueltig_ab)}.`, { size: 16, color: C.grau, before: 60 }));
+  ch.push(P(`Förderbedingungen Stand ${datum(k.gueltig_ab)} (interne Version ${k.version}).`, { size: 16, color: C.grau, before: 60 }));
   ch.push(leer(60));
   ch.push(box([P(FT.haftung, { size: 16, color: C.grau, after: 0 })], C.grauL, C.anth));
 

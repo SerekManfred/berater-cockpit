@@ -33,6 +33,7 @@ async function text(daten) {
   const tr = await text(ref);
   for (const z of ["163.600 €", "169.155 €", "144.355 €", "173.065 €", "120.000 €", "31.12.2026"]) assert(tr.includes(z), "Referenzfall: " + z);
   assert(!tr.includes("Unsere Leistungen auf Ihrem Weg"), "ohne Angebote kein Kapitel Leistungen");
+  assert(/Förderbedingungen Stand \d\d\.\d\d\.\d{4} \(interne Version \d+\)/.test(tr) && !tr.includes("Konditionen-Version"), "Stand-Angabe für Kunden lesbar");
   // Angebote A–D: Ablauf mit Eigenanteilen aus dem Rechenkern (A in D angerechnet)
   const mitA = JSON.parse(fs.readFileSync(path.join(dir, "referenzfall_mit_angeboten.json"), "utf8"));
   const ta = await text(mitA);
@@ -85,7 +86,7 @@ async function text(daten) {
   const bd = JSON.parse(fs.readFileSync(path.join(__dirname, "bericht_init_daten.json"), "utf8"));
   const bilder = Object.fromEntries(fs.readdirSync(path.join(__dirname, "bilder")).map(n => [n, fs.readFileSync(path.join(__dirname, "bilder", n)).toString("base64")]));
   const bt = await alles(await erzeugeBericht("init", { daten: bd, bilder }));
-  for (const z of ["Familie Beispielmann", "19.600", "30.100", "Konditionen-Version 1", "70 %"]) assert(bt.includes(z), "Bericht INIT: " + z);
+  for (const z of ["Familie Beispielmann", "19.600", "30.100", "(interne Version 1)", "70 %"]) assert(bt.includes(z), "Bericht INIT: " + z);
   assert(!bt.includes("99 %"), "Bericht INIT: foerderung.saetze darf den Rechenkern nicht überschreiben");
   const docx = await JSZip.loadAsync(await erzeugeBericht("init", { daten: bd, bilder }));
   assert(Object.keys(docx.files).filter(n => n.startsWith("word/media/")).length >= 5, "Bericht INIT: Fotos fehlen");

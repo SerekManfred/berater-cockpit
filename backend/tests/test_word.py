@@ -215,5 +215,7 @@ def test_echter_generator_nutzt_fachwerte_aus_freigegebener_version(monkeypatch)
             return re.sub(r"<[^>]+>", "", z.read("word/document.xml").decode())
 
     t_neu, t_alt = text(neu["id"]), text(alt["id"])
-    assert "Haftungshinweis TESTVERSION 2" in t_neu and "(Version 2)" in t_neu
-    assert "Haftungshinweis TESTVERSION 2" not in t_alt and "(Version 1)" in t_alt
+    # Stand-Angabe für Kunden lesbar (Generator 0.4.3, Phase 2f)
+    assert "Haftungshinweis TESTVERSION 2" in t_neu and "(interne Version 2)" in t_neu and "Förderbedingungen Stand" in t_neu
+    assert "Haftungshinweis TESTVERSION 2" not in t_alt and "(interne Version 1)" in t_alt
+    assert "Konditionen-Version" not in t_neu + t_alt

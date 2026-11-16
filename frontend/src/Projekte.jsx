@@ -474,7 +474,7 @@ function BerichtAnsicht({ ich, id, onZurueck, onGehe }) {
       <div className="aktionen" style={{ marginTop: 0, marginBottom: 12 }}><button className="btn2" onClick={onZurueck}>← Zurück zur Projektakte</button></div>
       <h1>{MODULE[b.modul] || b.modul} · V{b.versionsnummer}</h1>
       <p className="hinweis">Projekt {b.projektnummer} · gespeichert {zeit(b.erstellt_am)} von {b.erstellt_von || "–"} ·
-        Konditionen-Version {b.konditionen_version} (eingefroren) · {BERICHT_STATUS[b.status] || b.status} · nur lesen</p>
+        {b.konditionen_stand || `Konditionen-Version ${b.konditionen_version}`} (eingefroren) ·{BERICHT_STATUS[b.status] || b.status} · nur lesen</p>
       <WeBestaetigung we={b.wohneinheiten} darf={hatRolle(ich, "berater")}
         onBestaetigen={async () => setB(await api(`/berichte/${b.id}/wohneinheiten-geprueft`, { method: "POST" }))} />
       <div className="aktionen" style={{ marginTop: 0, marginBottom: 18 }}>

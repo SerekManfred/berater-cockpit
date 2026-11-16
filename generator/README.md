@@ -64,6 +64,10 @@ Kopf mit Objektdaten · 1 Kurzfazit · 2 Varianten · 3 Programme und Konditione
 **8 Fördervergleich auf einen Blick** (Pflichtkapitel, eigene Seite) · **9 Unsere Leistungen auf Ihrem Weg** (nur wenn
 Angebote A–D vorliegen, ab 0.3.0) · 9 bzw. 10 Empfohlenes Vorgehen · Quellen · Haftungshinweis
 
+## Stand-Angabe (ab 0.4.3)
+Fördervergleich und INIT-Bericht nennen den Stand für Kunden lesbar: „Förderbedingungen Stand TT.MM.JJJJ (interne Version N)“
+(Datum = `gueltig_ab` der Konditionen-Version). Beim INIT-Bericht kommt der Text aus `foerderung.rechenkern.saetze.konditionen_stand`.
+
 ## Beratungsbericht INIT (ab 0.4.0)
 `POST /bericht/init` mit `{ "daten": {...}, "bilder": { "front.jpg": "<base64>", ... } }` → .docx.
 - `daten` = Datenschema des Skills (`skills/energieberatungsbericht/vorlage/daten_vorlage.json` im Skill), Bildverweise

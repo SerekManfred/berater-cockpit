@@ -32,7 +32,7 @@ def saetze_aus_konditionen(k: dict) -> dict:
     g0, g1, hk = em["hoechstgrenze_ohne_isfp"], em["hoechstgrenze_mit_isfp"], h["hoechstkosten"]
     p = lambda x: f"{x * 100:.0f} %"
     return {
-        "konditionen_stand": f"Konditionen-Version {k['version']}, gültig ab {'.'.join(reversed(k['gueltig_ab'][:10].split('-')))}",
+        "konditionen_stand": f"Förderbedingungen Stand {'.'.join(reversed(k['gueltig_ab'][:10].split('-')))} (interne Version {k['version']})",
         "em_satz": em["foerdersatz"], "em_isfp_bonus": em["isfp_bonus"],
         "em_quote_basis": p(em["foerdersatz"]), "em_quote_isfp": f"{p(em['foerdersatz'])} + {p(em['isfp_bonus'])}",
         "em_cap_we1": g0["erste_we"], "em_cap_we_2_6": g0["we_2_bis_6"], "em_cap_we_ab7": g0["ab_we_7"],

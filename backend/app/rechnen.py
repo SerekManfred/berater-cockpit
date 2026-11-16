@@ -18,6 +18,12 @@ def konditionen_daten(v) -> dict:
     return {**v.daten, "version": v.version, "gueltig_ab": v.gueltig_ab.isoformat()}
 
 
+def konditionen_stand(k: dict) -> str:
+    """Für Kunden lesbar (Phase 2f): „Förderbedingungen Stand TT.MM.JJJJ (interne Version N)“ – gleicher Text wie im
+    INIT-Bericht (app/rechenkern/init_foerderung.py) und im Word-Fördervergleich (Generator 0.4.3)."""
+    return f"Förderbedingungen Stand {'.'.join(reversed(str(k['gueltig_ab'])[:10].split('-')))} (interne Version {k['version']})"
+
+
 def lade_konditionen(version: int | None = None, db: Session | None = None) -> dict:
     """Konditionen aus der Datenbank (Tabelle konditionen_versionen): ohne Angabe die aktive Version,
     mit Angabe eine freigegebene (aktive oder abgelöste). Entwürfe werden hier nie geliefert."""
@@ -125,7 +131,7 @@ def foerdervergleich_rechnen(daten: FoerdervergleichEingaben, kond: dict, projek
     werte = daten.model_dump(exclude={"massnahmen", "konditionen_version", "angebote"} | ANZEIGEFELDER)
     e = Eingaben(**werte, massnahmen=[Massnahme(**m.model_dump()) for m in daten.massnahmen],
                  angebote=daten.angebote.fuer_rechenkern() if daten.angebote else None)
-    return {**vergleich(e, kond), "hinweise": hinweise}
+    return {**vergleich(e, kond), "hinweise": hinweise, "konditionen_stand": konditionen_stand(kond)}
 
 
 # ---------- Beratungsbericht INIT: Förder-Übersicht (Kap. 7.5 und Förder-Anhang) ----------
