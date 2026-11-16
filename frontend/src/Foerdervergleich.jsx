@@ -5,6 +5,10 @@ import { ZahlEingabe, ZahlFeld } from "./ZahlFeld.jsx";
 import { Angebotsweg } from "./Angebotsweg.jsx";
 import { zahlenPruefen, zahlUngueltig } from "./zahl.js";
 import { WeHinweise } from "./Wohneinheiten.jsx";
+import { PruefungVeraltet } from "./Foerderpruefung.jsx";
+
+// Stand-Angabe für Kunden lesbar (Phase 2f) – der Text kommt aus dem Backend; ältere Antworten ohne Text: interne Version
+export const standText = erg => erg?.konditionen_stand || `Konditionen-Version ${erg?.konditionen_version ?? "–"}`;
 
 export const eur = n => (n ?? 0).toLocaleString("de-DE", { maximumFractionDigits: 0 }) + " €";
 const pct = n => ((n ?? 0) * 100).toLocaleString("de-DE", { minimumFractionDigits: 1, maximumFractionDigits: 1 }) + " %";
@@ -187,6 +191,7 @@ export function Foerdervergleich({ titel = "Fördervergleich Einzelmaßnahmen / 
       <h1>{titel}</h1>
       <p className="hinweis">{untertitel || "Eckdaten und Kosten eingeben – das Ergebnis zeigt alle vier Wege mit Zuschuss und Darlehen."}</p>
       {zusatz}
+      <PruefungVeraltet />
       <section className="karte">
         <h2>Eckparameter</h2>
         <div className="felder">
@@ -375,7 +380,7 @@ export function Ergebnis({ erg }) {
       {grenze.length > 0 && <div className="info">Zuschuss für Fachplanung/Baubegleitung durch die Höchstgrenze begrenzt
         ({grenze.join(" und ")}) – der Eigenanteil der Angebote ist entsprechend höher.</div>}
       {[...new Set(erg.szenarien.flatMap(x => x.hinweise))].map(h => <div key={h} className="info">{h}</div>)}
-      <p className="klein" style={{ marginTop: 12 }}>Berechnet mit Konditionen-Version {erg.konditionen_version}. Word-Ausgabe folgt in Phase 1.</p>
+      <p className="klein" style={{ marginTop: 12 }}>Berechnet mit {standText(erg)}.</p>
     </section>
   );
 }

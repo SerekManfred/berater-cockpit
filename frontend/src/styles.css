@@ -65,6 +65,8 @@ fieldset.rollen { border: 0; padding: 0; margin: 14px 0 0; display: flex; flex-w
 fieldset.rollen legend { font-size: 12px; font-weight: bold; color: var(--anth); margin-bottom: 4px; padding: 0; }
 fieldset.rollen label { flex-direction: row; align-items: center; min-height: 44px; font-weight: normal; font-size: 14px; color: var(--text); cursor: pointer; }
 fieldset.rollen input { width: 22px; min-height: 22px; }
+label.haken { display: flex; flex-direction: row; flex-wrap: wrap; align-items: center; gap: 4px 8px; min-height: 44px; margin-top: 10px; font-weight: normal; font-size: 14px; color: var(--text); cursor: pointer; }
+label.haken input { width: 22px; min-height: 22px; }
 .startpw { background: var(--gold-l); border: 1px solid var(--gold); border-radius: 12px; padding: 16px 18px; margin-bottom: 18px; font-size: 14px; }
 .startpw code { display: block; font-size: 22px; letter-spacing: 2px; margin: 10px 0; user-select: all; }
 .startpw p { margin: 0 0 12px; }

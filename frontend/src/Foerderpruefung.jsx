@@ -1,0 +1,192 @@
+import React, { useEffect, useRef, useState } from "react";
+import { api, hatRolle, zeit } from "./api.js";
+import { anzeige } from "./Konditionen.jsx";
+
+// Förderprüfung (Phase 2f): Meldungen anzeigen, „Entwurf aus Meldung anlegen“, „Verwerfen“, „Jetzt prüfen“, Hinweis „veraltet“.
+// Die Oberfläche rechnet und prüft nichts – alle Werte und Bewertungen kommen aus dem Backend (app/foerderpruefung.py).
+
+const STATUS = { keine_abweichung: "keine Abweichung", offen: "offen", entwurf_angelegt: "Entwurf angelegt", verworfen: "verworfen" };
+const datumDe = s => (typeof s === "string" && /^\d{4}-\d{2}-\d{2}/.test(s)) ? `${s.slice(8, 10)}.${s.slice(5, 7)}.${s.slice(0, 4)}` : "–";
+const istLink = u => typeof u === "string" && /^https?:\/\//i.test(u);
+const kosten = l => (l && typeof l.kosten_usd === "number") ? `ca. ${l.kosten_usd.toLocaleString("de-DE", { maximumFractionDigits: 2 })} US-$` : "–";
+
+export const darfMeldungenSehen = ich => !!ich && (hatRolle(ich, "pruefer") || !!ich.benachrichtigung_konditionen);
+
+/** Hinweis, wenn die letzte Prüfung der Förderbedingungen älter als 30 Tage ist (blockiert nicht). */
+export function PruefungVeraltet() {
+  const [s, setS] = useState(null);
+  useEffect(() => { api("/foerderpruefung/stand").then(setS).catch(() => setS(null)); }, []);
+  if (!s?.veraltet) return null;
+  return <div className="info" role="status" style={{ marginBottom: 12 }}>{s.text}</div>;
+}
+
+export function MeldungTabelle({ m }) {
+  const abw = Array.isArray(m?.ergebnis?.abweichungen) ? m.ergebnis.abweichungen : [];
+  if (!abw.length) return <p className="klein">Keine Abweichungen.</p>;
+  return (
+    <div className="tabelle"><table className="vergleich">
+      <thead><tr><th>Programm</th><th>Feld</th><th>hinterlegt</th><th>neu</th><th>gilt ab</th><th>Sicherheit</th><th>Quelle</th></tr></thead>
+      <tbody>{abw.map(a => (
+        <tr key={a.feld} className="z-geaendert">
+          <td>{a.programm_titel || a.programm}</td>
+          <td>{a.label || a.feld}{a.erlaeuterung && <><br /><span className="klein">{a.erlaeuterung}</span></>}</td>
+          <td className="alt">{anzeige(a, a.hinterlegt)}</td><td className="neu">{anzeige(a, a.neu)}</td>
+          <td>{a.gilt_ab ? datumDe(a.gilt_ab) : "–"}</td>
+          <td>{a.sicherheit === "offiziell" ? "offizielle Quelle" : <strong>bitte prüfen</strong>}</td>
+          <td>{istLink(a.quelle) ? <a href={a.quelle} target="_blank" rel="noopener noreferrer">Quelle öffnen</a> : "–"}</td>
+        </tr>))}
+      </tbody>
+    </table></div>
+  );
+}
+
+// Entscheidung 16.11.2026: Entwurf anlegen Admins + Empfänger (Haken), Verwerfen nur Admins
+export const darfEntwurfAnlegen = ich => !!ich && (hatRolle(ich) || !!ich.benachrichtigung_konditionen);
+
+function MeldungAktionen({ m, ich, onEntwurf, onFertig }) {
+  const [verwerfen, setVerwerfen] = useState(false);
+  const [grund, setGrund] = useState("");
+  const [fehler, setFehler] = useState("");
+  const [laeuft, setLaeuft] = useState(false);
+  const [erledigt, setErledigt] = useState("");
+  const admin = hatRolle(ich);
+  async function entwurf() {
+    setFehler(""); setLaeuft(true);
+    try {
+      const r = await api(`/foerderpruefung/meldungen/${m.id}/entwurf`, { method: "POST" });
+      // Entwürfe öffnen dürfen nur Admins und Prüfer – alle anderen bekommen eine Bestätigung
+      if (hatRolle(ich, "pruefer")) { onEntwurf?.(r.entwurf_id); onFertig?.(); }
+      else setErledigt(`Entwurf Version ${r.version} ist angelegt. Ein Admin prüft ihn, ergänzt den Stand und reicht ihn zur Freigabe ein.`);
+    } catch (e) { setFehler(e.message); } finally { setLaeuft(false); }
+  }
+  if (erledigt) return <div className="erfolg" role="status">{erledigt}</div>;
+  async function verwerfenSenden() {
+    if (grund.trim().length < 5) { setFehler("Bitte eine Begründung angeben (mindestens 5 Zeichen)."); return; }
+    setFehler(""); setLaeuft(true);
+    try { await api(`/foerderpruefung/meldungen/${m.id}/verwerfen`, { method: "POST", body: { begruendung: grund.trim() } }); onFertig?.(); }
+    catch (e) { setFehler(e.message); } finally { setLaeuft(false); }
+  }
+  return (
+    <>
+      {fehler && <div className="fehler" role="alert">{fehler}</div>}
+      {verwerfen ? (
+        <div>
+          <label>Begründung (Pflicht)<textarea rows={2} value={grund} onChange={e => setGrund(e.target.value)} /></label>
+          <div className="aktionen">
+            <button className="btn2 gefahr" disabled={laeuft} onClick={verwerfenSenden}>Meldung verwerfen</button>
+            <button className="btn2" onClick={() => { setVerwerfen(false); setFehler(""); }}>Abbrechen</button>
+          </div>
+        </div>
+      ) : (
+        <div className="aktionen">
+          <button className="btn" disabled={laeuft} onClick={entwurf}>Entwurf aus Meldung anlegen</button>
+          {admin && <button className="btn2" disabled={laeuft} onClick={() => setVerwerfen(true)}>Verwerfen</button>}
+        </div>
+      )}
+      {!admin && <p className="klein">Verwerfen: nur durch einen Admin.</p>}
+    </>
+  );
+}
+
+/** Startseite: offene Meldungen für Empfänger, Prüfer und Admins. Bearbeiten (Entwurf/Verwerfen) nur Admin. */
+export function OffeneMeldungen({ ich, onEntwurf }) {
+  const [liste, setListe] = useState([]);
+  const [fehler, setFehler] = useState("");
+  const sichtbar = darfMeldungenSehen(ich);
+  const laden = () => api("/foerderpruefung/meldungen?status=offen").then(setListe).catch(e => setFehler(e.message));
+  useEffect(() => { if (sichtbar) laden(); }, [sichtbar]);
+  if (!sichtbar) return null;
+  if (fehler) return <div className="fehler" role="alert">Förderprüfung: {fehler}</div>;
+  return liste.map(m => (
+    <section key={m.id} className="karte pruefkarte" aria-label="Handlungsbedarf Förderkonditionen">
+      <h2>Handlungsbedarf Förderkonditionen</h2>
+      <p className="klein" style={{ marginTop: 0 }}>Förderprüfung vom {zeit(m.zeit)} ({m.ausgeloest_von}) gegen Version {m.konditionen_version}:
+        {" "}{m.ergebnis.abweichungen.length} Abweichung(en). Nichts wurde automatisch geändert – eine neue Version gilt erst nach Vier-Augen-Freigabe.</p>
+      <MeldungTabelle m={m} />
+      {darfEntwurfAnlegen(ich) ? <MeldungAktionen m={m} ich={ich} onEntwurf={onEntwurf} onFertig={laden} />
+        : <p className="klein">Entwurf anlegen oder verwerfen: durch einen Admin oder Empfänger der Benachrichtigungen.</p>}
+    </section>
+  ));
+}
+
+/** Reiter „Förderprüfung“ in den Förderkonditionen: Stand, „Jetzt prüfen“ (Admin), Verlauf der Meldungen. */
+export function FoerderpruefungSeite({ ich, onEntwurf }) {
+  const [lauf, setLauf] = useState(null);
+  const [liste, setListe] = useState(null);
+  const [offen, setOffen] = useState(null);
+  const [fehler, setFehler] = useState("");
+  const uhr = useRef(null);
+  const laden = async () => {
+    try {
+      const [l, m] = await Promise.all([api("/foerderpruefung/lauf"), api("/foerderpruefung/meldungen?limit=20")]);
+      setLauf(l); setListe(m); setFehler("");
+      clearTimeout(uhr.current);
+      if (l.laeuft) uhr.current = setTimeout(laden, 5000);   // Lauf dauert Minuten – alle 5 s nachsehen
+    } catch (e) { setFehler(e.message); }
+  };
+  useEffect(() => { laden(); return () => clearTimeout(uhr.current); }, []);
+  async function starten() {
+    setFehler("");
+    try { await api("/foerderpruefung/jetzt", { method: "POST" }); await laden(); } catch (e) { setFehler(e.message); }
+  }
+  if (fehler && !liste) return <div className="fehler" role="alert">{fehler}</div>;
+  if (!liste || !lauf) return <p>Lade Förderprüfung …</p>;
+  return (
+    <>
+      <h1>Förderprüfung</h1>
+      <p className="hinweis">Wöchentlich (montags 06:10 Uhr) vergleicht die KI die aktive Version mit den offiziellen Quellen
+        (kfw.de, bafa.de, energiewechsel.de, bmwk.de/bmwe.de, gesetze-im-internet.de). Abweichungen werden gemeldet, nie automatisch übernommen.</p>
+      <PruefungVeraltet />
+      {!lauf.aktiv && <div className="info" role="status" style={{ marginBottom: 12 }}>Die Förderprüfung ist ausgeschaltet (FOERDERPRUEFUNG_AKTIV). Einschalten gibt der Geschäftsführer frei.</div>}
+      {fehler && <div className="fehler" role="alert">{fehler}</div>}
+      {lauf.letzter_fehler && <div className="fehler" role="alert">Letzter Lauf fehlgeschlagen: {lauf.letzter_fehler}</div>}
+      {hatRolle(ich) && (
+        <div className="aktionen" style={{ marginTop: 0, marginBottom: 16 }}>
+          <button className="btn" onClick={starten} disabled={!lauf.aktiv || lauf.laeuft || lauf.laeufe_heute >= lauf.max_laeufe_tag}>
+            {lauf.laeuft ? "Prüfung läuft …" : "Jetzt prüfen"}</button>
+          <span className="klein">Heute {lauf.laeufe_heute} von {lauf.max_laeufe_tag} Läufen · höchstens {lauf.max_suchen} Suchen je Lauf · Modell {lauf.modell}</span>
+        </div>
+      )}
+      {lauf.laeuft && <p role="status">Die Prüfung läuft (gestartet {zeit(lauf.gestartet_am)}) und dauert einige Minuten. Diese Seite aktualisiert sich selbst.</p>}
+      {liste.length === 0 ? <p>Noch keine Prüfläufe.</p> : (
+        <div className="karte tabelle">
+          <table>
+            <thead><tr><th>Zeit</th><th>Version</th><th>Ergebnis</th><th>Status</th><th>Suchen</th><th>Kosten</th><th><span className="sr">Aktion</span></th></tr></thead>
+            <tbody>{liste.map(m => (
+              <React.Fragment key={m.id}>
+                <tr>
+                  <td>{zeit(m.zeit)}<br /><span className="klein">{m.ausgeloest_von}</span></td>
+                  <td>V{m.konditionen_version}</td>
+                  <td>{m.ergebnis.abweichungen.length ? `${m.ergebnis.abweichungen.length} Abweichung(en)` : "keine Abweichung"}</td>
+                  <td>{STATUS[m.status] || m.status}{m.bearbeitet_von && <><br /><span className="klein">{m.bearbeitet_von}, {zeit(m.bearbeitet_am)}</span></>}</td>
+                  <td>{m.ergebnis.lauf?.suchen ?? "–"}</td><td>{kosten(m.ergebnis.lauf)}</td>
+                  <td><button className="btn2" aria-expanded={offen === m.id} onClick={() => setOffen(offen === m.id ? null : m.id)}>{offen === m.id ? "Schließen" : "Details"}</button></td>
+                </tr>
+                {offen === m.id && <tr><td colSpan={7}><MeldungDetails m={m} ich={ich} onEntwurf={onEntwurf} onFertig={laden} /></td></tr>}
+              </React.Fragment>))}
+            </tbody>
+          </table>
+        </div>
+      )}
+    </>
+  );
+}
+
+function MeldungDetails({ m, ich, onEntwurf, onFertig }) {
+  const e = m.ergebnis;
+  return (
+    <div>
+      {e.zusammenfassung && <p>{e.zusammenfassung}</p>}
+      <MeldungTabelle m={m} />
+      {m.status === "offen" && darfEntwurfAnlegen(ich) && <MeldungAktionen m={m} ich={ich} onEntwurf={onEntwurf} onFertig={onFertig} />}
+      {m.begruendung && <p className="klein"><strong>Begründung (verworfen):</strong> {m.begruendung}</p>}
+      {m.benachrichtigung && <p className="klein">E-Mail: {m.benachrichtigung.fehler ? `fehlgeschlagen – ${m.benachrichtigung.fehler}` : `an ${m.benachrichtigung.an} Empfänger`}</p>}
+      {e.merkblaetter?.length > 0 && <>
+        <h3>Geprüfte Merkblätter</h3>
+        <ul>{e.merkblaetter.map((x, i) => <li key={i}>{x.titel || x.programm} {x.stand && `(Stand ${x.stand})`} {istLink(x.quelle) && <a href={x.quelle} target="_blank" rel="noopener noreferrer">öffnen</a>}{!x.offiziell && " – keine offizielle Domain"}</li>)}</ul>
+      </>}
+      {e.hinweise?.length > 0 && <><h3>Hinweise der Prüfung</h3><ul>{e.hinweise.map((h, i) => <li key={i}>{h}</li>)}</ul></>}
+      {e.verworfen?.length > 0 && <p className="klein">{e.verworfen.length} Angabe(n) der KI wurden nicht übernommen (unbekanntes Feld, falsches Format oder kein Unterschied).</p>}
+    </div>
+  );
+}

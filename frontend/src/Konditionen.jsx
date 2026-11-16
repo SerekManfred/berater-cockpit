@@ -1,6 +1,7 @@
 import React, { useEffect, useMemo, useState } from "react";
 import { api, hatRolle, zeit } from "./api.js";
 import { ZahlEingabe } from "./ZahlFeld.jsx";
+import { FoerderpruefungSeite, darfMeldungenSehen } from "./Foerderpruefung.jsx";
 
 // ---------- Darstellung von Werten ----------
 
@@ -55,9 +56,11 @@ export function Konditionen({ ich, startVersion = null }) {
     <>
       <div className="reiter" role="tablist" aria-label="Förderkonditionen">
         <button role="tab" aria-selected={seite.art === "uebersicht"} className={seite.art === "uebersicht" ? "aktiv" : ""} onClick={() => gehe({ art: "uebersicht" })}>Aktive Version</button>
-        <button role="tab" aria-selected={seite.art !== "uebersicht"} className={seite.art !== "uebersicht" ? "aktiv" : ""} onClick={() => gehe({ art: "liste" })}>Versionen</button>
+        <button role="tab" aria-selected={!["uebersicht", "foerderpruefung"].includes(seite.art)} className={!["uebersicht", "foerderpruefung"].includes(seite.art) ? "aktiv" : ""} onClick={() => gehe({ art: "liste" })}>Versionen</button>
+        {darfMeldungenSehen(ich) && <button role="tab" aria-selected={seite.art === "foerderpruefung"} className={seite.art === "foerderpruefung" ? "aktiv" : ""} onClick={() => gehe({ art: "foerderpruefung" })}>Förderprüfung</button>}
       </div>
       {seite.art === "uebersicht" && <Uebersicht formular={formular} />}
+      {seite.art === "foerderpruefung" && <FoerderpruefungSeite ich={ich} onEntwurf={id => gehe({ art: "version", id })} />}
       {seite.art === "liste" && <Versionsliste ich={ich} onGehe={gehe} />}
       {seite.art === "version" && <VersionAnsicht key={seite.id + (seite.reiter || "")} ich={ich} id={seite.id} reiter={seite.reiter} formular={formular} onGehe={gehe} />}
       {seite.art === "bearbeiten" && <Editor key={seite.id} id={seite.id} formular={formular} onGehe={gehe} />}

@@ -1,5 +1,6 @@
 import React, { useEffect, useState } from "react";
 import { api, wordHerunterladen, ZEITLIMIT_LANG_MS, zeit } from "./api.js";
+import { PruefungVeraltet } from "./Foerderpruefung.jsx";
 import { ZahlFeld } from "./ZahlFeld.jsx";
 import { zahlUngueltig } from "./zahl.js";
 import { WeBestaetigung, WeHinweise } from "./Wohneinheiten.jsx";
@@ -113,6 +114,7 @@ export function BerichtInit({ ich, projekt, onZurueck }) {
       <p className="hinweis">{projekt.projektname} · Kunde im Bericht: {projekt.berichtskunde} · Entwurf zuletzt bearbeitet {zeit(e.bearbeitet_am)}{e.bearbeitet_von ? ` von ${e.bearbeitet_von}` : ""} ·
         {" "}{offen ? `${offen} von ${e.abschnitte.length} Abschnitten noch nicht geprüft` : "alle Abschnitte geprüft"}</p>
       {!darf && <div className="info">Nur lesen: Entwürfe bearbeiten dürfen Berater und Verwaltung.</div>}
+      <PruefungVeraltet />
 
       <div className="reiter" role="tablist" aria-label="Schritte des Berichts">
         {SCHRITTE.map(([k, t]) => <button key={k} role="tab" aria-selected={schritt === k} className={schritt === k ? "aktiv" : ""} onClick={() => wechseln(k)}>{t}</button>)}

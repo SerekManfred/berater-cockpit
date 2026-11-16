@@ -13,6 +13,17 @@ function RollenAuswahl({ werte, onChange, legende = "Rollen" }) {
   );
 }
 
+const BENACHRICHTIGUNG = "Erhält Benachrichtigungen Förderkonditionen";
+
+function Benachrichtigung({ wert, onChange }) {
+  return (
+    <label className="haken">
+      <input type="checkbox" checked={!!wert} onChange={e => onChange(e.target.checked)} /> {BENACHRICHTIGUNG}
+      <span className="klein"> (E-Mail bei Abweichungen aus der Förderprüfung und wenn eine Konditionen-Version auf Freigabe wartet; gedacht für Prüfer und Verwaltung)</span>
+    </label>
+  );
+}
+
 function Startpasswort({ info, onSchliessen }) {
   return (
     <div className="startpw" role="status">
@@ -34,7 +45,7 @@ function status(b) {
 export function Benutzerverwaltung({ ich }) {
   const [liste, setListe] = useState([]);
   const [fehler, setFehler] = useState("");
-  const [neu, setNeu] = useState({ email: "", name: "", rollen: ["berater"] });
+  const [neu, setNeu] = useState({ email: "", name: "", rollen: ["berater"], benachrichtigung_konditionen: false });
   const [start, setStart] = useState(null);
   const [auswahl, setAuswahl] = useState(null);
 
@@ -52,7 +63,7 @@ export function Benutzerverwaltung({ ich }) {
     ausfuehren(async () => {
       const r = await api("/benutzer", { method: "POST", body: neu });
       setStart({ ...r.benutzer, startpasswort: r.startpasswort });
-      setNeu({ email: "", name: "", rollen: ["berater"] });
+      setNeu({ email: "", name: "", rollen: ["berater"], benachrichtigung_konditionen: false });
     });
   };
 
@@ -73,6 +84,7 @@ export function Benutzerverwaltung({ ich }) {
             <label>E-Mail-Adresse<input type="email" required value={neu.email} onChange={e => setNeu({ ...neu, email: e.target.value })} /></label>
           </div>
           <RollenAuswahl werte={neu.rollen} onChange={rollen => setNeu({ ...neu, rollen })} />
+          <Benachrichtigung wert={neu.benachrichtigung_konditionen} onChange={w => setNeu({ ...neu, benachrichtigung_konditionen: w })} />
           <div className="aktionen"><button className="btn" type="submit">Konto anlegen</button></div>
         </form>
       </section>
@@ -81,11 +93,12 @@ export function Benutzerverwaltung({ ich }) {
         <h2>Konten</h2>
         <div className="tabelle">
           <table>
-            <thead><tr><th>Name</th><th>E-Mail</th><th>Rollen</th><th>Status</th><th>2FA</th><th>Letzter Login</th><th><span className="sr">Aktion</span></th></tr></thead>
+            <thead><tr><th>Name</th><th>E-Mail</th><th>Rollen</th><th>Benachrichtigung</th><th>Status</th><th>2FA</th><th>Letzter Login</th><th><span className="sr">Aktion</span></th></tr></thead>
             <tbody>
               {liste.map(b => (
                 <tr key={b.id} className={b.id === auswahl ? "gewaehlt" : ""}>
                   <td>{b.name}{b.id === ich.id && " (Sie)"}</td><td>{b.email}</td><td>{rollenText(b.rollen)}</td>
+                  <td>{b.benachrichtigung_konditionen ? "Förderkonditionen" : "–"}</td>
                   <td>{status(b)}{b.muss_passwort_aendern && b.aktiv ? " · Startpasswort" : ""}</td>
                   <td>{b.zwei_faktor_eingerichtet ? "eingerichtet" : "offen"}</td>
                   <td>{zeit(b.letzter_login)}</td>
@@ -104,14 +117,16 @@ export function Benutzerverwaltung({ ich }) {
 
 function Bearbeiten({ b, selbst, ausfuehren, setStart }) {
   const [rollen, setRollen] = useState(b.rollen);
+  const [benachrichtigung, setBenachrichtigung] = useState(!!b.benachrichtigung_konditionen);
   const post = pfad => api(`/benutzer/${b.id}/${pfad}`, { method: "POST" });
   const gesperrt = !b.aktiv || (b.gesperrt_bis && new Date(b.gesperrt_bis) > new Date());
   return (
     <section className="karte">
       <h2>{b.name} bearbeiten</h2>
       <RollenAuswahl werte={rollen} onChange={setRollen} />
+      <Benachrichtigung wert={benachrichtigung} onChange={setBenachrichtigung} />
       <div className="aktionen">
-        <button className="btn" disabled={!rollen.length} onClick={() => ausfuehren(() => api(`/benutzer/${b.id}`, { method: "PATCH", body: { rollen } }))}>Rollen speichern</button>
+        <button className="btn" disabled={!rollen.length} onClick={() => ausfuehren(() => api(`/benutzer/${b.id}`, { method: "PATCH", body: { rollen, benachrichtigung_konditionen: benachrichtigung } }))}>Speichern</button>
       </div>
       {selbst ? <p className="klein">Das eigene Konto kann hier nicht gesperrt oder zurückgesetzt werden. Passwort ändern über „Passwort ändern“ oben.</p> : (
         <div className="aktionen">
@@ -143,6 +158,9 @@ const AKTIONEN = {
   konditionen_entwurf_angelegt: "Konditionen-Entwurf angelegt", konditionen_entwurf_geaendert: "Konditionen-Entwurf geändert",
   konditionen_zur_pruefung: "Konditionen zur Prüfung gesendet", konditionen_zurueckgezogen: "Konditionen zurückgezogen",
   konditionen_freigegeben: "Konditionen freigegeben", konditionen_zurueckgewiesen: "Konditionen zurückgewiesen",
+  foerderpruefung_lauf: "Förderprüfung gelaufen", foerderpruefung_fehlgeschlagen: "Förderprüfung fehlgeschlagen",
+  foerder_meldung_entwurf: "Entwurf aus Förder-Meldung", foerder_meldung_verworfen: "Förder-Meldung verworfen",
+  mail_versendet: "E-Mail versendet", mail_fehlgeschlagen: "E-Mail fehlgeschlagen",
 };
 
 export function Protokoll() {

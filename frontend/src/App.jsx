@@ -5,6 +5,7 @@ import { Angebotsvorlagen } from "./Angebotsvorlagen.jsx";
 import { Benutzerverwaltung, Protokoll } from "./Benutzer.jsx";
 import { Foerdervergleich } from "./Foerdervergleich.jsx";
 import { Fehlergrenze } from "./Fehlergrenze.jsx";
+import { OffeneMeldungen } from "./Foerderpruefung.jsx";
 import { FristHinweise, Konditionen } from "./Konditionen.jsx";
 import { Papierkorb } from "./Papierkorb.jsx";
 import { MeineProjekte, Projekte } from "./Projekte.jsx";
@@ -112,6 +113,7 @@ function Start({ ich, onOpen, onProjekt, onKonditionen, darfRechnen }) {
           <button className="btn2" onClick={() => onKonditionen(v.id)}>Zur Prüfung</button>
         </div>
       ))}
+      <OffeneMeldungen ich={ich} onEntwurf={onKonditionen} />
       <FristHinweise fristen={fristen} />
       <MeineProjekte onOeffnen={onProjekt} />
       <h2>Schnellrechnung</h2>
