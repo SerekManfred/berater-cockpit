@@ -156,8 +156,10 @@ Ausführliches Fachkonzept: `docs/Konzept_Berater-Cockpit.docx` (falls abgelegt)
   Neue Berichte nur mit der aktiven Version (sonst 409 „bitte neu berechnen“). Gespeicherte Berichte behalten ihren Snapshot.
 - **Rechte:** freigegebene Versionen, Formular, Fristen lesen alle Angemeldeten; Entwürfe/Prüfungen sehen admin und pruefer.
   Entwurf anlegen (Kopie der aktiven oder einer zurückgewiesenen Version; nur ein offener Entwurf gleichzeitig), bearbeiten,
-  einreichen, zurückziehen: admin. Freigeben/Zurückweisen (Begründung Pflicht): **Rolle `pruefer`** oder admin – nie der Ersteller
-  und niemand aus `bearbeitet_von` (Vier-Augen-Prinzip, im Backend erzwungen). Reines Einreichen zählt nicht als Bearbeiten.
+  einreichen, zurückziehen: admin. Freigeben/Zurückweisen (Begründung Pflicht): **Rolle `pruefer`** oder admin – nie der Ersteller,
+  niemand aus `bearbeitet_von` und **niemand aus `eingereicht_von`** (Vier-Augen-Prinzip, im Backend erzwungen; Einreicher seit
+  16.11.2026 ausgeschlossen, auch wenn der Ersteller „Kommandozeile“ ist – Migration 0010, Bestand aus dem Protokoll; Versionen 2
+  und 3 wurden noch von derselben Person eingereicht und freigegeben).
 - **Formulare:** aus `PROGRAMME` (Feldtypen prozent/euro/zahl/datum/text/text_lang/janein/auswahl/mehrfach/tabelle). Gespeichert werden
   nur Felder aus dieser Beschreibung (kein freies JSON). Prozent als Anteil gespeichert (0,15), in der Oberfläche als 15 eingegeben.
   Neues Feld im Konditionen-Datensatz = Eintrag in `PROGRAMME` + ggf. Prüfregel + Test.
@@ -250,10 +252,11 @@ Ausführliches Fachkonzept: `docs/Konzept_Berater-Cockpit.docx` (falls abgelegt)
   ausgefallen), gilt der Lauf als fehlgeschlagen – nie „keine Abweichung“. `lauf.werkzeug_fehler` zählt Fehler der Server-Werkzeuge,
   `lauf.werkzeug_fehler_details` nennt Typ, Code und letzte Zeile der Fehlermeldung. Auswertung 16.11.2026 (Opus, 12 Suchen):
   Fehler sind eigene Programmierfehler des Modells im Filtercode (behebt es selbst) und „Server tool use limit exceeded“ –
-  begrenzend waren die 3 Abrufe, nicht die Suchen (8 von 12 genutzt).
+  begrenzend waren die 3 Abrufe, nicht die Suchen (8 von 12 genutzt). Seit 16.11.2026 `FOERDERPRUEFUNG_MAX_ABRUFE` = 5:
+  Testlauf Opus 12 Suchen/5 Abrufe 1,58 $ (deutlich mehr Befunde, Abrufe weiterhin knapp).
 - KI über `app/ki/` (`websuche()`, Regel 7): `web_search_20260209` mit `allowed_domains` kfw.de, bafa.de, energiewechsel.de,
   bmwk.de, bmwe.de, gesetze-im-internet.de, `max_uses` = `FOERDERPRUEFUNG_MAX_SUCHEN` (12), dazu `web_fetch_20260209` auf
-  denselben Domains (`FOERDERPRUEFUNG_MAX_ABRUFE`, 3, je Dokument höchstens `FOERDERPRUEFUNG_ABRUF_MAX_TOKENS` 60.000). Zeitlimit
+  denselben Domains (`FOERDERPRUEFUNG_MAX_ABRUFE`, 5, je Dokument höchstens `FOERDERPRUEFUNG_ABRUF_MAX_TOKENS` 60.000). Zeitlimit
   600 s, `pause_turn` wird fortgesetzt. Prompt `app/ki/prompts/foerderpruefung_v2.md` (`PROMPT-VERSION: foerderpruefung-2`).
   Kostenschätzung (`kosten_usd`): Cache schreiben 1,25 × Eingabe, Cache lesen nach Preisliste (Sonnet/Opus 5.5: 5 % der Eingabe).
   Antwort = JSON im ```json-Block (kein `output_config.format`, weil Websuche Zitate erzeugt) – **streng geprüft** in `auswerten()`:

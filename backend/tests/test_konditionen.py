@@ -440,3 +440,32 @@ def test_cli_entwurf_ergaenzen_fachkorrektur_kfw261(tmp_path, capsys):
     assert cli.main(["konditionen-entwurf-ergaenzen", str(nummer), korrektur, "--notiz", "x"]) == 0
     assert "nichts geändert" in capsys.readouterr().out
     assert cli.main(["konditionen-entwurf-ergaenzen", "1", korrektur, "--notiz", "x"]) == 1   # kein Entwurf
+
+
+# ---------- Vier-Augen-Prinzip: Einreicher dürfen nicht freigeben (Geschäftsführer 16.11.2026) ----------
+
+def test_einreicher_darf_nicht_freigeben_auch_bei_ersteller_kommandozeile(capsys):
+    """Version 3 wurde am 16.11.2026 per Kommandozeile angelegt und von derselben Person eingereicht und freigegeben."""
+    assert cli.main(["konditionen-entwurf", str(KOND_DIR / "fachwerte_startbestand.json"), str(KOND_DIR / "ergaenzung_init_v3.json"),
+                     "--notiz", "Entwurf per Kommandozeile"]) == 0
+    with SessionLocal() as db:
+        vid = db.scalar(select(KonditionenVersion.id).where(KonditionenVersion.status == "entwurf"))
+    chef = nutzer("admin", "pruefer")                                   # Admin und Prüfer in einer Person
+    pruefer, pruefer2 = nutzer("pruefer"), nutzer("pruefer", email="pruefer2@serek.test")
+    assert chef.post(f"/konditionen/versionen/{vid}/einreichen").status_code == 200
+    d = chef.get(f"/konditionen/versionen/{vid}").json()
+    assert d["darf_pruefen"] is False and d["beteiligt"] is True
+    r = chef.post(f"/konditionen/versionen/{vid}/freigeben", json={})
+    assert r.status_code == 403 and "eingereicht" in r.json()["detail"]
+    assert chef.post(f"/konditionen/versionen/{vid}/zurueckweisen", json={"begruendung": "selbst geprüft"}).status_code == 403
+    # Zurückziehen und erneut einreichen: der erste Einreicher bleibt ausgeschlossen
+    assert chef.post(f"/konditionen/versionen/{vid}/zurueckziehen").status_code == 200
+    with SessionLocal() as db:
+        db.get(KonditionenVersion, vid).status = "entwurf"
+        db.commit()
+    assert chef.post(f"/konditionen/versionen/{vid}/einreichen").status_code == 200
+    with SessionLocal() as db:
+        assert db.get(KonditionenVersion, vid).eingereicht_von == [chef.benutzer_id]
+    assert pruefer.get(f"/konditionen/versionen/{vid}").json()["darf_pruefen"] is True
+    assert pruefer.post(f"/konditionen/versionen/{vid}/freigeben", json={"notiz": "geprüft"}).status_code == 200
+    assert pruefer2.get(f"/konditionen/versionen/{vid}").json()["status"] == "aktiv"

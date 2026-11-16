@@ -200,6 +200,8 @@ class KonditionenVersion(Base):
     erstellt_von_id: Mapped[int | None] = mapped_column(ForeignKey("benutzer.id", ondelete="SET NULL"))
     erstellt_am: Mapped[datetime] = mapped_column(UTCZeit, nullable=False, default=jetzt)
     bearbeitet_von: Mapped[list] = mapped_column(DETAILS_TYP, nullable=False, default=list)  # IDs aller, die Werte geändert haben
+    # IDs aller, die zur Prüfung gesendet haben (Migration 0010) – dürfen nicht freigeben, auch bei Ersteller „Kommandozeile“
+    eingereicht_von: Mapped[list] = mapped_column(DETAILS_TYP, nullable=False, default=list)
     geprueft_von_id: Mapped[int | None] = mapped_column(ForeignKey("benutzer.id", ondelete="SET NULL"))
     geprueft_am: Mapped[datetime | None] = mapped_column(UTCZeit)
     pruefnotiz: Mapped[str | None] = mapped_column(Text)

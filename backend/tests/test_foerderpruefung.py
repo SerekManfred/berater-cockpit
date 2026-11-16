@@ -376,7 +376,7 @@ def test_anfrage_mit_cache_aufwand_und_begrenzten_dokumenten():
     assert a["tools"][1]["max_content_tokens"] == 60000 and a["fallbacks"] == "default"
     assert "max_content_tokens" not in websuche_anfrage("m", "S", "T", ("kfw.de",), 3, 2)["tools"][1]
     assert config.FOERDERPRUEFUNG_MODELL == "claude-opus-5-5" and config.FOERDERPRUEFUNG_VOR_MODELL == "claude-sonnet-5-5"
-    assert (config.FOERDERPRUEFUNG_MAX_SUCHEN, config.FOERDERPRUEFUNG_MAX_ABRUFE) == (12, 3)
+    assert (config.FOERDERPRUEFUNG_MAX_SUCHEN, config.FOERDERPRUEFUNG_MAX_ABRUFE) == (12, 5)
 
 
 def test_kosten_mit_cache():

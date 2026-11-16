@@ -1,0 +1,6 @@
+{
+ "_hinweis": "Quelle BEG EM um die neuere Richtlinienfassung ergänzt (Geschäftsführer 16.11.2026) – nur die Quellenangabe, Werte unverändert. Für den Entwurf Version 4 (python -m app.cli konditionen-entwurf-ergaenzen 4 …).",
+ "beg_em": {
+  "quelle": "Richtlinie BEG EM vom 17.07.2026 (in Kraft 21.07.2026); Ökozentrum NRW Zusammenfassung 18.08.2026; BEG-EM-Richtlinie vom 17.08.2026"
+ }
+}

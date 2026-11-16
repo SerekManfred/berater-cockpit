@@ -287,7 +287,7 @@ def benachrichtigen_einreichung(versions_id: int, einreicher_id: int | None):
         text = (f"Konditionen-Version {v.version} (Stand der Förderbedingungen {datum_de(v.gueltig_ab)}) wurde zur Prüfung eingereicht.\n\n"
                 f"Änderungsnotiz: {v.aenderungsnotiz or '–'}\n\n"
                 f"Prüfen und freigeben im Cockpit unter Förderkonditionen → Versionen: {config.COCKPIT_URL}/\n"
-                "Freigeben darf nur, wer die Version weder erstellt noch bearbeitet hat (Vier-Augen-Prinzip).")
+                "Freigeben darf nur, wer die Version weder erstellt noch bearbeitet noch eingereicht hat (Vier-Augen-Prinzip).")
         mail.senden(db, "konditionen_zur_pruefung", mail.empfaenger(db, ausser=einreicher_id), betreff, text)
         db.commit()
 

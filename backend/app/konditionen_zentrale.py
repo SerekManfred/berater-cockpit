@@ -393,7 +393,8 @@ def _vorgaenger(db: Session, v: KonditionenVersion) -> KonditionenVersion | None
 
 
 def _beteiligt(v: KonditionenVersion, ich: Benutzer) -> bool:
-    return ich.id == v.erstellt_von_id or ich.id in (v.bearbeitet_von or [])
+    """Vier-Augen-Prinzip: Ersteller, Bearbeiter und Einreicher (Geschäftsführer 16.11.2026) dürfen nicht prüfen."""
+    return ich.id == v.erstellt_von_id or ich.id in (v.bearbeitet_von or []) or ich.id in (v.eingereicht_von or [])
 
 
 def _detail(db: Session, v: KonditionenVersion, ich: Benutzer) -> dict:
@@ -484,7 +485,7 @@ def entwurf_anlegen(db: Session, request: Request | None, ersteller_id: int | No
     daten["gueltig_ab"] = gueltig
     v = KonditionenVersion(version=neue_nummer, gueltig_ab=date.fromisoformat(gueltig), status="entwurf", daten=daten,
                            aenderungsnotiz=aenderungsnotiz, basis_id=basis.id, erstellt_von_id=ersteller_id,
-                           erstellt_am=jetzt(), bearbeitet_von=[])
+                           erstellt_am=jetzt(), bearbeitet_von=[], eingereicht_von=[])
     db.add(v)
     db.flush()
     protokollieren(db, request, "konditionen_entwurf_angelegt", ersteller_id, version=v.version, basis_version=basis.version,
@@ -538,6 +539,8 @@ def einreichen(versions_id: int, request: Request, hintergrund: BackgroundTasks,
     if fehler:
         raise HTTPException(422, {"meldung": f"{len(fehler)} Angabe(n) fehlen oder sind ungültig.", "fehler": fehler})
     v.status = "zur_pruefung"
+    if ich.id not in (v.eingereicht_von or []):
+        v.eingereicht_von = [*(v.eingereicht_von or []), ich.id]
     protokollieren(db, request, "konditionen_zur_pruefung", ich.id, version=v.version)
     db.commit()
     # Mail „wartet auf Freigabe“ an die Empfänger (nicht an den Einreicher) – nach der Antwort, Fehler blockieren nie
@@ -561,7 +564,7 @@ def _pruefen_erlaubt(v: KonditionenVersion, ich: Benutzer):
     if v.status != "zur_pruefung":
         raise HTTPException(409, "Diese Version wartet nicht auf Prüfung")
     if _beteiligt(v, ich):
-        raise HTTPException(403, "Vier-Augen-Prinzip: Wer die Version erstellt oder bearbeitet hat, darf sie nicht prüfen.")
+        raise HTTPException(403, "Vier-Augen-Prinzip: Wer die Version erstellt, bearbeitet oder eingereicht hat, darf sie nicht prüfen.")
 
 
 @router.post("/konditionen/versionen/{versions_id}/freigeben")
