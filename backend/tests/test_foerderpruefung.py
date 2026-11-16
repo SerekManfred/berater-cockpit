@@ -1,16 +1,17 @@
 """Förderprüfung (Phase 2f): Lauf, strenge Auswertung der KI-Antwort, Meldungen, Mails an Empfänger, Entwurf aus Meldung,
 Stand-Hinweis. Die KI ist durch einen festen Ersatz ersetzt (kein Netzwerk); Mails nur ins Protokoll (SMTP_NUR_PROTOKOLL)."""
 import json
-from datetime import UTC, date, datetime
+from datetime import UTC, date, datetime, timedelta
 
 import pytest
+from sqlalchemy import func, select
 
 
 from app import config, foerderpruefung, ki, mail
 from app.db import SessionLocal
 from app.ki import KiAntwort, KiFehler
 from app.ki.anthropic_anbieter import websuche_anfrage
-from app.modelle import Benutzer, FoerderMeldung, KonditionenVersion
+from app.modelle import Benutzer, FoerderMeldung, KonditionenVersion, Protokoll
 from app.rechnen import lade_konditionen
 from tests.test_anmeldung import aktionen
 from tests.test_konditionen import nutzer
@@ -32,7 +33,8 @@ MIT_ABWEICHUNG = {
     "hinweise": ["KfW 458: nichts gefunden"],
     "zusammenfassung": "Zwei Werte weichen ab.",
 }
-OHNE_ABWEICHUNG = {"abweichungen": [], "merkblaetter": [], "hinweise": [], "zusammenfassung": "Alles aktuell."}
+OHNE_ABWEICHUNG = {"abweichungen": [], "hinweise": [], "zusammenfassung": "Alles aktuell.",
+                   "merkblaetter": [{"programm": "beg_em", "titel": "Merkblatt BEG EM", "stand": "07/2026", "quelle": "https://www.bafa.de/m.pdf"}]}
 
 
 class Ersatz:
@@ -41,8 +43,9 @@ class Ersatz:
     def __init__(self, antwort=None, fehler=None):
         self.antwort, self.fehler, self.aufrufe = antwort, fehler, []
 
-    def websuche(self, system, text, domains, max_suchen, max_abrufe, zeitlimit):
-        self.aufrufe.append({"system": system, "text": text, "domains": domains, "max_suchen": max_suchen})
+    def websuche(self, system, text, domains, max_suchen, max_abrufe, zeitlimit, effort="high", max_inhalt_tokens=None, einfach=False):
+        self.aufrufe.append({"system": system, "text": text, "domains": domains, "max_suchen": max_suchen,
+                             "max_abrufe": max_abrufe, "effort": effort, "max_inhalt_tokens": max_inhalt_tokens, "einfach": einfach})
         if self.fehler:
             raise self.fehler
         roh = "Ich habe die Merkblätter geprüft.\n```json\n" + json.dumps(self.antwort) + "\n```"
@@ -362,3 +365,157 @@ def test_api_fehler_werden_verstaendlich(klasse, status, body, erwartet, code):
     f = _status_fehler(_api_fehler(klasse, status, body))
     assert erwartet in f.meldung and f.status == code
     assert "Status 200" not in f.meldung
+
+
+
+# ---------- Kosten senken (16.11.2026): Sonnet 5.5, Caching, zweistufig, alle 14 Tage ----------
+
+def test_anfrage_mit_cache_aufwand_und_begrenzten_dokumenten():
+    a = websuche_anfrage("claude-sonnet-5-5", "S", "T", ("kfw.de",), 8, 3, effort="low", max_inhalt_tokens=60000)
+    assert a["cache_control"] == {"type": "ephemeral"} and a["output_config"] == {"effort": "low"}
+    assert a["tools"][1]["max_content_tokens"] == 60000 and a["fallbacks"] == "default"
+    assert "max_content_tokens" not in websuche_anfrage("m", "S", "T", ("kfw.de",), 3, 2)["tools"][1]
+    assert config.FOERDERPRUEFUNG_MODELL == "claude-sonnet-5-5"
+    assert (config.FOERDERPRUEFUNG_MAX_SUCHEN, config.FOERDERPRUEFUNG_MAX_ABRUFE) == (8, 3)
+
+
+def test_kosten_mit_cache():
+    # Sonnet 5.5: 2 $ Eingabe, 10 $ Ausgabe, Cache lesen 0,10 $, Cache schreiben 1,25 × Eingabe
+    n = {"eingabe_tokens": 100_000, "cache_schreiben_tokens": 200_000, "cache_lesen_tokens": 1_000_000,
+         "ausgabe_tokens": 10_000, "suchen": 8}
+    assert foerderpruefung.kosten_usd("claude-sonnet-5-5", n) == round(0.2 + 0.5 + 0.1 + 0.1 + 0.08, 4)
+    assert foerderpruefung.kosten_usd("claude-opus-5-5", {"cache_lesen_tokens": 1_000_000}) == 0.2
+
+
+class Folge(Ersatz):
+    """Liefert nacheinander die Antworten (Stufe 1, Stufe 2 …)."""
+
+    def __init__(self, *antworten):
+        super().__init__()
+        self.folge = list(antworten)
+
+    def websuche(self, *args, **kw):
+        self.antwort = self.folge.pop(0)
+        return super().websuche(*args, **kw)
+
+
+VOR_UNVERAENDERT = {"programme": [{"programm": "beg_em", "dokument": "Merkblatt BEG EM", "stand": "07/2026",
+                                   "quelle": "https://www.bafa.de/m.pdf", "geaendert": False}],
+                    "pressemitteilungen": [], "aenderung_moeglich": False, "begruendung": "Alles wie bekannt."}
+
+
+def _lauf(monkeypatch, *antworten, voll=False):
+    e = Folge(*antworten)
+    monkeypatch.setattr(ki, "TEST_ANBIETER", e)
+    with SessionLocal() as db:
+        m = foerderpruefung.lauf_ausfuehren(db, None, voll=voll)
+        return e, m.id, m.status, m.ergebnis
+
+
+def test_zweistufig_vorpruefung_spart_gruendliche_pruefung(aktiv, monkeypatch):
+    # ohne frühere gründliche Prüfung: gleich gründlich (ein Aufruf)
+    e, erste, _, erg = _lauf(monkeypatch, OHNE_ABWEICHUNG)
+    assert len(e.aufrufe) == 1 and erg["lauf"]["stufe"] == "voll" and "vorpruefung" not in erg
+    assert e.aufrufe[0]["effort"] == "high" and e.aufrufe[0]["max_inhalt_tokens"] == config.FOERDERPRUEFUNG_ABRUF_MAX_TOKENS
+    assert e.aufrufe[0]["einfach"] is False
+    # Stand unverändert: nur Stufe 1 (wenige Suchen, kein Abruf, niedriger Aufwand), Vergleich mit den Merkblättern der Basis
+    e, _, status, erg = _lauf(monkeypatch, VOR_UNVERAENDERT)
+    assert len(e.aufrufe) == 1 and status == "keine_abweichung" and erg["lauf"]["stufe"] == "vorpruefung"
+    a = e.aufrufe[0]
+    assert a["system"].startswith("Sie machen für ein Energieberatungsbüro eine kurze Vorprüfung")
+    assert (a["max_suchen"], a["max_abrufe"], a["effort"], a["einfach"]) == (config.FOERDERPRUEFUNG_VOR_SUCHEN, 0, "low", True)
+    eingabe = json.loads(a["text"].split("\n\n", 1)[1])
+    assert eingabe["bekannte_dokumente"] == [{k: m.get(k) for k in ("programm", "titel", "stand", "quelle")}
+                                             for m in OHNE_ABWEICHUNG["merkblaetter"]]
+    assert erg["lauf"]["prompt_version"] == "foerderpruefung-stand-1" and erg["vorpruefung"]["lauf"]["basis_meldung_id"] == erste
+    assert erg["merkblaetter"][0]["stand"] == "07/2026" and "keine gründliche Prüfung nötig" in erg["zusammenfassung"]
+    # Basis bleibt die gründliche Prüfung (nicht die Vorprüfung)
+    with SessionLocal() as db:
+        assert foerderpruefung.basis_pruefung(db).id == erste
+
+
+@pytest.mark.parametrize("vor", [
+    {**VOR_UNVERAENDERT, "aenderung_moeglich": True},
+    {**VOR_UNVERAENDERT, "programme": [{**VOR_UNVERAENDERT["programme"][0], "geaendert": None}]},
+    {**VOR_UNVERAENDERT, "programme": []},
+    {**VOR_UNVERAENDERT, "pressemitteilungen": [{"titel": "BEG ab 2027", "datum": "2026-11-10", "quelle": "https://www.bmwe.de/p",
+                                                  "betrifft": ["beg_em"]}]},
+    {k: v for k, v in VOR_UNVERAENDERT.items() if k != "aenderung_moeglich"},
+    "kein JSON",
+])
+def test_bei_aenderung_oder_unklarheit_gruendlich(aktiv, monkeypatch, vor):
+    _lauf(monkeypatch, OHNE_ABWEICHUNG)
+    if vor == "kein JSON":
+        class Kaputt(Folge):
+            def websuche(self, *args, **kw):
+                if len(self.aufrufe) == 0:
+                    self.aufrufe.append({"system": args[0]})
+                    return KiAntwort(daten={}, rohtext="Ich habe nichts gefunden.", modell="claude-sonnet-5-5",
+                                     nutzung={"eingabe_tokens": 10_000, "suchen": 2})
+                return super().websuche(*args, **kw)
+        e = Kaputt(MIT_ABWEICHUNG)
+        monkeypatch.setattr(ki, "TEST_ANBIETER", e)
+        with SessionLocal() as db:
+            m = foerderpruefung.lauf_ausfuehren(db, None)
+            status, erg = m.status, m.ergebnis
+    else:
+        e, _, status, erg = _lauf(monkeypatch, vor, MIT_ABWEICHUNG)
+    assert len(e.aufrufe) == 2 and status == "offen" and erg["lauf"]["stufe"] == "voll"
+    assert erg["vorpruefung"]["grund"] and erg["lauf"]["prompt_version"] == "foerderpruefung-1"
+    vor_kosten = erg["vorpruefung"]["lauf"]["kosten_usd"]
+    assert erg["lauf"]["kosten_usd"] > vor_kosten > 0          # Kosten beider Stufen zusammen
+
+
+def test_spaetestens_nach_acht_wochen_und_auf_wunsch_gruendlich(aktiv, monkeypatch):
+    _, erste, _, _ = _lauf(monkeypatch, OHNE_ABWEICHUNG)
+    e, _, _, erg = _lauf(monkeypatch, OHNE_ABWEICHUNG, voll=True)
+    assert len(e.aufrufe) == 1 and erg["lauf"]["stufe"] == "voll"
+    with SessionLocal() as db:
+        for m in db.scalars(select(FoerderMeldung)):
+            m.zeit = m.zeit - timedelta(days=config.FOERDERPRUEFUNG_VOLL_SPAETESTENS_TAGE)
+        db.commit()
+    e, _, _, erg = _lauf(monkeypatch, OHNE_ABWEICHUNG)
+    assert len(e.aufrufe) == 1 and erg["lauf"]["stufe"] == "voll" and e.aufrufe[0]["effort"] == "high"
+
+
+def test_zeitplan_nur_alle_14_tage(monkeypatch, capsys):
+    monkeypatch.setattr(config, "FOERDERPRUEFUNG_AKTIV", True)
+    monkeypatch.setattr(config, "SMTP_NUR_PROTOKOLL", True)
+    monkeypatch.setattr(ki, "TEST_ANBIETER", Folge(OHNE_ABWEICHUNG, VOR_UNVERAENDERT))
+    assert foerderpruefung.main(["--zeitplan"]) == 0 and "gründlich" in capsys.readouterr().out
+    assert foerderpruefung.main(["--zeitplan"]) == 0 and "nicht fällig" in capsys.readouterr().out
+    with SessionLocal() as db:   # manuelle Läufe verschieben den Zeitplan nicht
+        for p in db.scalars(select(Protokoll).where(Protokoll.aktion == "foerderpruefung_lauf")):
+            p.zeit = p.zeit - timedelta(days=14)
+        db.commit()
+        assert foerderpruefung.zeitplan_faellig(db)
+    assert foerderpruefung.main(["--zeitplan"]) == 0 and "nur Vorprüfung" in capsys.readouterr().out
+
+
+def test_einfache_suche_fuer_die_vorpruefung():
+    a = websuche_anfrage("claude-sonnet-5-5", "S", "T", ("kfw.de",), 8, 1, einfach=True)
+    assert [t["type"] for t in a["tools"]] == ["web_search_20250305", "web_fetch_20250910"]
+
+
+def test_gruendliche_pruefung_ohne_quellen_ist_fehlgeschlagen(aktiv, monkeypatch):
+    """Testlauf 16.11.2026: Websuche fiel aus, die KI meldete „keine Abweichung“ ohne ein einziges Dokument."""
+    ersatz(monkeypatch, {**OHNE_ABWEICHUNG, "merkblaetter": [], "zusammenfassung": "Websuche nicht verfügbar."})
+    admin = nutzer("admin")
+    with SessionLocal() as db, pytest.raises(KiFehler, match="keine Quelle gelesen"):
+        foerderpruefung.lauf_ausfuehren(db, admin.benutzer_id)
+    with SessionLocal() as db:
+        assert db.scalar(select(func.count()).select_from(FoerderMeldung)) == 0
+    assert "foerderpruefung_fehlgeschlagen" in aktionen(admin.benutzer_id)
+
+
+def test_werkzeugfehler_werden_gezaehlt():
+    from types import SimpleNamespace as N
+    from app.ki.anthropic_anbieter import _zaehlen
+    nachricht = N(usage=N(input_tokens=1, output_tokens=2, cache_creation_input_tokens=0, cache_read_input_tokens=0,
+                          server_tool_use=N(web_search_requests=2, web_fetch_requests=0)),
+                  content=[N(type="web_search_tool_result", content=[N(url="https://kfw.de")]),
+                           N(type="web_search_tool_result", content=N(error_code="max_uses_exceeded")),
+                           N(type="code_execution_tool_result", content=N(return_code=1))])
+    summe = {}
+    _zaehlen(summe, nachricht)
+    assert summe["werkzeug_fehler"] == 2 and summe["suchen"] == 2

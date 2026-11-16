@@ -15,7 +15,7 @@ vi.mock("./api.js", async original => ({
   }),
 }));
 
-import { OffeneMeldungen, PruefungVeraltet } from "./Foerderpruefung.jsx";
+import { OffeneMeldungen, PruefungVeraltet, stufeText } from "./Foerderpruefung.jsx";
 import { standText } from "./Foerdervergleich.jsx";
 
 afterEach(() => { cleanup(); aufrufe.length = 0; antworten = {}; });
@@ -107,5 +107,15 @@ describe("Hinweis „Prüfung veraltet“ und Stand-Angabe", () => {
     expect(standText({ konditionen_version: 2, konditionen_stand: "Förderbedingungen Stand 09.11.2026 (interne Version 2)" }))
       .toBe("Förderbedingungen Stand 09.11.2026 (interne Version 2)");
     expect(standText({ konditionen_version: 1 })).toBe("Konditionen-Version 1");
+  });
+});
+
+describe("Stufe der Prüfung", () => {
+  it("zeigt, ob nur die Vorprüfung lief oder gründlich geprüft wurde", () => {
+    expect(stufeText({ lauf: { stufe: "vorpruefung" } })).toBe("nur Vorprüfung (Stand unverändert)");
+    expect(stufeText({ lauf: { stufe: "voll" }, vorpruefung: { grund: "Vorprüfung meldet mögliche Änderung" } }))
+      .toBe("gründlich – Vorprüfung meldet mögliche Änderung");
+    expect(stufeText({ lauf: {} })).toBe("gründlich");
+    expect(stufeText(undefined)).toBe("gründlich");
   });
 });

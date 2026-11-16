@@ -227,19 +227,35 @@ Ausführliches Fachkonzept: `docs/Konzept_Berater-Cockpit.docx` (falls abgelegt)
 ## Förderprüfung, Meldungen, E-Mail (Stand 16.11.2026, Phase 2f)
 - **Nie automatisch aktivieren.** Eine Meldung führt höchstens zu einem Entwurf (Vier-Augen-Freigabe wie jeder Entwurf).
 - `app/foerderpruefung.py`: Lauf per Zeitplan (`scripts/foerderpruefung.sh`, Cron als dev, montags 06:10 Europe/Berlin – zwei
-  UTC-Einträge 04:10/05:10, das Skript läuft nur um 06 Uhr Berlin) oder Knopf „Jetzt prüfen“ (nur Admin, Hintergrundlauf,
+  UTC-Einträge 04:10/05:10, das Skript läuft nur um 06 Uhr Berlin; **nur alle 14 Tage**: `--zeitplan` überspringt, solange der
+  letzte erfolgreiche Zeitplan-Lauf jünger ist als `FOERDERPRUEFUNG_INTERVALL_TAGE`) oder Knopf „Jetzt prüfen“ (nur Admin, Hintergrundlauf,
   Oberfläche fragt `/foerderpruefung/lauf` ab). Vergleichswerte = **aktive Version aus der Datenbank**, alle Programme außer
   `allgemein`/`fachwerte`, Feldtypen prozent/euro/zahl/datum/janein/auswahl/mehrfach (inkl. Fristen und Baubegleitung).
+- **Zweistufig und kostenbegrenzt (Geschäftsführer 16.11.2026, Ziel < 1,50 $ je Lauf):** Opus 5.5 mit 15 Suchen/10 Abrufen
+  kostete 6,16 $. Jetzt Modell `FOERDERPRUEFUNG_MODELL` = `claude-sonnet-5-5`, Prompt-Caching (`cache_control` oben in der
+  Anfrage – die Websuche liest bei jedem Zwischenschritt alle Treffer neu, aus dem Cache für 5 % des Preises).
+  **Stufe 1** (`foerderpruefung_stand_v1.md`, `PROMPT-VERSION: foerderpruefung-stand-1`): nur Stand-Angaben der Merkblätter und
+  Pressemitteilungen, verglichen mit den Merkblättern der letzten gründlichen Prüfung (`basis_pruefung`); einfache Websuche
+  `web_search_20250305` (ohne Code-Ausführung – mit dynamischer Filterung verbrauchte Sonnet ein kleines `max_uses` durch
+  wiederholte Suchen), `FOERDERPRUEFUNG_VOR_SUCHEN` (8), effort low. **Stufe 2** (gründlich, Prompt unten) nur bei Änderung,
+  Unklarheit („null“, unlesbare Antwort), Pressemitteilung zu einem Programm, ohne frühere gründliche Prüfung oder nach
+  `FOERDERPRUEFUNG_VOLL_SPAETESTENS_TAGE` (56); `--voll` erzwingt sie. Testlauf 16.11.2026 (Kopie der DB, echte API):
+  Vorprüfung ≈ 0,21 $, gründlich ≈ 0,52–0,82 $, zusammen ≈ 0,95 $. Meldung zeigt `lauf.stufe`, `vorpruefung` (Grund, Stände,
+  Pressemitteilungen) und Kosten beider Stufen zusammen.
+- **Keine falsche Entwarnung:** liest die gründliche Prüfung kein einziges Dokument (`merkblaetter` leer, z. B. Websuche
+  ausgefallen), gilt der Lauf als fehlgeschlagen – nie „keine Abweichung“. `lauf.werkzeug_fehler` zählt Fehler der Server-Werkzeuge.
 - KI über `app/ki/` (`websuche()`, Regel 7): `web_search_20260209` mit `allowed_domains` kfw.de, bafa.de, energiewechsel.de,
-  bmwk.de, bmwe.de, gesetze-im-internet.de, `max_uses` = `FOERDERPRUEFUNG_MAX_SUCHEN` (15), dazu `web_fetch_20260209` auf
-  denselben Domains (`FOERDERPRUEFUNG_MAX_ABRUFE`, 10). Modell `FOERDERPRUEFUNG_MODELL` (Standard `claude-opus-5-5`), Zeitlimit
+  bmwk.de, bmwe.de, gesetze-im-internet.de, `max_uses` = `FOERDERPRUEFUNG_MAX_SUCHEN` (8), dazu `web_fetch_20260209` auf
+  denselben Domains (`FOERDERPRUEFUNG_MAX_ABRUFE`, 3, je Dokument höchstens `FOERDERPRUEFUNG_ABRUF_MAX_TOKENS` 60.000). Zeitlimit
   600 s, `pause_turn` wird fortgesetzt. Prompt `app/ki/prompts/foerderpruefung_v1.md` (`PROMPT-VERSION: foerderpruefung-1`).
+  Kostenschätzung (`kosten_usd`): Cache schreiben 1,25 × Eingabe, Cache lesen nach Preisliste (Sonnet/Opus 5.5: 5 % der Eingabe).
   Antwort = JSON im ```json-Block (kein `output_config.format`, weil Websuche Zitate erzeugt) – **streng geprüft** in `auswerten()`:
   nur bekannte Felder, gültiges Format, echter Unterschied; „hinterlegt“ immer aus der Datenbank; „offiziell“ nur mit Quelle auf
   einer offiziellen Domain, sonst `zu_pruefen`. Verworfene Angaben stehen mit Grund im Ergebnis.
 - **Datenschutz:** nur Förderwerte, Feldnamen, Quellen – keine Personen- oder Projektdaten. Daher unabhängig von `KI_AKTIV`;
   eigener Schalter **`FOERDERPRUEFUNG_AKTIV`** (Standard aus, Geschäftsführer schaltet ein). Kostenbremse
   `FOERDERPRUEFUNG_MAX_LAEUFE_TAG` (5, Zeitplan + manuell). Kosten je Lauf (Listenpreis-Schätzung) im Ergebnis und im Protokoll.
+  Compose setzt die Standardwerte (`docker-compose.yml`) – Änderungen dort **und** im Code, sonst gilt der Compose-Wert.
 - **Tabelle `foerder_meldungen`** (Migration 0009): zeit, konditionen_version, ergebnis (abweichungen, verworfen, merkblaetter,
   hinweise, zusammenfassung, lauf, rohtext), status `keine_abweichung | offen | entwurf_angelegt | verworfen`, ausgeloest_von
   (leer = Zeitplan), bearbeitet_von/am, begruendung, entwurf_id, benachrichtigung. Fehlgeschlagene Läufe legen keine Meldung an
@@ -334,7 +350,7 @@ Fachregeln, Rechenkern, Generator. Die Oberfläche soll Masken aus dieser Beschr
 - **Phase 2d (umgesetzt 14.11.2026, Abnahme offen):** Projektname, Auftraggeber/Kunde/Objekt, „Berichte adressiert an“, Ablaufgrafik im Cockpit.
 - **Phase 2e (umgesetzt 14.11.2026, Abnahme offen):** Plausibilität der Wohneinheiten mit „Wohneinheiten geprüft“, Angebotsvorlagen A–D, Generator 0.4.2.
 - **Phase 2b (umgesetzt 13.11.2026, Abnahme offen):** Beratungsbericht INIT mit KI-Textvorschlägen (siehe Abschnitte oben).
-- **Phase 2f (umgesetzt 16.11.2026, Abnahme offen):** Wöchentliche Förderprüfung mit Meldungen und E-Mail an Empfänger, Stand-Angabe
+- **Phase 2f (umgesetzt 16.11.2026, Abnahme 1–4 bestanden 16.11.2026; Kostensenkung zweistufig/Sonnet, alle 14 Tage):** Förderprüfung mit Meldungen und E-Mail an Empfänger, Stand-Angabe
   „Förderbedingungen Stand … (interne Version N)“, Generator 0.4.3.
 - **Phase 2:** MEH (danach) und Kirche nach demselben Muster; INIT und MEH mit KI (Checklisten-Erkennung, Fotozuordnung) – vorhandene Generatoren `generate_report.js` aus den Skills einbinden.
 - **Phase 3:** Kirche. **Phase 4:** Änderungs-Monitor für Förderquellen, Freigabe-Workflow, Anbindung IR-Planer.

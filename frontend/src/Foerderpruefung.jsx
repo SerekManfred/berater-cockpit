@@ -157,7 +157,8 @@ export function FoerderpruefungSeite({ ich, onEntwurf }) {
                 <tr>
                   <td>{zeit(m.zeit)}<br /><span className="klein">{m.ausgeloest_von}</span></td>
                   <td>V{m.konditionen_version}</td>
-                  <td>{m.ergebnis.abweichungen.length ? `${m.ergebnis.abweichungen.length} Abweichung(en)` : "keine Abweichung"}</td>
+                  <td>{m.ergebnis.abweichungen.length ? `${m.ergebnis.abweichungen.length} Abweichung(en)` : "keine Abweichung"}
+                    <br /><span className="klein">{stufeText(m.ergebnis)}</span></td>
                   <td>{STATUS[m.status] || m.status}{m.bearbeitet_von && <><br /><span className="klein">{m.bearbeitet_von}, {zeit(m.bearbeitet_am)}</span></>}</td>
                   <td>{m.ergebnis.lauf?.suchen ?? "–"}</td><td>{kosten(m.ergebnis.lauf)}</td>
                   <td><button className="btn2" aria-expanded={offen === m.id} onClick={() => setOffen(offen === m.id ? null : m.id)}>{offen === m.id ? "Schließen" : "Details"}</button></td>
@@ -172,8 +173,16 @@ export function FoerderpruefungSeite({ ich, onEntwurf }) {
   );
 }
 
+// Zweistufige Prüfung (16.11.2026): Stufe 1 nur Stand-Angaben, gründlich nur bei Änderung/Unklarheit
+export function stufeText(e) {
+  if (e?.lauf?.stufe === "vorpruefung") return "nur Vorprüfung (Stand unverändert)";
+  if (e?.vorpruefung) return `gründlich – ${e.vorpruefung.grund || "nach Vorprüfung"}`;
+  return "gründlich";
+}
+
 function MeldungDetails({ m, ich, onEntwurf, onFertig }) {
   const e = m.ergebnis;
+  const presse = e.vorpruefung?.pressemitteilungen || [];
   return (
     <div>
       {e.zusammenfassung && <p>{e.zusammenfassung}</p>}
@@ -184,6 +193,10 @@ function MeldungDetails({ m, ich, onEntwurf, onFertig }) {
       {e.merkblaetter?.length > 0 && <>
         <h3>Geprüfte Merkblätter</h3>
         <ul>{e.merkblaetter.map((x, i) => <li key={i}>{x.titel || x.programm} {x.stand && `(Stand ${x.stand})`} {istLink(x.quelle) && <a href={x.quelle} target="_blank" rel="noopener noreferrer">öffnen</a>}{!x.offiziell && " – keine offizielle Domain"}</li>)}</ul>
+      </>}
+      {presse.length > 0 && <>
+        <h3>Pressemitteilungen (Vorprüfung)</h3>
+        <ul>{presse.map((x, i) => <li key={i}>{x.titel}{x.datum && ` (${x.datum})`} {istLink(x.quelle) && <a href={x.quelle} target="_blank" rel="noopener noreferrer">öffnen</a>}</li>)}</ul>
       </>}
       {e.hinweise?.length > 0 && <><h3>Hinweise der Prüfung</h3><ul>{e.hinweise.map((h, i) => <li key={i}>{h}</li>)}</ul></>}
       {e.verworfen?.length > 0 && <p className="klein">{e.verworfen.length} Angabe(n) der KI wurden nicht übernommen (unbekanntes Feld, falsches Format oder kein Unterschied).</p>}

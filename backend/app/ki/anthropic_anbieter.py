@@ -81,16 +81,28 @@ def _schluessel_pruefen():
 
 WEBSUCHE = "web_search_20260209"   # mit dynamischer Filterung (Opus 5.5, Sonnet 5.5 …), Stand Doku 11/2026
 WEBABRUF = "web_fetch_20260209"    # liest nur Adressen, die bereits im Gespräch stehen (z. B. Treffer der Suche)
+# Einfache Varianten ohne Code-Ausführung: für kurze Recherchen (Vorprüfung). Testlauf 16.11.2026: Mit dynamischer Filterung
+# schreibt das Modell eigenen Suchcode, der bei Fehlern Suchen wiederholt und ein kleines max_uses schnell aufbraucht.
+WEBSUCHE_EINFACH, WEBABRUF_EINFACH = "web_search_20250305", "web_fetch_20250910"
 MAX_RUNDEN = 6                     # Fortsetzungen nach „pause_turn“ (Server-Werkzeugschleife)
 
 
-def websuche_anfrage(modell: str, system: str, text: str, domains: tuple[str, ...], max_suchen: int, max_abrufe: int) -> dict:
-    """Anfrage für die Recherche – nur offizielle Domains, begrenzte Suchen (getrennt, damit testbar ohne Netz)."""
-    werkzeuge = [{"type": WEBSUCHE, "name": "web_search", "max_uses": max_suchen, "allowed_domains": list(domains)}]
+def websuche_anfrage(modell: str, system: str, text: str, domains: tuple[str, ...], max_suchen: int, max_abrufe: int,
+                     effort: str = "high", max_inhalt_tokens: int | None = None, einfach: bool = False) -> dict:
+    """Anfrage für die Recherche – nur offizielle Domains, begrenzte Suchen (getrennt, damit testbar ohne Netz).
+
+    Kosten: Jeder Zwischenschritt der Websuche liest alle bisherigen Treffer erneut ein. Mit cache_control oben in der
+    Anfrage setzt die API die Cache-Punkte nach den Werkzeug-Ergebnissen selbst – Wiederlesen kostet dann nur einen
+    Bruchteil. max_inhalt_tokens begrenzt die Länge eines abgerufenen Dokuments (lange Richtlinien-PDFs)."""
+    werkzeuge = [{"type": WEBSUCHE_EINFACH if einfach else WEBSUCHE, "name": "web_search", "max_uses": max_suchen,
+                  "allowed_domains": list(domains)}]
     if max_abrufe > 0:
-        werkzeuge.append({"type": WEBABRUF, "name": "web_fetch", "max_uses": max_abrufe, "allowed_domains": list(domains)})
-    anfrage = dict(model=modell, max_tokens=MAX_TOKENS, system=system, tools=werkzeuge,
-                   output_config={"effort": "high"}, messages=[{"role": "user", "content": text}])
+        abruf = {"type": WEBABRUF_EINFACH if einfach else WEBABRUF, "name": "web_fetch", "max_uses": max_abrufe, "allowed_domains": list(domains)}
+        if max_inhalt_tokens:
+            abruf["max_content_tokens"] = max_inhalt_tokens
+        werkzeuge.append(abruf)
+    anfrage = dict(model=modell, max_tokens=MAX_TOKENS, system=system, tools=werkzeuge, cache_control={"type": "ephemeral"},
+                   output_config={"effort": effort}, messages=[{"role": "user", "content": text}])
     if modell in MIT_FALLBACK:
         anfrage.update(betas=[FALLBACK_BETA], fallbacks="default")
     return anfrage
@@ -106,6 +118,13 @@ def _zaehlen(summe: dict, nachricht):
     werkzeug = getattr(u, "server_tool_use", None)
     summe["suchen"] = summe.get("suchen", 0) + (getattr(werkzeug, "web_search_requests", None) or 0)
     summe["abrufe"] = summe.get("abrufe", 0) + (getattr(werkzeug, "web_fetch_requests", None) or 0)
+    # Fehler der Server-Werkzeuge kommen nicht als Ausnahme, sondern als Ergebnis-Block mit error_code (bzw. Rückgabecode ≠ 0)
+    for block in getattr(nachricht, "content", None) or []:
+        typ, inhalt = getattr(block, "type", ""), getattr(block, "content", None)
+        if typ in ("web_search_tool_result", "web_fetch_tool_result") and getattr(inhalt, "error_code", None):
+            summe["werkzeug_fehler"] = summe.get("werkzeug_fehler", 0) + 1
+        elif typ.endswith("code_execution_tool_result") and (getattr(inhalt, "return_code", None) or getattr(block, "return_code", None)):
+            summe["werkzeug_fehler"] = summe.get("werkzeug_fehler", 0) + 1
 
 
 class AnthropicAnbieter:
@@ -138,10 +157,10 @@ class AnthropicAnbieter:
         return KiAntwort(daten=daten, rohtext=rohtext, modell=getattr(nachricht, "model", self.modell), nutzung=nutzung)
 
     def websuche(self, system: str, text: str, domains: tuple[str, ...], max_suchen: int, max_abrufe: int,
-                 zeitlimit: float) -> KiAntwort:
+                 zeitlimit: float, effort: str = "high", max_inhalt_tokens: int | None = None, einfach: bool = False) -> KiAntwort:
         _schluessel_pruefen()
         client = anthropic.Anthropic(timeout=anthropic.Timeout(zeitlimit, connect=10.0), max_retries=1)
-        anfrage = websuche_anfrage(self.modell, system, text, domains, max_suchen, max_abrufe)
+        anfrage = websuche_anfrage(self.modell, system, text, domains, max_suchen, max_abrufe, effort, max_inhalt_tokens, einfach)
         frist = time.monotonic() + zeitlimit
         nutzung, texte, modell = {}, [], self.modell
         for _ in range(MAX_RUNDEN):

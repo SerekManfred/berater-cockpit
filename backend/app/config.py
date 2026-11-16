@@ -66,9 +66,15 @@ GENERATOR_TIMEOUT_BERICHT = 150.0  # Berichte mit Fotos brauchen länger als Che
 # Wöchentliche Förderprüfung (Phase 2f). An die KI gehen nur Förderwerte und Quellen – keine Personen- oder Projektdaten –,
 # deshalb ein eigener Schalter unabhängig von KI_AKTIV. Standard AUS; der Geschäftsführer schaltet ein.
 FOERDERPRUEFUNG_AKTIV = _schalter(os.environ.get("FOERDERPRUEFUNG_AKTIV"), False)
-FOERDERPRUEFUNG_MODELL = os.environ.get("FOERDERPRUEFUNG_MODELL", "claude-opus-5-5").strip() or "claude-opus-5-5"
-FOERDERPRUEFUNG_MAX_SUCHEN = _zahl("FOERDERPRUEFUNG_MAX_SUCHEN", 15)     # Websuchen je Lauf (Kosten: 10 $ je 1.000 Suchen)
-FOERDERPRUEFUNG_MAX_ABRUFE = _zahl("FOERDERPRUEFUNG_MAX_ABRUFE", 10, 0)  # Seiten/Merkblätter direkt lesen (nur Treffer der Suche)
+# Kosten (Abnahme 16.11.2026: Opus 5.5 mit 15 Suchen/10 Abrufen ≈ 6 $ je Lauf) → Sonnet 5.5, weniger Suchen, zweistufig
+FOERDERPRUEFUNG_MODELL = os.environ.get("FOERDERPRUEFUNG_MODELL", "claude-sonnet-5-5").strip() or "claude-sonnet-5-5"
+FOERDERPRUEFUNG_MAX_SUCHEN = _zahl("FOERDERPRUEFUNG_MAX_SUCHEN", 8)      # Websuchen der gründlichen Prüfung (10 $ je 1.000 Suchen)
+FOERDERPRUEFUNG_MAX_ABRUFE = _zahl("FOERDERPRUEFUNG_MAX_ABRUFE", 3, 0)   # Seiten/Merkblätter direkt lesen (nur Treffer der Suche)
+FOERDERPRUEFUNG_ABRUF_MAX_TOKENS = _zahl("FOERDERPRUEFUNG_ABRUF_MAX_TOKENS", 60000, 5000)  # Länge je abgerufenem Dokument
+# Stufe 1 (Vorprüfung): nur Stand-Angaben der Merkblätter und Pressemitteilungen; gründlich nur bei Änderung/Unklarheit
+FOERDERPRUEFUNG_VOR_SUCHEN = _zahl("FOERDERPRUEFUNG_VOR_SUCHEN", 8)   # Testlauf 16.11.: 4 reichten nicht
+FOERDERPRUEFUNG_VOLL_SPAETESTENS_TAGE = _zahl("FOERDERPRUEFUNG_VOLL_SPAETESTENS_TAGE", 56)  # dann immer gründlich
+FOERDERPRUEFUNG_INTERVALL_TAGE = _zahl("FOERDERPRUEFUNG_INTERVALL_TAGE", 14)   # Zeitplan: Abstand der Läufe
 FOERDERPRUEFUNG_ZEITLIMIT = float(_zahl("FOERDERPRUEFUNG_ZEITLIMIT", 600, 30))  # Sekunden je Lauf
 FOERDERPRUEFUNG_MAX_LAEUFE_TAG = _zahl("FOERDERPRUEFUNG_MAX_LAEUFE_TAG", 5)    # Kostenbremse für „Jetzt prüfen“ + Zeitplan
 FOERDERPRUEFUNG_VERALTET_TAGE = 30
