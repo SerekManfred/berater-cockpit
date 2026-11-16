@@ -174,7 +174,26 @@ Ausführliches Fachkonzept: `docs/Konzept_Berater-Cockpit.docx` (falls abgelegt)
   Die Oberfläche (`anzeige`, `vergleichAufbereiten` in `Konditionen.jsx`) darf sich nie auf Feldbeschreibung oder Abschnitt verlassen
   (Fehler 15.11.2026: Mehrfachauswahl `kfw_458.einkommensbonus_stufen` ohne Optionen → weiße Seite). Test mit echten Daten V2/V3:
   `frontend/src/testdaten/`, `backend/tests/daten/konditionen_v2_v3.json`.
-- **Protokoll:** `konditionen_entwurf_angelegt`, `_entwurf_geaendert`, `_zur_pruefung`, `_zurueckgezogen`, `_freigegeben`, `_zurueckgewiesen`.
+- **Protokoll:** `konditionen_entwurf_angelegt`, `_entwurf_geaendert`, `_zur_pruefung`, `_zurueckgezogen`, `_freigegeben`, `_zurueckgewiesen`,
+  `_aktiviert`, `_planung_aufgehoben`.
+- **Im Voraus freigeben – Status „geplant“** (Geschäftsführer 16.11.2026, Migration 0011): Freigabe mit „gültig ab“ nach heute
+  (Europe/Berlin, `fristen.heute()`) → `geplant` statt `aktiv` (Vier-Augen-Prüfung erledigt, höchstens eine geplante Version per
+  Teilindex `uq_konditionen_eine_geplante`). Am Stichtag `faellige_aktivieren()` (`app/rechnen.py`, eigene DB-Sitzung, Sperre,
+  Ablösen + Aktivieren in einer Transaktion, `aktiviert_am`, Protokoll `konditionen_aktiviert` mit `quelle`, Mail
+  „Konditionen-Version N ist ab heute aktiv“ an die Empfänger): **stündlich** per Cron (`scripts/konditionen-aktivieren.sh` →
+  `python -m app.cli konditionen-aktivieren`, Minute 5) **und** beim Laden der Konditionen (`lade_konditionen()` ohne Version) –
+  fällt der Zeitplan aus, aktiviert die erste Berechnung/Seite nach dem Stichtag (`quelle: beim_laden`), genau einmal.
+  Bis dahin rechnen alle Berichte mit der aktiven Version; `lade_konditionen(n)` liefert geplante Versionen nie (nicht speicherbar).
+- Geplante Versionen lesen alle Angemeldeten (`SICHTBAR`); Hinweis „Ab TT.MM.JJJJ gelten neue Konditionen (Version N)“
+  (`GET /konditionen/geplant`, Startseite und Fördervergleich). **Planung aufheben** (`POST …/planung-aufheben`, pruefer/admin,
+  Begründung Pflicht) → `zurueckgewiesen`, wird nie aktiv. **Neue Entwürfe = Kopie der geplanten Version** (`standard_basis`, auch
+  CLI und „Entwurf aus Meldung“); eine neue Freigabe **ersetzt** eine geplante Version (diese → `zurueckgewiesen`, „ersetzt durch Version N“).
+- **Vorschau im Fördervergleich:** `POST /module/foerderung-em-eh/vorschau-geplant` (berater) rechnet mit der geplanten Version und
+  liefert `vorschau.text`; die Oberfläche zeigt sie gestreift mit Band „VORSCHAU – noch nicht gültig“ in eigenem Zustand – nie an
+  „Speichern“ übergeben, und Speichern rechnet ohnehin mit der aktiven Version.
+- **Förderprüfung:** prüft weiter die aktive Version; Abweichungen, deren neuer Wert schon in der geplanten Version steht, bekommen
+  `geplant: {version, gueltig_ab}` (Oberfläche/Mail „in Version N geplant“); sind alle geplant → `keine_abweichung`, keine Mail.
+  Tests: `tests/test_konditionen_geplant.py` (Stichtag mit Zeitplan, ohne Zeitplan, Vorschau, Aufheben, Ersetzen, Förderprüfung).
 - **Kommandozeile:** `python -m app.cli konditionen-entwurf DATEI.json --notiz "…"` legt einen Entwurf aus der aktiven Version plus den
   Abschnitten der Datei an (Ersteller „Kommandozeile“). So entstand am 12.11.2026 **Entwurf Version 2** mit den Fachwerten
   (`app/konditionen/fachwerte_startbestand.json`, erzeugt aus `fachtexte.js`). Version 2 ist inzwischen freigegeben und aktiv (Stand 13.11.2026).

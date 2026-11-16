@@ -1,6 +1,6 @@
 import React, { useEffect, useState } from "react";
 import { api } from "./api.js";
-import { FristHinweise } from "./Konditionen.jsx";
+import { FristHinweise, GeplantHinweis } from "./Konditionen.jsx";
 import { ZahlEingabe, ZahlFeld } from "./ZahlFeld.jsx";
 import { Angebotsweg } from "./Angebotsweg.jsx";
 import { zahlenPruefen, zahlUngueltig } from "./zahl.js";
@@ -166,6 +166,19 @@ export function Foerdervergleich({ titel = "Fördervergleich Einzelmaßnahmen / 
   const aktuell = erg && !geprueft.fehler.length && berechnetMit === JSON.stringify(geprueft.werte);
   const [fristen, setFristen] = useState([]);
   useEffect(() => { api("/konditionen/fristen").then(f => setFristen(f.fristen)).catch(() => setFristen([])); }, []);
+  // Vorschau mit der geplanten Version (16.11.2026): eigener Zustand, nie an „Speichern“ übergeben
+  const [geplant, setGeplant] = useState(null);
+  useEffect(() => { api("/konditionen/geplant").then(g => setGeplant(g.geplant)).catch(() => setGeplant(null)); }, []);
+  const [vorschau, setVorschau] = useState(null);
+  const eingabeStand = JSON.stringify(geprueft.werte);
+  useEffect(() => { setVorschau(null); }, [eingabeStand, rechenSchluessel]);
+  async function vorschauRechnen() {
+    setFehler(""); setVorschau(null);
+    const alle = [...geprueft.fehler, ...weFehler.map(h => h.text)];
+    if (alle.length) { setFehler("Bitte prüfen: " + alle.join(" · ")); return; }
+    try { setVorschau(await api("/module/foerderung-em-eh/vorschau-geplant" + (projektId ? `?projekt_id=${projektId}` : ""), { method: "POST", body: geprueft.werte })); }
+    catch (e) { setFehler("Vorschau nicht möglich: " + e.message); }
+  }
   const frist266 = fristen.find(f => f.schalter === "kfw266");
 
   async function berechnen() {
@@ -192,6 +205,7 @@ export function Foerdervergleich({ titel = "Fördervergleich Einzelmaßnahmen / 
       <p className="hinweis">{untertitel || "Eckdaten und Kosten eingeben – das Ergebnis zeigt alle vier Wege mit Zuschuss und Darlehen."}</p>
       {zusatz}
       <PruefungVeraltet />
+      <GeplantHinweis geplant={geplant} />
       <section className="karte">
         <h2>Eckparameter</h2>
         <div className="felder">
@@ -316,11 +330,13 @@ export function Foerdervergleich({ titel = "Fördervergleich Einzelmaßnahmen / 
           <button className="btn2" onClick={() => set("massnahmen", [...d.massnahmen, { name: "", kosten: 0, em_kategorie: "daemmung", eh_foerderfaehig: true }])}>Maßnahme hinzufügen</button>
           <button className="btn2" onClick={() => { setD(BEISPIEL_REFERENZFALL); setAng(angeboteFormular(null, vorlagen)); setAngBeruehrt(false); setErg(null); }}>Referenzfall MFH-Umnutzung (6 WE) laden</button>
           <button className="btn" onClick={berechnen}>Berechnen</button>
+          {geplant && <button className="btn2" onClick={vorschauRechnen}>Vorschau mit Konditionen ab {geplant.gueltig_ab.split("-").reverse().join(".")}</button>}
         </div>
         {fehler && <div className="fehler">{fehler}</div>}
       </section>
 
       {erg && <Ergebnis erg={erg} />}
+      {vorschau && <Vorschau erg={vorschau} />}
       {erg && berechnetMit && <Angebotsweg erg={erg} eingaben={JSON.parse(berechnetMit)} />}
       {onSpeichern && (
         <section className="karte speichern-leiste">
@@ -337,6 +353,18 @@ export function Foerdervergleich({ titel = "Fördervergleich Einzelmaßnahmen / 
         </section>
       )}
     </>
+  );
+}
+
+// Vorschau mit der geplanten Konditionen-Version: deutlich markiert, ohne Speichern (16.11.2026)
+export function Vorschau({ erg }) {
+  return (
+    <section className="karte vorschau-karte" aria-label="Vorschau – noch nicht gültig">
+      <div className="vorschau-band" role="status">VORSCHAU – noch nicht gültig · {erg.vorschau?.text || "Konditionen der geplanten Version, nicht speicherbar."}</div>
+      <p className="klein">Nur zur Information für das Gespräch mit dem Kunden. Diese Zahlen lassen sich nicht speichern und gehen in keinen Bericht ein;
+        gespeichert wird immer mit der aktiven Version.</p>
+      <Ergebnis erg={erg} />
+    </section>
   );
 }
 

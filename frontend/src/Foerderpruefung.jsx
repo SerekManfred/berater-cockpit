@@ -32,7 +32,8 @@ export function MeldungTabelle({ m }) {
           <td>{a.label || a.feld}{a.erlaeuterung && <><br /><span className="klein">{a.erlaeuterung}</span></>}</td>
           <td className="alt">{anzeige(a, a.hinterlegt)}</td><td className="neu">{anzeige(a, a.neu)}</td>
           <td>{a.gilt_ab ? datumDe(a.gilt_ab) : "–"}</td>
-          <td>{a.sicherheit === "offiziell" ? "offizielle Quelle" : <strong>bitte prüfen</strong>}</td>
+          <td>{a.sicherheit === "offiziell" ? "offizielle Quelle" : <strong>bitte prüfen</strong>}
+            {a.geplant && <><br /><span className="status kstatus-geplant">in Version {a.geplant.version} geplant (ab {a.geplant.gueltig_ab.split("-").reverse().join(".")})</span></>}</td>
           <td>{istLink(a.quelle) ? <a href={a.quelle} target="_blank" rel="noopener noreferrer">Quelle öffnen</a> : "–"}</td>
         </tr>))}
       </tbody>

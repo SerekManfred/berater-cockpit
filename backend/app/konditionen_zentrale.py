@@ -29,6 +29,8 @@ lesen = aktueller_benutzer
 nur_admin = rolle("admin")
 pruefer = rolle("pruefer")
 OFFEN = ("entwurf", "zur_pruefung")
+# Für alle Angemeldeten lesbar: freigegebene und im Voraus freigegebene (geplante) Versionen
+SICHTBAR = (*FREIGEGEBEN, "geplant")
 
 # ---------- Formularbeschreibung (Grundlage für Oberfläche, Prüfregeln und Vergleich) ----------
 
@@ -382,13 +384,13 @@ def _kurz(v: KonditionenVersion, namen: dict[int, str]) -> dict:
     return {"id": v.id, "version": v.version, "gueltig_ab": v.gueltig_ab, "status": v.status, "aenderungsnotiz": v.aenderungsnotiz,
             "erstellt_von": namen.get(v.erstellt_von_id) or ("Kommandozeile/Migration" if v.erstellt_von_id is None else None),
             "erstellt_am": v.erstellt_am, "geprueft_von": namen.get(v.geprueft_von_id), "geprueft_am": v.geprueft_am,
-            "pruefnotiz": v.pruefnotiz, "basis_id": v.basis_id}
+            "pruefnotiz": v.pruefnotiz, "basis_id": v.basis_id, "aktiviert_am": v.aktiviert_am}
 
 
 def _laden(db: Session, versions_id: int, ich: Benutzer, sperren=False) -> KonditionenVersion:
     abfrage = select(KonditionenVersion).where(KonditionenVersion.id == versions_id)
     v = db.scalar(abfrage.with_for_update() if sperren else abfrage)
-    if v is None or (v.status not in FREIGEGEBEN and not _darf_entwuerfe_sehen(ich)):
+    if v is None or (v.status not in SICHTBAR and not _darf_entwuerfe_sehen(ich)):
         raise HTTPException(404, "Konditionen-Version nicht gefunden")
     return v
 
@@ -410,7 +412,7 @@ def _beteiligt(v: KonditionenVersion, ich: Benutzer) -> bool:
 def _detail(db: Session, v: KonditionenVersion, ich: Benutzer) -> dict:
     namen = _namen(db, [v.erstellt_von_id, v.geprueft_von_id])
     vorg = _vorgaenger(db, v)
-    return {**_kurz(v, namen), "daten": konditionen_daten(v) if v.status in FREIGEGEBEN else {**v.daten, "version": v.version},
+    return {**_kurz(v, namen), "daten": konditionen_daten(v) if v.status in SICHTBAR else {**v.daten, "version": v.version},
             "vorgaenger_id": vorg.id if vorg else None, "vorgaenger_version": vorg.version if vorg else None,
             "fehler": pruefen(v.daten, v.aenderungsnotiz or "") if v.status == "entwurf" else [],
             "darf_pruefen": v.status == "zur_pruefung" and ("admin" in ich.rollen or "pruefer" in ich.rollen) and not _beteiligt(v, ich),
@@ -429,6 +431,22 @@ def formular(_: Benutzer = Depends(lesen)):
     return {"programme": PROGRAMME}
 
 
+def geplant_info(db: Session) -> dict | None:
+    """Hinweis „Ab TT.MM.JJJJ gelten neue Konditionen (Version N)“ für Startseite und Fördervergleich."""
+    v = db.scalar(select(KonditionenVersion).where(KonditionenVersion.status == "geplant"))
+    if v is None:
+        return None
+    datum = v.gueltig_ab.strftime("%d.%m.%Y")
+    return {"id": v.id, "version": v.version, "gueltig_ab": v.gueltig_ab.isoformat(),
+            "text": f"Ab {datum} gelten neue Konditionen (Version {v.version}). Bis dahin rechnet das Cockpit mit der aktiven Version."}
+
+
+@router.get("/konditionen/geplant")
+def geplant_lesen(_: Benutzer = Depends(lesen), db: Session = Depends(get_db)):
+    lade_konditionen(db=db)          # ist der Stichtag erreicht, wird hier aktiviert (falls der Zeitplan ausgefallen ist)
+    return {"geplant": geplant_info(db)}
+
+
 @router.get("/konditionen/fristen")
 def fristen_aktiv(_: Benutzer = Depends(lesen), db: Session = Depends(get_db)):
     return {"heute": fristen.heute().isoformat(), "warnung_tage": fristen.WARNUNG_TAGE,
@@ -439,7 +457,7 @@ def fristen_aktiv(_: Benutzer = Depends(lesen), db: Session = Depends(get_db)):
 def versionen(status: str | None = None, ich: Benutzer = Depends(lesen), db: Session = Depends(get_db)):
     abfrage = select(KonditionenVersion).order_by(KonditionenVersion.version.desc())
     if not _darf_entwuerfe_sehen(ich):
-        abfrage = abfrage.where(KonditionenVersion.status.in_(FREIGEGEBEN))
+        abfrage = abfrage.where(KonditionenVersion.status.in_(SICHTBAR))
     if status:
         abfrage = abfrage.where(KonditionenVersion.status == status)
     liste = list(db.scalars(abfrage))
@@ -482,6 +500,13 @@ class Zurueckweisung(BaseModel):
     begruendung: str = Field(min_length=5, max_length=5000)
 
 
+def standard_basis(db: Session) -> KonditionenVersion:
+    """Kopiervorlage neuer Entwürfe: die geplante Version, falls es eine gibt (sonst gingen ihre Änderungen verloren),
+    sonst die aktive (Geschäftsführer 16.11.2026)."""
+    return (db.scalar(select(KonditionenVersion).where(KonditionenVersion.status == "geplant"))
+            or db.scalar(select(KonditionenVersion).where(KonditionenVersion.status == "aktiv")))
+
+
 def entwurf_anlegen(db: Session, request: Request | None, ersteller_id: int | None, basis: KonditionenVersion,
                     aenderungen: dict | None = None, aenderungsnotiz: str | None = None) -> KonditionenVersion:
     if db.scalar(select(func.count()).select_from(KonditionenVersion).where(KonditionenVersion.status.in_(OFFEN))):
@@ -506,11 +531,11 @@ def entwurf_anlegen(db: Session, request: Request | None, ersteller_id: int | No
 @router.post("/konditionen/versionen", status_code=201)
 def entwurf_neu(daten: EntwurfNeu, request: Request, ich: Benutzer = Depends(nur_admin), db: Session = Depends(get_db)):
     if daten.basis_id is None:
-        basis = db.scalar(select(KonditionenVersion).where(KonditionenVersion.status == "aktiv"))
+        basis = standard_basis(db)
     else:
         basis = _laden(db, daten.basis_id, ich)
-        if basis.status not in ("aktiv", "zurueckgewiesen"):
-            raise HTTPException(422, "Kopiervorlage muss die aktive oder eine zurückgewiesene Version sein")
+        if basis.status not in ("geplant", "aktiv", "zurueckgewiesen"):
+            raise HTTPException(422, "Kopiervorlage muss die geplante, die aktive oder eine zurückgewiesene Version sein")
     v = entwurf_anlegen(db, request, ich.id, basis)
     db.commit()
     return _detail(db, v, ich)
@@ -585,14 +610,42 @@ def freigeben(versions_id: int, daten: Pruefung, request: Request, ich: Benutzer
     fehler = pruefen(v.daten)
     if fehler:
         raise HTTPException(422, {"meldung": "Die Version verletzt Prüfregeln und kann nicht freigegeben werden.", "fehler": fehler})
+    # Eine neue Freigabe ersetzt eine geplante Version (neue Entwürfe sind Kopien davon, siehe standard_basis)
+    alt_geplant = db.scalar(select(KonditionenVersion).where(KonditionenVersion.status == "geplant").with_for_update())
+    if alt_geplant is not None:
+        alt_geplant.status, alt_geplant.geprueft_von_id, alt_geplant.geprueft_am = "zurueckgewiesen", ich.id, jetzt()
+        alt_geplant.pruefnotiz = f"Planung aufgehoben: ersetzt durch Version {v.version}."
+        protokollieren(db, request, "konditionen_planung_aufgehoben", ich.id, version=alt_geplant.version, ersetzt_durch=v.version)
+        db.flush()
+    v.geprueft_von_id, v.geprueft_am, v.pruefnotiz = ich.id, jetzt(), (daten.notiz or None)
+    v.daten = {**v.daten, "version": v.version, "gueltig_ab": v.gueltig_ab.isoformat()}
+    if v.gueltig_ab > fristen.heute():
+        # im Voraus freigegeben: wird am Stichtag automatisch aktiv (Zeitplan bzw. beim Laden, app/rechnen.py)
+        v.status = "geplant"
+        protokollieren(db, request, "konditionen_freigegeben", ich.id, version=v.version, geplant_ab=v.gueltig_ab.isoformat())
+        db.commit()
+        return _detail(db, v, ich)
     bisher = db.scalar(select(KonditionenVersion).where(KonditionenVersion.status == "aktiv").with_for_update())
     if bisher is not None:  # erst ablösen, dann aktivieren – der Teilindex lässt nie zwei aktive zu
         bisher.status = "abgeloest"
         db.flush()
-    v.status, v.geprueft_von_id, v.geprueft_am, v.pruefnotiz = "aktiv", ich.id, jetzt(), (daten.notiz or None)
-    v.daten = {**v.daten, "version": v.version, "gueltig_ab": v.gueltig_ab.isoformat()}
+    v.status = "aktiv"
     protokollieren(db, request, "konditionen_freigegeben", ich.id, version=v.version,
                    abgeloest=bisher.version if bisher else None)
+    db.commit()
+    return _detail(db, v, ich)
+
+
+@router.post("/konditionen/versionen/{versions_id}/planung-aufheben")
+def planung_aufheben(versions_id: int, daten: Zurueckweisung, request: Request, ich: Benutzer = Depends(pruefer),
+                     db: Session = Depends(get_db)):
+    """Eine geplante Version vor dem Stichtag zurücknehmen (Prüfer oder Admin, Begründung Pflicht). Sie wird nie aktiv."""
+    v = _laden(db, versions_id, ich, sperren=True)
+    if v.status != "geplant":
+        raise HTTPException(409, "Nur geplante Versionen können aufgehoben werden")
+    v.status, v.geprueft_von_id, v.geprueft_am = "zurueckgewiesen", ich.id, jetzt()
+    v.pruefnotiz = "Planung aufgehoben: " + daten.begruendung.strip()
+    protokollieren(db, request, "konditionen_planung_aufgehoben", ich.id, version=v.version)
     db.commit()
     return _detail(db, v, ich)
 

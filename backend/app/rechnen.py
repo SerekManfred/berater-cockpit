@@ -52,14 +52,71 @@ def konditionen_stand(k: dict) -> str:
     return f"Förderbedingungen Stand {'.'.join(reversed(str(k['gueltig_ab'])[:10].split('-')))} (interne Version {k['version']})"
 
 
+def faellige_aktivieren(quelle: str = "automatisch") -> int | None:
+    """Geplante Version am Stichtag aktiv schalten (Geschäftsführer 16.11.2026). Eigene Datenbank-Sitzung, damit nie halbe
+    Änderungen eines Aufrufers mit festgeschrieben werden; Sperre auf beide Zeilen, Ablösen und Aktivieren in einer
+    Transaktion. Aufgerufen stündlich per Zeitplan (`python -m app.cli konditionen-aktivieren`) und zusätzlich beim Laden der
+    Konditionen – fällt der Zeitplan aus, aktiviert die erste Berechnung nach dem Stichtag. → aktivierte Versionsnummer."""
+    import logging
+
+    from app import fristen
+    from app.db import SessionLocal
+    from app.modelle import KonditionenVersion as K, jetzt
+    from app.protokoll import protokollieren
+
+    with SessionLocal() as s:
+        v = s.scalar(select(K).where(K.status == "geplant", K.gueltig_ab <= fristen.heute()).with_for_update())
+        if v is None:
+            return None
+        bisher = s.scalar(select(K).where(K.status == "aktiv").with_for_update())
+        if bisher is not None:   # erst ablösen, dann aktivieren – der Teilindex lässt nie zwei aktive zu
+            bisher.status = "abgeloest"
+            s.flush()
+        v.status, v.aktiviert_am = "aktiv", jetzt()
+        protokollieren(s, None, "konditionen_aktiviert", None, version=v.version, abgeloest=bisher.version if bisher else None,
+                       gueltig_ab=v.gueltig_ab.isoformat(), quelle=quelle)
+        s.commit()
+        nummer, stand = v.version, v.gueltig_ab
+        try:   # Mail an die Empfänger – Fehler blockieren nie
+            from app import mail
+            datum = stand.strftime("%d.%m.%Y")
+            text = (f"Konditionen-Version {nummer} (Stand der Förderbedingungen {datum}) ist seit heute aktiv und hat Version "
+                    f"{bisher.version if bisher else '–'} abgelöst. Neue Fördervergleiche und Berichte rechnen ab jetzt damit; "
+                    f"gespeicherte Berichte behalten ihre Version.\n\nIm Cockpit: {config_url()}/")
+            mail.senden(s, "konditionen_aktiviert", mail.empfaenger(s), f"Konditionen-Version {nummer} ist ab heute aktiv", text)
+            s.commit()
+        except Exception:  # noqa: BLE001
+            logging.getLogger("cockpit.konditionen").exception("Mail zur Aktivierung fehlgeschlagen")
+        return nummer
+
+
+def config_url() -> str:
+    from app import config
+    return config.COCKPIT_URL
+
+
+def lade_geplante(db: Session) -> dict | None:
+    """Im Voraus freigegebene Version (Status „geplant“) – nur für Vorschau und Hinweise, nie zum Speichern."""
+    from app.modelle import KonditionenVersion
+    v = db.scalar(select(KonditionenVersion).where(KonditionenVersion.status == "geplant"))
+    return konditionen_daten(v) if v is not None else None
+
+
 def lade_konditionen(version: int | None = None, db: Session | None = None) -> dict:
     """Konditionen aus der Datenbank (Tabelle konditionen_versionen): ohne Angabe die aktive Version,
-    mit Angabe eine freigegebene (aktive oder abgelöste). Entwürfe werden hier nie geliefert."""
+    mit Angabe eine freigegebene (aktive oder abgelöste). Entwürfe und geplante Versionen werden hier nie geliefert.
+    Ist eine geplante Version fällig, wird sie vorher aktiviert (falls der stündliche Zeitplan ausgefallen ist)."""
+    from app import fristen
     from app.db import SessionLocal
     from app.modelle import KonditionenVersion
 
     def laden(s: Session):
         abfrage = select(KonditionenVersion)
+        if version is None and s.scalar(select(KonditionenVersion.id).where(
+                KonditionenVersion.status == "geplant", KonditionenVersion.gueltig_ab <= fristen.heute())) is not None:
+            faellige_aktivieren(quelle="beim_laden")
+            # schon geladene Versionen (z. B. die eben abgelöste) mit dem neuen Stand überschreiben
+            abfrage = abfrage.execution_options(populate_existing=True)
         if version is None:
             abfrage = abfrage.where(KonditionenVersion.status == "aktiv")
         else:

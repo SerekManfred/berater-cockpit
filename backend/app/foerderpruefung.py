@@ -33,10 +33,10 @@ from sqlalchemy.orm import Session
 from app import config, fristen, ki, mail
 from app.auth import aktueller_benutzer, rolle
 from app.db import SessionLocal, get_db
-from app.konditionen_zentrale import FELDER, TITEL, entwurf_anlegen, lesen_pfad
+from app.konditionen_zentrale import FELDER, TITEL, entwurf_anlegen, lesen_pfad, standard_basis
 from app.modelle import Benutzer, FoerderMeldung, KonditionenVersion, Protokoll, jetzt
 from app.protokoll import protokollieren
-from app.rechnen import lade_konditionen
+from app.rechnen import lade_geplante, lade_konditionen
 
 log = logging.getLogger("cockpit.foerderpruefung")
 router = APIRouter(tags=["Förderprüfung"])
@@ -256,7 +256,9 @@ def mail_handlungsbedarf(m: FoerderMeldung) -> tuple[str, str, str]:
     for a in abw:
         zeilen.append(f"- {a['programm_titel']} – {a['label']}: {anzeige(a, a['hinterlegt'])} → {anzeige(a, a['neu'])}"
                       + (f" (gilt ab {datum_de(a['gilt_ab'])})" if a.get("gilt_ab") else "")
-                      + (" [offizielle Quelle]" if a["sicherheit"] == "offiziell" else " [bitte prüfen]"))
+                      + (" [offizielle Quelle]" if a["sicherheit"] == "offiziell" else " [bitte prüfen]")
+                      + (f" – bereits in Version {a['geplant']['version']} geplant (ab {datum_de(a['geplant']['gueltig_ab'])})"
+                         if a.get("geplant") else ""))
         if a.get("quelle"):
             zeilen.append(f"  Quelle: {a['quelle']}")
     zeilen += ["", f"Im Cockpit prüfen (Startseite → Förderprüfung): {config.COCKPIT_URL}/",
@@ -265,7 +267,8 @@ def mail_handlungsbedarf(m: FoerderMeldung) -> tuple[str, str, str]:
     tabelle = "".join(
         f"<tr><td>{e(a['programm_titel'])}</td><td>{e(a['label'])}</td><td>{e(anzeige(a, a['hinterlegt']))}</td>"
         f"<td><strong>{e(anzeige(a, a['neu']))}</strong></td><td>{e(datum_de(a['gilt_ab'])) if a.get('gilt_ab') else '–'}</td>"
-        f"<td>{'offiziell' if a['sicherheit'] == 'offiziell' else 'bitte prüfen'}</td>"
+        f"<td>{'offiziell' if a['sicherheit'] == 'offiziell' else 'bitte prüfen'}"
+        f"{('<br>in Version ' + str(a['geplant']['version']) + ' geplant') if a.get('geplant') else ''}</td>"
         f"<td>{('<a href=' + chr(34) + e(a['quelle']) + chr(34) + '>Quelle</a>') if a.get('quelle') else '–'}</td></tr>"
         for a in abw)
     html_text = (f"<p>Die Förderprüfung vom {e(zeit)} hat <strong>{len(abw)} Abweichung(en)</strong> gegenüber der aktiven "
@@ -336,6 +339,21 @@ def vor_auswerten(rohtext: str) -> tuple[bool, dict]:
     elif any(p["betrifft"] for p in presse):
         ergebnis["grund"] = "Pressemitteilung zu einem geprüften Programm"
     return "grund" in ergebnis, ergebnis
+
+
+def geplante_kennzeichnen(db: Session, ergebnis: dict) -> None:
+    """Abweichungen, deren neuer Wert schon in der geplanten Version steht: `geplant` = {version, gueltig_ab} (Punkt 7)."""
+    geplant = lade_geplante(db)
+    if not geplant:
+        return
+    markiert = 0
+    for a in ergebnis.get("abweichungen", []):
+        if _gleich(lesen_pfad(geplant, a["feld"]), a.get("neu")):
+            a["geplant"] = {"version": geplant["version"], "gueltig_ab": geplant["gueltig_ab"]}
+            markiert += 1
+    if markiert:
+        ergebnis.setdefault("hinweise", []).insert(0, f"{markiert} Abweichung(en) sind bereits in der geplanten Version "
+                                                      f"{geplant['version']} (gilt ab {datum_de(geplant['gueltig_ab'])}) enthalten.")
 
 
 def _summe(a: dict, b: dict) -> dict:
@@ -432,7 +450,9 @@ def lauf_ausfuehren(db: Session, ausgeloest_von_id: int | None, voll: bool = Fal
                         "werkzeug_fehler_details": (nutzung.get("werkzeug_fehler_details") or [])[:30], "tokens": {k: v for k, v in nutzung.items() if k.endswith("tokens")},
                         "kosten_usd": None if None in kosten.values() else round(sum(kosten.values()), 4),
                         "kosten_stufen": kosten, "domains": list(config.FOERDERPRUEFUNG_DOMAINS)}
-    status = "offen" if ergebnis["abweichungen"] else "keine_abweichung"
+    geplante_kennzeichnen(db, ergebnis)
+    # Abweichungen, die die geplante Version schon enthält, sind erledigt – Handlungsbedarf nur bei den übrigen
+    status = "offen" if any(not a.get("geplant") for a in ergebnis["abweichungen"]) else "keine_abweichung"
     m = FoerderMeldung(zeit=jetzt(), konditionen_version=kond["version"], ergebnis=ergebnis, status=status,
                        ausgeloest_von_id=ausgeloest_von_id)
     db.add(m)
@@ -513,9 +533,10 @@ def entwurf_aus_meldung(db: Session, request: Request | None, m: FoerderMeldung,
             programme.setdefault(feld["programm"], [])
     if not uebernommen:
         raise HTTPException(422, "Die Meldung enthält keine übernehmbaren Werte. Bitte verwerfen.")
+    basis = standard_basis(db)          # geplante Version, sonst die aktive – deren Änderungen bleiben erhalten
     heute = fristen.heute().isoformat()
     for pid, urls in programme.items():
-        alt = lesen_pfad(aktive.daten, f"{pid}.quelle") or ""
+        alt = lesen_pfad(basis.daten, f"{pid}.quelle") or ""
         neu_urls = [u for u in dict.fromkeys(urls) if u not in alt]
         aenderungen.setdefault(pid, {})["quelle"] = (alt + (" | Förderprüfung " + datum_de(heute) + ": " + ", ".join(neu_urls)
                                                            if neu_urls else "")).strip(" |")
@@ -527,7 +548,9 @@ def entwurf_aus_meldung(db: Session, request: Request | None, m: FoerderMeldung,
                      + (" (offizielle Quelle)" if a["sicherheit"] == "offiziell" else " (bitte prüfen)"))
     if any(a.get("gilt_ab") for a in uebernommen):
         notiz.append("Bitte „Stand der Förderbedingungen“ prüfen (gilt-ab-Daten oben).")
-    v = entwurf_anlegen(db, request, ich.id, aktive, aenderungen, "\n".join(notiz))
+    if basis.status == "geplant":
+        notiz.append(f"Kopie der geplanten Version {basis.version} (gilt ab {basis.gueltig_ab.strftime('%d.%m.%Y')}).")
+    v = entwurf_anlegen(db, request, ich.id, basis, aenderungen, "\n".join(notiz))
     m.status, m.entwurf_id, m.bearbeitet_von_id, m.bearbeitet_am = "entwurf_angelegt", v.id, ich.id, jetzt()
     protokollieren(db, request, "foerder_meldung_entwurf", ich.id, meldung_id=m.id, version=v.version,
                    felder=[a["feld"] for a in uebernommen])

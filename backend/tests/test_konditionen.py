@@ -229,13 +229,13 @@ def test_freigabe_loest_vorgaenger_ab_und_neue_fordervergleiche_rechnen_sofort_n
     with SessionLocal() as db:
         vorher = copy.deepcopy(db.get(Bericht, alt["id"]).konditionen_snapshot)
 
-    v = eingereicht(admin, beg_em__foerdersatz=0.2, gueltig_ab="2027-01-01")
+    v = eingereicht(admin, beg_em__foerdersatz=0.2, gueltig_ab="2026-11-12")   # Stichtag heute → sofort aktiv (künftig: „geplant“)
     vergleich = pruefer.get(f"/konditionen/versionen/{v['id']}/vergleich").json()
     geaendert = {z["pfad"]: z for z in vergleich["aenderungen"]}
     assert vergleich["mit_version"] == 1
     assert geaendert["beg_em.foerdersatz"]["alt"] == 0.15 and geaendert["beg_em.foerdersatz"]["neu"] == 0.2
     assert geaendert["beg_em.foerdersatz"]["art"] == "geaendert" and geaendert["fachwerte.haftung.text"]["art"] == "neu"
-    assert geaendert["gueltig_ab"]["neu"] == "2027-01-01"
+    assert geaendert["gueltig_ab"]["neu"] == "2026-11-12"
 
     r = pruefer.post(f"/konditionen/versionen/{v['id']}/freigeben", json={"notiz": "Quellen geprüft"})
     assert r.status_code == 200 and r.json()["status"] == "aktiv" and r.json()["geprueft_von"] == "pruefer"
@@ -251,7 +251,7 @@ def test_freigabe_loest_vorgaenger_ab_und_neue_fordervergleiche_rechnen_sofort_n
     assert b2["konditionen_version"] == 2
     with SessionLocal() as db:
         snap = db.get(Bericht, b2["id"]).konditionen_snapshot
-    assert snap["fachwerte"] == FACHWERTE["fachwerte"] and snap["gueltig_ab"] == "2027-01-01" and snap["version"] == 2
+    assert snap["fachwerte"] == FACHWERTE["fachwerte"] and snap["gueltig_ab"] == "2026-11-12" and snap["version"] == 2
 
     # alter Bericht unverändert; Neu rechnen eingefroren = Version 1, auf Wunsch aktuell = Version 2
     with SessionLocal() as db:

@@ -67,13 +67,12 @@ def konditionen_entwurf(dateien: list[str] | str, notiz: str) -> int:
 
     from fastapi import HTTPException
 
-    from app.konditionen_zentrale import entwurf_anlegen, pruefen
-    from app.modelle import KonditionenVersion
+    from app.konditionen_zentrale import entwurf_anlegen, pruefen, standard_basis
 
     if isinstance(dateien, str):
         dateien = [dateien]
     with SessionLocal() as db:
-        basis = db.scalar(select(KonditionenVersion).where(KonditionenVersion.status == "aktiv"))
+        basis = standard_basis(db)      # geplante Version, sonst die aktive
         aenderungen = copy.deepcopy(basis.daten)
         for datei in dateien:
             _zusammenfuehren(aenderungen, json.loads(Path(datei).read_text(encoding="utf-8")))
@@ -84,7 +83,8 @@ def konditionen_entwurf(dateien: list[str] | str, notiz: str) -> int:
             return 1
         db.commit()
         offen = pruefen(v.daten, v.aenderungsnotiz)
-        print(f"Entwurf Version {v.version} angelegt (Kopie von Version {basis.version}).")
+        print(f"Entwurf Version {v.version} angelegt (Kopie von Version {basis.version}"
+              + (", geplant" if basis.status == "geplant" else "") + ").")
         print("Alle Prüfregeln erfüllt – kann zur Prüfung gesendet werden." if not offen
               else f"Noch {len(offen)} offene Angabe(n), z. B. {offen[0]['pfad']}: {offen[0]['meldung']}")
     return 0
@@ -125,6 +125,14 @@ def konditionen_entwurf_ergaenzen(version: int, dateien: list[str], notiz: str) 
     return 0
 
 
+def konditionen_aktivieren() -> int:
+    """Stündlich per Zeitplan (scripts/konditionen-aktivieren.sh): geplante Version am Stichtag aktiv schalten."""
+    from app.rechnen import faellige_aktivieren
+    nummer = faellige_aktivieren(quelle="zeitplan")
+    print(f"Konditionen-Version {nummer} ist jetzt aktiv." if nummer else "Keine geplante Version fällig.")
+    return 0
+
+
 def main(argv=None) -> int:
     parser = argparse.ArgumentParser(prog="python -m app.cli", description="Berater-Cockpit – Verwaltung")
     befehle = parser.add_subparsers(dest="befehl", required=True)
@@ -137,11 +145,14 @@ def main(argv=None) -> int:
     g.add_argument("version", type=int, help="Versionsnummer des offenen Entwurfs")
     g.add_argument("datei", nargs="+", help="JSON-Datei(en), z. B. app/konditionen/korrektur_kfw261_v3.json")
     g.add_argument("--notiz", required=True, help="wird an die Änderungsnotiz angehängt")
+    befehle.add_parser("konditionen-aktivieren", help="Geplante Konditionen-Version am Stichtag aktiv schalten (Zeitplan)")
     args = parser.parse_args(argv)
     if args.befehl == "admin-anlegen":
         return admin_anlegen()
     if args.befehl == "konditionen-entwurf":
         return konditionen_entwurf(args.datei, args.notiz)
+    if args.befehl == "konditionen-aktivieren":
+        return konditionen_aktivieren()
     if args.befehl == "konditionen-entwurf-ergaenzen":
         return konditionen_entwurf_ergaenzen(args.version, args.datei, args.notiz)
     return 2

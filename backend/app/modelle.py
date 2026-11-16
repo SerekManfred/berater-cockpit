@@ -179,7 +179,7 @@ class Datei(Base):
 
 # ---------- Konditionen-Zentrale ----------
 
-KONDITIONEN_STATUS = ("entwurf", "zur_pruefung", "aktiv", "abgeloest", "zurueckgewiesen")
+KONDITIONEN_STATUS = ("entwurf", "zur_pruefung", "geplant", "aktiv", "abgeloest", "zurueckgewiesen")
 
 
 class KonditionenVersion(Base):
@@ -189,6 +189,9 @@ class KonditionenVersion(Base):
     __table_args__ = (
         Index("uq_konditionen_eine_aktive", "status", unique=True,
               postgresql_where=text("status = 'aktiv'"), sqlite_where=text("status = 'aktiv'")),
+        # höchstens eine im Voraus freigegebene Version (Migration 0011)
+        Index("uq_konditionen_eine_geplante", "status", unique=True,
+              postgresql_where=text("status = 'geplant'"), sqlite_where=text("status = 'geplant'")),
     )
     id: Mapped[int] = mapped_column(Integer, primary_key=True)
     version: Mapped[int] = mapped_column(Integer, nullable=False, unique=True)
@@ -205,6 +208,7 @@ class KonditionenVersion(Base):
     geprueft_von_id: Mapped[int | None] = mapped_column(ForeignKey("benutzer.id", ondelete="SET NULL"))
     geprueft_am: Mapped[datetime | None] = mapped_column(UTCZeit)
     pruefnotiz: Mapped[str | None] = mapped_column(Text)
+    aktiviert_am: Mapped[datetime | None] = mapped_column(UTCZeit)   # automatische Aktivierung einer geplanten Version (0011)
 
 
 # ---------- Bericht-Entwürfe (Phase 2b) ----------

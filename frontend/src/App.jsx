@@ -6,7 +6,7 @@ import { Benutzerverwaltung, Protokoll } from "./Benutzer.jsx";
 import { Foerdervergleich } from "./Foerdervergleich.jsx";
 import { Fehlergrenze } from "./Fehlergrenze.jsx";
 import { OffeneMeldungen } from "./Foerderpruefung.jsx";
-import { FristHinweise, Konditionen } from "./Konditionen.jsx";
+import { FristHinweise, GeplantHinweis, Konditionen } from "./Konditionen.jsx";
 import { Papierkorb } from "./Papierkorb.jsx";
 import { MeineProjekte, Projekte } from "./Projekte.jsx";
 
@@ -99,8 +99,10 @@ function Start({ ich, onOpen, onProjekt, onKonditionen, darfRechnen }) {
   const [module, setModule] = useState([]);
   const [fristen, setFristen] = useState([]);
   const [pruefung, setPruefung] = useState([]);
+  const [geplant, setGeplant] = useState(null);
   useEffect(() => {
     api("/module").then(setModule).catch(() => setModule([]));
+    api("/konditionen/geplant").then(g => setGeplant(g.geplant)).catch(() => setGeplant(null));
     api("/konditionen/fristen").then(f => setFristen(f.fristen)).catch(() => setFristen([]));
     if (hatRolle(ich, "pruefer")) api("/konditionen/versionen?status=zur_pruefung").then(setPruefung).catch(() => setPruefung([]));
   }, []);
@@ -114,6 +116,7 @@ function Start({ ich, onOpen, onProjekt, onKonditionen, darfRechnen }) {
         </div>
       ))}
       <OffeneMeldungen ich={ich} onEntwurf={onKonditionen} />
+      <GeplantHinweis geplant={geplant} />
       <FristHinweise fristen={fristen} />
       <MeineProjekte onOeffnen={onProjekt} />
       <h2>Schnellrechnung</h2>

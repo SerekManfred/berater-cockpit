@@ -5,7 +5,20 @@ import { FoerderpruefungSeite, darfMeldungenSehen } from "./Foerderpruefung.jsx"
 
 // ---------- Darstellung von Werten ----------
 
-const STATUS = { entwurf: "Entwurf", zur_pruefung: "zur Prüfung", aktiv: "aktiv", abgeloest: "abgelöst", zurueckgewiesen: "zurückgewiesen" };
+const STATUS = { entwurf: "Entwurf", zur_pruefung: "zur Prüfung", geplant: "geplant", aktiv: "aktiv", abgeloest: "abgelöst", zurueckgewiesen: "zurückgewiesen" };
+
+// Im Voraus freigegebene Version (Status „geplant“, 16.11.2026): Hinweis für Startseite und Fördervergleich
+export function GeplantHinweis({ geplant }) {
+  if (!geplant) return null;
+  return <div className="warnung" role="status" style={{ marginBottom: 12 }}><strong>Neue Konditionen angekündigt:</strong> {geplant.text}</div>;
+}
+
+// Meldung nach der Freigabe – hängt davon ab, ob die Version sofort aktiv oder geplant ist
+export function freigabeText(v) {
+  return v.status === "geplant"
+    ? `Version ${v.version} ist freigegeben und wird am ${datumDe(v.gueltig_ab)} automatisch aktiv. Bis dahin gilt die aktive Version.`
+    : `Version ${v.version} ist freigegeben und ab sofort aktiv.`;
+}
 const datumDe = s => (typeof s === "string" && /^\d{4}-\d{2}-\d{2}/.test(s)) ? `${s.slice(8, 10)}.${s.slice(5, 7)}.${s.slice(0, 4)}` : s;
 const zahlDe = (n, stellen = 2) => Number(n).toLocaleString("de-DE", { maximumFractionDigits: stellen });
 
@@ -145,7 +158,8 @@ function Versionsliste({ ich, onGehe }) {
     <>
       <div className="titelzeile">
         <h1>Konditionen-Versionen</h1>
-        {hatRolle(ich) && <button className="btn" onClick={neu} disabled={!!offen} title={offen ? `Version ${offen.version} ist noch offen` : undefined}>Neuer Entwurf (Kopie der aktiven Version)</button>}
+        {hatRolle(ich) && <button className="btn" onClick={neu} disabled={!!offen} title={offen ? `Version ${offen.version} ist noch offen` : undefined}>
+          Neuer Entwurf (Kopie der {liste?.some(v => v.status === "geplant") ? "geplanten" : "aktiven"} Version)</button>}
       </div>
       <p className="hinweis">Jede Version ist lesbar und mit ihrer Vorgängerversion vergleichbar. Freigabe nur im Vier-Augen-Prinzip.</p>
       {offen && hatRolle(ich) && <div className="info" role="status" style={{ marginBottom: 12 }}>Version {offen.version} ist {STATUS[offen.status]} – erst abschließen, dann neuen Entwurf anlegen.</div>}
@@ -186,7 +200,7 @@ function VersionAnsicht({ ich, id, reiter: startReiter, formular, onGehe }) {
 
   async function aktion(pfad, body, text) {
     setFehler(""); setMeldung("");
-    try { setV(await api(`/konditionen/versionen/${id}/${pfad}`, { method: "POST", body })); setMeldung(text); }
+    try { const neu = await api(`/konditionen/versionen/${id}/${pfad}`, { method: "POST", body }); setV(neu); setMeldung(typeof text === "function" ? text(neu) : text); }
     catch (e) { setFehler(e.message); }
   }
   async function neuerEntwurf() {
@@ -212,7 +226,12 @@ function VersionAnsicht({ ich, id, reiter: startReiter, formular, onGehe }) {
       </div>
       {v.status === "zur_pruefung" && !v.darf_pruefen && hatRolle(ich, "pruefer") &&
         <div className="info" role="status" style={{ marginBottom: 12 }}>Sie haben diese Version erstellt oder bearbeitet – prüfen und freigeben muss eine andere Person (Vier-Augen-Prinzip).</div>}
-      {v.darf_pruefen && <PruefFormular onFreigeben={notiz => aktion("freigeben", { notiz }, `Version ${v.version} ist freigegeben und ab sofort aktiv.`)}
+      {v.status === "geplant" && <div className="warnung" role="status" style={{ marginBottom: 12 }}>
+        <strong>Geplant:</strong> freigegeben, wird am {datumDe(v.gueltig_ab)} automatisch aktiv. Bis dahin rechnet das Cockpit mit der aktiven Version;
+        neue Entwürfe entstehen als Kopie dieser Version.</div>}
+      {v.status === "geplant" && hatRolle(ich, "pruefer") &&
+        <PlanungAufheben onAufheben={begruendung => aktion("planung-aufheben", { begruendung }, `Planung von Version ${v.version} aufgehoben – sie wird nicht aktiv.`)} />}
+      {v.darf_pruefen && <PruefFormular gueltigAb={v.gueltig_ab} onFreigeben={notiz => aktion("freigeben", { notiz }, freigabeText)}
         onZurueckweisen={begruendung => aktion("zurueckweisen", { begruendung }, `Version ${v.version} wurde zurückgewiesen.`)} />}
 
       <div className="reiter" role="tablist" aria-label="Ansicht">
@@ -225,17 +244,38 @@ function VersionAnsicht({ ich, id, reiter: startReiter, formular, onGehe }) {
   );
 }
 
-function PruefFormular({ onFreigeben, onZurueckweisen }) {
+function PlanungAufheben({ onAufheben }) {
+  const [offen, setOffen] = useState(false);
+  const [text, setText] = useState("");
+  const [fehler, setFehler] = useState("");
+  if (!offen) return <div className="aktionen" style={{ marginTop: 0, marginBottom: 16 }}><button className="btn2 gefahr" onClick={() => setOffen(true)}>Planung aufheben</button></div>;
+  return (
+    <section className="karte pruefkarte">
+      <h2>Planung aufheben</h2>
+      <label>Begründung (Pflicht)<textarea rows={2} value={text} onChange={e => setText(e.target.value)} /></label>
+      {fehler && <div className="fehler" role="alert">{fehler}</div>}
+      <div className="aktionen">
+        <button className="btn2 gefahr" onClick={() => text.trim().length < 5 ? setFehler("Bitte eine Begründung angeben (mindestens 5 Zeichen).") : onAufheben(text.trim())}>Planung aufheben</button>
+        <button className="btn2" onClick={() => setOffen(false)}>Abbrechen</button>
+      </div>
+    </section>
+  );
+}
+
+function PruefFormular({ gueltigAb, onFreigeben, onZurueckweisen }) {
   const [notiz, setNotiz] = useState("");
   const [fehler, setFehler] = useState("");
+  const kuenftig = gueltigAb && gueltigAb > new Date().toISOString().slice(0, 10);
   return (
     <section className="karte pruefkarte">
       <h2>Prüfung</h2>
-      <p className="klein" style={{ marginTop: 0 }}>Änderungen unten prüfen (Vergleich mit der Vorgängerversion). Bei Freigabe wird diese Version sofort aktiv und die bisherige abgelöst; gespeicherte Berichte bleiben unverändert.</p>
+      <p className="klein" style={{ marginTop: 0 }}>Änderungen unten prüfen (Vergleich mit der Vorgängerversion). {kuenftig
+        ? <>„Stand der Förderbedingungen“ liegt in der Zukunft ({datumDe(gueltigAb)}): Bei Freigabe wird die Version <strong>geplant</strong> und an diesem Tag automatisch aktiv.</>
+        : "Bei Freigabe wird diese Version sofort aktiv und die bisherige abgelöst."} Gespeicherte Berichte bleiben unverändert.</p>
       <label>Begründung / Prüfnotiz (Pflicht beim Zurückweisen)<textarea rows={3} value={notiz} onChange={e => setNotiz(e.target.value)} /></label>
       {fehler && <div className="fehler" role="alert">{fehler}</div>}
       <div className="aktionen">
-        <button className="btn" onClick={() => window.confirm("Version freigeben? Neue Fördervergleiche rechnen ab sofort damit.") && onFreigeben(notiz.trim() || null)}>Freigeben</button>
+        <button className="btn" onClick={() => window.confirm(kuenftig ? `Version freigeben? Sie wird am ${datumDe(gueltigAb)} automatisch aktiv.` : "Version freigeben? Neue Fördervergleiche rechnen ab sofort damit.") && onFreigeben(notiz.trim() || null)}>Freigeben</button>
         <button className="btn2 gefahr" onClick={() => notiz.trim().length < 5 ? setFehler("Bitte eine Begründung angeben (mindestens 5 Zeichen).") : (setFehler(""), onZurueckweisen(notiz.trim()))}>Zurückweisen</button>
       </div>
     </section>

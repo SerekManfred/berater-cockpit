@@ -1,7 +1,7 @@
 """Berater-Cockpit – API (Phase 0/1)."""
 from contextlib import asynccontextmanager
 
-from fastapi import Depends, FastAPI
+from fastapi import Depends, FastAPI, HTTPException
 from pydantic import BaseModel, Field
 from sqlalchemy.orm import Session
 
@@ -10,7 +10,7 @@ from app import (angebotsvorlagen_api, auth, bericht_init, benutzer_api, checkli
 from app import wohneinheiten
 from app.auth import aktueller_benutzer, rolle
 from app.db import get_db
-from app.rechnen import FoerdervergleichIn, foerdervergleich_rechnen, lade_konditionen
+from app.rechnen import FoerdervergleichEingaben, FoerdervergleichIn, foerdervergleich_rechnen, lade_geplante, lade_konditionen
 from app.sicherheit import schluessel_pruefen
 
 
@@ -54,6 +54,22 @@ def berechnen(daten: FoerdervergleichIn, projekt_id: int | None = None, db: Sess
     Mit projekt_id prüft die Plausibilität auch die Wohneinheiten des Projekts."""
     projekt_we = projekte_api._projekt_laden(db, projekt_id).wohneinheiten if projekt_id is not None else None
     return foerdervergleich_rechnen(daten, lade_konditionen(daten.konditionen_version, db=db), projekt_we=projekt_we)
+
+
+@app.post("/module/foerderung-em-eh/vorschau-geplant", dependencies=[Depends(rolle("berater"))])
+def vorschau_geplant(daten: FoerdervergleichEingaben, projekt_id: int | None = None, db: Session = Depends(get_db)):
+    """Vorschau mit der geplanten (im Voraus freigegebenen) Konditionen-Version – nur Anzeige, nie speicherbar: Speichern
+    rechnet immer mit der aktiven Version, und geplante Versionen lädt lade_konditionen(n) nicht."""
+    lade_konditionen(db=db)          # Stichtag erreicht? Dann ist die geplante Version jetzt aktiv
+    kond = lade_geplante(db)
+    if kond is None:
+        raise HTTPException(404, "Es gibt keine geplante Konditionen-Version.")
+    projekt_we = projekte_api._projekt_laden(db, projekt_id).wohneinheiten if projekt_id is not None else None
+    erg = foerdervergleich_rechnen(daten, kond, projekt_we=projekt_we)
+    datum = ".".join(reversed(kond["gueltig_ab"][:10].split("-")))
+    return {**erg, "vorschau": {"version": kond["version"], "gueltig_ab": kond["gueltig_ab"],
+                                "text": f"Vorschau mit den Konditionen ab {datum} (Version {kond['version']}) – noch nicht "
+                                        f"gültig, nicht speicherbar."}}
 
 
 class WohneinheitenIn(BaseModel):
