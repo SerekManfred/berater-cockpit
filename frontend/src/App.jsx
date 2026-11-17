@@ -1,5 +1,5 @@
 import React, { useCallback, useEffect, useState } from "react";
-import { ABGEMELDET, api, hatRolle, rollenText } from "./api.js";
+import { ABGEMELDET, SITZUNG_SCHLUESSEL, VERWEIGERT, api, hatRolle, rollenText, sitzungGewechselt } from "./api.js";
 import { Anmeldung, PasswortFormular, PasswortPflicht, ZweiFaktor, ZweiFaktorEinrichten } from "./Anmeldung.jsx";
 import { Angebotsvorlagen } from "./Angebotsvorlagen.jsx";
 import { Benutzerverwaltung, Protokoll } from "./Benutzer.jsx";
@@ -20,6 +20,7 @@ export default function App() {
   }, []);
   const abmelden = useCallback(async (text = "") => {
     try { await api("/auth/abmelden", { method: "POST" }); } catch { /* ohnehin abgemeldet */ }
+    sitzungGewechselt();
     setHinweis(typeof text === "string" ? text : ""); setIch(null);
   }, []);
   useEffect(() => {
@@ -28,7 +29,22 @@ export default function App() {
     window.addEventListener(ABGEMELDET, weg);
     return () => window.removeEventListener(ABGEMELDET, weg);
   }, [laden]);
-  const weiter = () => { setHinweis(""); laden(); };
+  // Andere Tabs: An-/Abmeldung dort → hier neu laden, damit Rollen und Knöpfe zum angemeldeten Konto passen
+  useEffect(() => {
+    const anderswo = e => { if (e.key === SITZUNG_SCHLUESSEL) window.location.reload(); };
+    window.addEventListener("storage", anderswo);
+    return () => window.removeEventListener("storage", anderswo);
+  }, []);
+  // 403 oder zurück im Fenster: ist noch dasselbe Konto angemeldet? Sonst neu laden (falls localStorage nicht geht)
+  const benutzerId = ich?.benutzer?.id;
+  useEffect(() => {
+    if (!benutzerId) return undefined;
+    const pruefen = () => api("/auth/ich").then(r => { if (r?.benutzer?.id !== benutzerId) window.location.reload(); }).catch(() => {});
+    window.addEventListener(VERWEIGERT, pruefen);
+    window.addEventListener("focus", pruefen);
+    return () => { window.removeEventListener(VERWEIGERT, pruefen); window.removeEventListener("focus", pruefen); };
+  }, [benutzerId]);
+  const weiter = () => { setHinweis(""); sitzungGewechselt(); laden(); };
 
   if (ich === undefined) return ladefehler
     ? <div className="fehler" role="alert" style={{ margin: 24 }}>{ladefehler}<div className="aktionen"><button className="btn" onClick={laden}>Erneut versuchen</button></div></div>

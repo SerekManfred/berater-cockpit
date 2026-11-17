@@ -15,7 +15,7 @@ vi.mock("./api.js", async original => ({
   }),
 }));
 
-import { OffeneMeldungen, PruefungVeraltet, kostenStufen, stufeText } from "./Foerderpruefung.jsx";
+import { OffeneMeldungen, PruefungVeraltet, kostenStufen, modellName, seitenText, stufeText } from "./Foerderpruefung.jsx";
 import { standText } from "./Foerdervergleich.jsx";
 
 afterEach(() => { cleanup(); aufrufe.length = 0; antworten = {}; });
@@ -126,5 +126,18 @@ describe("Kosten je Stufe", () => {
                 vorpruefung: { lauf: { modell: "claude-sonnet-5-5" } } };
     expect(kostenStufen(e)).toBe("Vorprüfung ca. 0,21 US-$ (claude-sonnet-5-5) · gründlich ca. 1,1 US-$ (claude-opus-5-5)");
     expect(kostenStufen({ lauf: { kosten_usd: 1 } })).toBeNull();
+  });
+});
+
+describe("Seitentext der Förderprüfung", () => {
+  it("nennt Rhythmus, beide Modelle und den nächsten Termin", () => {
+    expect(modellName("claude-sonnet-5-5")).toBe("Sonnet 5.5");
+    expect(modellName("claude-opus-5-5")).toBe("Opus 5.5");
+    const t = seitenText({ aktiv: true, intervall_tage: 14, vor_modell: "claude-sonnet-5-5", modell: "claude-opus-5-5",
+                           naechster_termin: "2026-11-23T06:10:00+01:00" });
+    expect(t).toMatch(/^Alle 14 Tage \(montags 06:10 Uhr\) prüft die KI zweistufig: Die Vorprüfung mit Sonnet 5\.5/);
+    expect(t).toMatch(/gründliche Prüfung mit Opus 5\.5/);
+    expect(t).toMatch(/Nächster Termin: Montag, 23\.11\.2026, 06:10 Uhr\.$/);
+    expect(seitenText({ aktiv: false, vor_modell: "claude-sonnet-5-5", modell: "claude-opus-5-5" })).toMatch(/ausgeschaltet – kein Termin/);
   });
 });

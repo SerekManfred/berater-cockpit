@@ -560,3 +560,36 @@ def test_leere_felder_werden_markiert_und_gemeldet(aktiv, monkeypatch):
     erg = foerderpruefung.auswerten("```json\n" + json.dumps({"abweichungen": [{"feld": feld, "neu": 30000, "quelle": "https://www.bafa.de/r.pdf",
                                                                               "sicherheit": "offiziell"}]}) + "\n```", kond)
     assert [(a["feld"], a["hinterlegt"], a["neu"]) for a in erg["abweichungen"]] == [(feld, None, 30000)]
+
+
+# ---------- Nächster Termin (Seitentext, 17.11.2026) ----------
+
+def test_naechster_termin_alle_14_tage_montags_0610(monkeypatch):
+    from zoneinfo import ZoneInfo
+    berlin = ZoneInfo("Europe/Berlin")
+    monkeypatch.setattr(config, "FOERDERPRUEFUNG_AKTIV", True)
+    di = datetime(2026, 11, 17, 9, 0, tzinfo=berlin)                       # Dienstag
+    with SessionLocal() as db:
+        # noch kein Zeitplan-Lauf: nächster Montag
+        assert foerderpruefung.naechster_termin(db, di) == datetime(2026, 11, 23, 6, 10, tzinfo=berlin)
+        # Montag vor 06:10: noch heute
+        assert foerderpruefung.naechster_termin(db, datetime(2026, 11, 23, 5, 0, tzinfo=berlin)) == datetime(2026, 11, 23, 6, 10, tzinfo=berlin)
+        # Zeitplan-Lauf am 23.11. 06:14 → übernächster Montag (07.12.), nicht der 30.11.
+        db.add(Protokoll(zeit=datetime(2026, 11, 23, 6, 14, tzinfo=berlin), aktion="foerderpruefung_lauf",
+                         details={"art": "zeitplan", "status": "keine_abweichung"}))
+        # manuelle Läufe verschieben den Zeitplan nicht
+        db.add(Protokoll(zeit=datetime(2026, 11, 26, 10, 0, tzinfo=berlin), aktion="foerderpruefung_lauf", details={"art": "manuell"}))
+        db.commit()
+        assert foerderpruefung.naechster_termin(db, datetime(2026, 11, 24, 8, 0, tzinfo=berlin)) == datetime(2026, 12, 7, 6, 10, tzinfo=berlin)
+        # Winter-/Sommerzeit: 06:10 Ortszeit bleibt 06:10
+        assert foerderpruefung.naechster_termin(db, datetime(2027, 3, 24, 8, 0, tzinfo=berlin)).hour == 6
+    monkeypatch.setattr(config, "FOERDERPRUEFUNG_AKTIV", False)
+    with SessionLocal() as db:
+        assert foerderpruefung.naechster_termin(db, di) is None
+
+
+def test_lauf_status_nennt_modelle_und_termin(aktiv):
+    admin = nutzer("admin")
+    s = admin.get("/foerderpruefung/lauf").json()
+    assert (s["vor_modell"], s["modell"], s["intervall_tage"]) == ("claude-sonnet-5-5", "claude-opus-5-5", 14)
+    assert s["naechster_termin"].endswith("06:10:00+01:00") or s["naechster_termin"].endswith("06:10:00+02:00")

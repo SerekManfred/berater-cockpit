@@ -317,6 +317,12 @@ Ausführliches Fachkonzept: `docs/Konzept_Berater-Cockpit.docx` (falls abgelegt)
   `foerder_meldung_entwurf`, `foerder_meldung_verworfen`.
 - Oberfläche (`frontend/src/Foerderpruefung.jsx`): Startseite „Handlungsbedarf Förderkonditionen“ (Empfänger, Prüfer, Admins),
   Reiter „Förderprüfung“ in den Förderkonditionen (Verlauf, Details, „Jetzt prüfen“), Haken in der Benutzerverwaltung.
+  Seitentext (`seitenText`) aus `/foerderpruefung/lauf`: Rhythmus, Modelle je Stufe, **nächster Termin** (`naechster_termin()`:
+  erster Montag 06:10 Berlin nach Ablauf des Intervalls seit dem letzten Zeitplan-Lauf).
+- **Mehrere Tabs (Vorfall 17.11.2026, 07:59 Uhr „Keine Berechtigung“):** ein alter Tab zeigte noch die Admin-Oberfläche von Konto 1,
+  das Cookie gehörte nach Ab-/Anmeldung in einem anderen Tab aber Konto 2 → 403 auf „Jetzt prüfen“ (Backend richtig). Seitdem:
+  An-/Abmeldung schreibt `cockpit-sitzung` in den localStorage → andere Tabs laden neu; zusätzlich prüft die Oberfläche bei
+  jedem 403 und beim Zurückkehren ins Fenster `/auth/ich` und lädt neu, wenn ein anderes Konto angemeldet ist (`App.jsx`, `api.js`).
 - **Stand-Angabe für Kunden:** „Förderbedingungen Stand TT.MM.JJJJ (interne Version N)“ – INIT `saetze.konditionen_stand`
   (Patch `backend_stand_text.patch`), Word-Fördervergleich ab Generator 0.4.3, Oberfläche aus `konditionen_stand` (Rechnen,
   gespeicherter Bericht; `app/rechnen.py: konditionen_stand()`).

@@ -42,6 +42,27 @@ export function MeldungTabelle({ m }) {
 }
 
 // Entscheidung 16.11.2026: Entwurf anlegen Admins + Empfänger (Haken), Verwerfen nur Admins
+// Seitentext (Stand 17.11.2026): Rhythmus, zweistufig, Modelle und nächster Termin kommen aus /foerderpruefung/lauf
+export function modellName(id) {
+  const m = /^claude-([a-z]+)-(\d+)(?:-(\d+))?$/.exec(id || "");
+  return m ? `${m[1][0].toUpperCase()}${m[1].slice(1)} ${m[2]}${m[3] ? "." + m[3] : ""}` : (id || "–");
+}
+export function terminText(iso) {
+  if (!iso) return null;
+  const d = new Date(iso);
+  return d.toLocaleDateString("de-DE", { weekday: "long", day: "2-digit", month: "2-digit", year: "numeric", timeZone: "Europe/Berlin" })
+    + ", " + d.toLocaleTimeString("de-DE", { hour: "2-digit", minute: "2-digit", timeZone: "Europe/Berlin" }) + " Uhr";
+}
+export function seitenText(lauf) {
+  const tage = lauf?.intervall_tage || 14;
+  const termin = terminText(lauf?.naechster_termin);
+  return `Alle ${tage} Tage (montags 06:10 Uhr) prüft die KI zweistufig: Die Vorprüfung mit ${modellName(lauf?.vor_modell)} vergleicht nur `
+    + "den Stand der Merkblätter und Pressemitteilungen; nur bei Änderungen oder Unklarheit folgt die gründliche Prüfung mit "
+    + `${modellName(lauf?.modell)} gegen die offiziellen Quellen (kfw.de, bafa.de, energiewechsel.de, bmwk.de/bmwe.de, gesetze-im-internet.de). `
+    + "Abweichungen werden gemeldet, nie automatisch übernommen. "
+    + (lauf && !lauf.aktiv ? "Derzeit ausgeschaltet – kein Termin geplant." : termin ? `Nächster Termin: ${termin}.` : "");
+}
+
 export const darfEntwurfAnlegen = ich => !!ich && (hatRolle(ich) || !!ich.benachrichtigung_konditionen);
 
 function MeldungAktionen({ m, ich, onEntwurf, onFertig }) {
@@ -135,19 +156,19 @@ export function FoerderpruefungSeite({ ich, onEntwurf }) {
   return (
     <>
       <h1>Förderprüfung</h1>
-      <p className="hinweis">Wöchentlich (montags 06:10 Uhr) vergleicht die KI die aktive Version mit den offiziellen Quellen
-        (kfw.de, bafa.de, energiewechsel.de, bmwk.de/bmwe.de, gesetze-im-internet.de). Abweichungen werden gemeldet, nie automatisch übernommen.</p>
+      <p className="hinweis">{seitenText(lauf)}</p>
       <PruefungVeraltet />
       {!lauf.aktiv && <div className="info" role="status" style={{ marginBottom: 12 }}>Die Förderprüfung ist ausgeschaltet (FOERDERPRUEFUNG_AKTIV). Einschalten gibt der Geschäftsführer frei.</div>}
       {fehler && <div className="fehler" role="alert">{fehler}</div>}
       {lauf.letzter_fehler && <div className="fehler" role="alert">Letzter Lauf fehlgeschlagen: {lauf.letzter_fehler}</div>}
-      {hatRolle(ich) && (
+      {hatRolle(ich) ? (
         <div className="aktionen" style={{ marginTop: 0, marginBottom: 16 }}>
           <button className="btn" onClick={starten} disabled={!lauf.aktiv || lauf.laeuft || lauf.laeufe_heute >= lauf.max_laeufe_tag}>
             {lauf.laeuft ? "Prüfung läuft …" : "Jetzt prüfen"}</button>
-          <span className="klein">Heute {lauf.laeufe_heute} von {lauf.max_laeufe_tag} Läufen · höchstens {lauf.max_suchen} Suchen je Lauf · Modell {lauf.modell}</span>
+          <span className="klein">Heute {lauf.laeufe_heute} von {lauf.max_laeufe_tag} Läufen · gründlich höchstens {lauf.max_suchen} Suchen
+            {lauf.max_abrufe != null ? ` und ${lauf.max_abrufe} Abrufe` : ""} · Vorprüfung {modellName(lauf.vor_modell)}, gründlich {modellName(lauf.modell)}</span>
         </div>
-      )}
+      ) : <p className="klein">„Jetzt prüfen“ startet nur ein Admin; der Zeitplan läuft automatisch.</p>}
       {lauf.laeuft && <p role="status">Die Prüfung läuft (gestartet {zeit(lauf.gestartet_am)}) und dauert einige Minuten. Diese Seite aktualisiert sich selbst.</p>}
       {liste.length === 0 ? <p>Noch keine Prüfläufe.</p> : (
         <div className="karte tabelle">

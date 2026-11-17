@@ -1,5 +1,13 @@
 // Alle Aufrufe an das Backend. Die Sitzung steckt im HttpOnly-Cookie – kein Token im Browser-Speicher.
 export const ABGEMELDET = "cockpit-abgemeldet";
+// 403 bei einer Aktion: Die Oberfläche prüft, ob inzwischen ein anderes Konto angemeldet ist (anderer Tab, 17.11.2026)
+export const VERWEIGERT = "cockpit-verweigert";
+// Anmeldung/Abmeldung in einem Tab → alle anderen Tabs laden neu. Das Cookie gilt für alle Tabs; ohne Neuladen zeigt ein
+// alter Tab noch die Oberfläche des vorigen Kontos (Vorfall 17.11.2026: „Jetzt prüfen“ als Admin angezeigt, Sitzung von Konto 2).
+export const SITZUNG_SCHLUESSEL = "cockpit-sitzung";
+export function sitzungGewechselt() {
+  try { localStorage.setItem(SITZUNG_SCHLUESSEL, String(Date.now())); } catch { /* privater Modus – dann greift die Prüfung bei 403/Fokus */ }
+}
 
 function fehlertext(daten) {
   const d = daten?.detail;
@@ -38,6 +46,7 @@ export async function api(pfad, { method = "GET", body, zeitlimit = ZEITLIMIT_MS
   try { daten = await r.json(); } catch { /* leere Antwort */ }
   if (!r.ok) {
     if (r.status === 401 && !pfad.startsWith("/auth/")) window.dispatchEvent(new Event(ABGEMELDET));
+    if (r.status === 403 && !pfad.startsWith("/auth/")) window.dispatchEvent(new Event(VERWEIGERT));
     const e = new Error(fehlertext(daten) || `Fehler ${r.status}`);
     e.status = r.status;
     throw e;

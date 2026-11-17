@@ -383,6 +383,32 @@ def zeitplan_faellig(db: Session) -> bool:
     return True
 
 
+def letzter_zeitplan_lauf(db: Session) -> datetime | None:
+    for p in db.scalars(select(Protokoll).where(Protokoll.aktion == "foerderpruefung_lauf").order_by(Protokoll.zeit.desc())):
+        if (p.details or {}).get("art") == "zeitplan":
+            return p.zeit
+    return None
+
+
+def naechster_termin(db: Session, jetzt_zeit: datetime | None = None) -> datetime | None:
+    """Nächster Zeitplan-Lauf: der erste Montag 06:10 Uhr (Europe/Berlin), an dem zeitplan_faellig() zutrifft – also
+    frühestens FOERDERPRUEFUNG_INTERVALL_TAGE nach dem letzten erfolgreichen Zeitplan-Lauf (halber Tag Spielraum).
+    Ausgeschaltet → None."""
+    if not config.FOERDERPRUEFUNG_AKTIV:
+        return None
+    jetzt_berlin = (jetzt_zeit or jetzt()).astimezone(BERLIN)
+    letzter = letzter_zeitplan_lauf(db)
+    tag = jetzt_berlin.date()
+    for _ in range(60):
+        if tag.weekday() == 0:
+            termin = datetime.combine(tag, datetime.min.time(), BERLIN).replace(hour=6, minute=10)
+            if termin > jetzt_berlin and (letzter is None or termin - letzter >= timedelta(
+                    days=config.FOERDERPRUEFUNG_INTERVALL_TAGE, hours=-12)):
+                return termin
+        tag += timedelta(days=1)
+    return None
+
+
 def lauf_ausfuehren(db: Session, ausgeloest_von_id: int | None, voll: bool = False) -> FoerderMeldung:
     """Ein Lauf (Stufe 1, bei Bedarf Stufe 2). Fehler: KiFehler mit Meldung (protokolliert), nie ein halber Datensatz.
     voll=True überspringt die Vorprüfung."""
@@ -626,10 +652,13 @@ def meldung_lesen(meldung_id: int, _: Benutzer = Depends(meldungen_leser), db: S
 
 @router.get("/foerderpruefung/lauf")
 def lauf_status(_: Benutzer = Depends(meldungen_leser), db: Session = Depends(get_db)):
+    termin = naechster_termin(db)
     return {"aktiv": config.FOERDERPRUEFUNG_AKTIV, "laeuft": _lauf["laeuft"], "gestartet_am": _lauf["gestartet_am"],
             "letzter_fehler": _lauf["letzter_fehler"], "laeufe_heute": laeufe_heute(db),
             "max_laeufe_tag": config.FOERDERPRUEFUNG_MAX_LAEUFE_TAG, "modell": config.FOERDERPRUEFUNG_MODELL,
-            "max_suchen": config.FOERDERPRUEFUNG_MAX_SUCHEN}
+            "vor_modell": config.FOERDERPRUEFUNG_VOR_MODELL, "intervall_tage": config.FOERDERPRUEFUNG_INTERVALL_TAGE,
+            "max_suchen": config.FOERDERPRUEFUNG_MAX_SUCHEN, "max_abrufe": config.FOERDERPRUEFUNG_MAX_ABRUFE,
+            "naechster_termin": termin.isoformat() if termin else None}
 
 
 @router.post("/foerderpruefung/jetzt", status_code=202)
