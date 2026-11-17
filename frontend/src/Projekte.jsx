@@ -3,6 +3,7 @@ import { api, hatRolle, wordHerunterladen, zeit } from "./api.js";
 import { ANGEBOTE, eur, Ergebnis, Foerdervergleich, KATEGORIEN } from "./Foerdervergleich.jsx";
 import { Unterlagen, VorOrtCheckliste } from "./Unterlagen.jsx";
 import { BerichtInit } from "./BerichtInit.jsx";
+import { Schnellweg } from "./Schnellweg.jsx";
 import { ZahlFeld } from "./ZahlFeld.jsx";
 import { Angebotsweg } from "./Angebotsweg.jsx";
 import { WeBestaetigung } from "./Wohneinheiten.jsx";
@@ -61,7 +62,10 @@ export function Projekte({ ich, startProjekt = null }) {
   if (seite.art === "akte") return <ProjektAkte ich={ich} id={seite.id} onZurueck={() => setSeite({ art: "liste" })} onGehe={setSeite} />;
   if (seite.art === "bericht") return <BerichtAnsicht ich={ich} id={seite.id} onZurueck={() => zurAkte(seite.projektId)} onGehe={setSeite} />;
   if (seite.art === "rechnen") return <BerichtRechnen {...seite} onFertig={b => setSeite({ art: "bericht", id: b.id, projektId: b.projekt_id })} onAbbrechen={() => zurAkte(seite.projektId)} />;
-  if (seite.art === "init") return <BerichtInit ich={ich} projekt={seite.projekt} onZurueck={() => zurAkte(seite.projekt.id)} />;
+  if (seite.art === "init") return <Schnellweg ich={ich} projekt={seite.projekt} onZurueck={() => zurAkte(seite.projekt.id)}
+    onDetail={() => setSeite({ art: "init-detail", projekt: seite.projekt })} />;
+  if (seite.art === "init-detail") return <BerichtInit ich={ich} projekt={seite.projekt} onZurueck={() => zurAkte(seite.projekt.id)}
+    onSchnellweg={() => setSeite({ art: "init", projekt: seite.projekt })} />;
   if (seite.art === "neu") return <ProjektNeu onFertig={p => zurAkte(p.id)} onAbbrechen={() => setSeite({ art: "liste" })} />;
   return <ProjektListe ich={ich} onOeffnen={zurAkte} onNeu={() => setSeite({ art: "neu" })} />;
 }
@@ -386,9 +390,13 @@ function ProjektAkte({ ich, id, onZurueck, onGehe }) {
         <section className="karte">
           <div className="titelzeile">
             <h2>Beratungsbericht INIT</h2>
-            <button className="btn" onClick={() => onGehe({ art: "init", projekt: p })}>{darfBearbeiten ? "Bericht-Assistent öffnen" : "Entwurf ansehen"}</button>
+            <div className="aktionen">
+              <button className="btn" onClick={() => onGehe({ art: "init", projekt: p })}>{darfBearbeiten ? "Bericht erstellen" : "Bericht ansehen"}</button>
+              <button className="btn2" onClick={() => onGehe({ art: "init-detail", projekt: p })}>Detailbearbeitung</button>
+            </div>
           </div>
-          <p className="klein">Daten → Fotos → KI-Vorschlag → Prüfen und freigeben → Bericht erzeugen. Der Entwurf bleibt über mehrere Sitzungen erhalten.</p>
+          <p className="klein">Checkliste und Fotos hochladen → „Bericht erstellen“ → Vorschau prüfen, ggf. korrigieren → freigeben.
+            Die Detailbearbeitung (Reiter, Einzelfreigaben) arbeitet auf denselben Daten.</p>
         </section>
       )}
 

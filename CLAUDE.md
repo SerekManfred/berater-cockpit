@@ -17,6 +17,7 @@ Ausführliches Fachkonzept: `docs/Konzept_Berater-Cockpit.docx` (falls abgelegt)
 - `frontend/` – React (Vite), CI-Farben in `src/styles.css`
 - `backend/` – FastAPI (Python 3.12). Rechenkerne unter `app/rechenkern/`, Konditionen unter `app/konditionen/`
 - `web/` – Caddy: liefert die Oberfläche aus, leitet `/api/*` an das Backend
+- `pdf/` – Container `cockpit-pdf` (LibreOffice): Word → PDF für die Vorschau im Schnellweg INIT, nur `cockpit-intern`
 - `cockpit-db` – PostgreSQL 16 (Benutzer, Sitzungen, Protokoll, Projekte, Berichte; ab Phase 1 Konditionen-Versionen).
   Schema nur über Alembic-Migrationen (`backend/alembic/versions/`), keine Tabellen ohne Migration. Tests laufen gegen SQLite
   (beim Bauen) und gegen PostgreSQL (`scripts/test-postgres.sh`, siehe „Arbeitsweise“).
@@ -424,6 +425,36 @@ Ausführliches Fachkonzept: `docs/Konzept_Berater-Cockpit.docx` (falls abgelegt)
 - Tests: `tests/test_checkliste_import.py` (Word-Datei `tests/daten/checkliste_init_ausgefuellt.docx` aus Generator 0.4.4, Ersatz-KI),
   `frontend/src/ChecklisteEinlesen.test.jsx`.
 
+## Schnellweg INIT (Stand 17.11.2026, Phase 2h)
+- **Standard für INIT** (Projektakte „Bericht erstellen“, `frontend/src/Schnellweg.jsx`); die Reiter bleiben als „Detailbearbeitung“
+  auf denselben Daten (`bericht_entwuerfe`). Backend `app/init_schnellweg.py`, Zustand in `bericht_entwuerfe.schnellweg` (Migration 0013).
+- Ablauf (Hintergrund-Thread, Oberfläche fragt `GET …/bericht-init/schnellweg` ab): Checkliste einlesen (Kern aus 2g:
+  `bi.checkliste_lesen`/`checkliste_uebernehmen`) → Notizen anhängen → **Rückfrage-Liste** (`rueckfragen()`: fehlende Pflicht,
+  unsichere Lesewerte, Abweichungen, Klimabonus bei fossilem Energieträger, Wohneinheiten-Warnung; „weglassen“ = `bewusst_leer`,
+  Wohneinheiten nie weglassbar; beantwortet = bestätigt) → **ein** KI-Lauf für alle Texte + Fotos (Prompt `init_v2.md`,
+  `PROMPT-VERSION: init-2`, Schema `ki_texte.SCHEMA_SCHNELL` mit `hinweise`) → `bi.word_bauen` → Vorschau.
+- Weicht die Checkliste nur von der **Vorbelegung aus dem Projekt** ab, gilt der Bogen (Hinweis statt Rückfrage).
+  Investitionskosten: optionale Felder auf der Unterlagen-Seite (Zahlen des Beraters), sonst Rückfrage.
+- **Keine Prüfmarken im Kundentext:** `kundentext_saeubern()` entfernt „[PRÜFEN …]“ und macht daraus Hinweise; „Hinweise der KI“
+  höchstens 10 (zuerst fester Hinweis bei fehlender EH-Stufe, dann KI, Einlesen, unbekannte Zahlen).
+- **Vorschau:** Word mit Wasserzeichen (`app/wasserzeichen.py`: VML „ENTWURF“ + rote Kopfzeile „ENTWURF – noch nicht freigegeben“)
+  und PDF aus Container **`cockpit-pdf`** (`pdf/`, LibreOffice headless, Liberation Sans = Arial, eine Umwandlung gleichzeitig, nur
+  `cockpit-intern`, read_only). Ablage im Volume unter `berichtsvorschau/<entwurf_id>.docx|pdf`, nicht in `dateien`. Gilt nur für
+  die Revision, aus der sie entstand (`vorschau.aktuell`). `web/Caddyfile` erlaubt Einbetten (SAMEORIGIN) nur für `…/vorschau.pdf`.
+- **Korrektur** `POST …/schnellweg/korrektur` (Text von Hand oder `anweisung` an die KI, Schema nur dieses Abschnitts) → Word + PDF neu.
+  Cache-Punkt nur bei Korrekturen (Hauptlauf ist ein einziger Aufruf; Schema-Wechsel trifft den Cache nicht).
+- **Freigabe** `POST …/schnellweg/freigeben`: **nur Rolle berater**, nur für die Revision der Vorschau; Gesamtfreigabe aller Abschnitte,
+  dann `bi.bericht_speichern(status="freigegeben")` – der Generator erzeugt das Word **neu, ohne Wasserzeichen, nicht nachbearbeitet**.
+  `eingaben.freigabe` {von, am, weg, konditionen_version, kosten_usd, dauer_s}; Protokoll `bericht_freigegeben`.
+- **Einstellungen** (Tabelle `einstellungen`, `app/einstellungen.py`, Admin-Seite „KI-Einstellungen“): Textmodell (Standard Opus 5.5,
+  Sonnet 5.5 wählbar) und **KI-Läufe je Benutzer und Tag** (Standard 30, gezählt aus dem Protokoll: Texte, Korrekturen, Checklisten per
+  KI, auch fehlgeschlagene). `KI_MAX_LAEUFE_TAG` gilt nicht mehr.
+- Protokoll: `schnellweg_gestartet`, `_rueckfrage`, `_texte`, `_vorschau`, `_korrektur`, `_fehlgeschlagen`,
+  `_vorschau_heruntergeladen`, `bericht_freigegeben`, `einstellung_geaendert` (ohne Texte/Namen).
+- Messung 17.11.2026 (echte API, Kopie der DB, Testbogen Word + 6 Fotos): ohne Rückfrage, **94–112 s** bis Word + PDF, Texte Opus
+  **0,26–0,30 $**, Korrektur 13–18 s, 0,03–0,08 $. Vergleich mit dem Original-Skill (gleiche Daten): Gliederung (31), Bilder,
+  Förderbeträge identisch. Tests: `tests/test_init_schnellweg.py`, `frontend/src/Schnellweg.test.jsx`.
+
 ## KI-Textvorschläge (Stand 13.11.2026, Phase 2b)
 - `app/ki/` = austauschbare Schnittstelle (Regel 7; `anthropic` umgesetzt, `langdock` meldet „noch nicht angebunden“), offizielles SDK
   `anthropic`, strukturierte Ausgabe per JSON-Schema (`ki_texte.SCHEMA`). Fachlogik in `app/ki_texte.py`; Systemprompt versioniert als
@@ -459,6 +490,8 @@ Fachregeln, Rechenkern, Generator. Die Oberfläche soll Masken aus dieser Beschr
 - **Phase 2f (umgesetzt 16.11.2026, Abnahme 1–4 bestanden 16.11.2026; Kostensenkung zweistufig/Sonnet, alle 14 Tage):** Förderprüfung mit Meldungen und E-Mail an Empfänger, Stand-Angabe
   „Förderbedingungen Stand … (interne Version N)“, Generator 0.4.3; Generator 0.4.4 (17.11.2026): WPB-Bonus EM „angekündigt“ im Word.
 - **Phase 2g (umgesetzt 17.11.2026, Abnahme offen):** Vor-Ort-Checkliste einlesen (Word ohne KI, Foto/PDF per KI), Handschrift-Profil.
+- **Phase 2h (umgesetzt 17.11.2026, Abnahme offen):** Schnellweg INIT (ein Klick zum Bericht, Rückfrage-Liste, PDF-Vorschau,
+  Korrektur je Abschnitt, Gesamtfreigabe), Container `cockpit-pdf`, KI-Einstellungen.
 - **Phase 2:** MEH (danach) und Kirche nach demselben Muster; INIT und MEH mit KI (Checklisten-Erkennung, Fotozuordnung) – vorhandene Generatoren `generate_report.js` aus den Skills einbinden.
 - **Phase 3:** Kirche. **Phase 4:** Änderungs-Monitor für Förderquellen, Freigabe-Workflow, Anbindung IR-Planer.
 

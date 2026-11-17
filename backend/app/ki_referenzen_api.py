@@ -10,7 +10,8 @@ from app.auth import rolle
 from app.checkliste_import import referenz_text
 from app.dateien_api import _namen
 from app.db import get_db
-from app.modelle import Benutzer, KiReferenz, jetzt
+from app import einstellungen
+from app.modelle import Benutzer, Einstellung, KiReferenz, jetzt
 from app.protokoll import protokollieren
 
 router = APIRouter(tags=["KI-Referenzen"])
@@ -48,3 +49,35 @@ def referenz_speichern(schluessel: SCHLUESSEL, daten: ReferenzAenderung, request
     protokollieren(db, request, "ki_referenz_geaendert", ich.id, schluessel=schluessel, zeichen_alt=len(alt), zeichen_neu=len(daten.inhalt))
     db.commit()
     return _aus(db, schluessel)
+
+
+# ---------- Einstellungen (Phase 2h) ----------
+
+class EinstellungAenderung(BaseModel):
+    init_text_modell: str | None = None
+    ki_laeufe_je_benutzer_tag: int | None = None
+
+
+def _einstellungen_aus(db: Session) -> dict:
+    return {"werte": {k: einstellungen.wert(db, k) for k in einstellungen.STANDARD}, "titel": einstellungen.TITEL,
+            "modelle": list(einstellungen.TEXT_MODELLE), "standard": einstellungen.STANDARD}
+
+
+@router.get("/einstellungen")
+def einstellungen_lesen(_: Benutzer = Depends(nur_admin), db: Session = Depends(get_db)):
+    return _einstellungen_aus(db)
+
+
+@router.put("/einstellungen")
+def einstellungen_speichern(daten: EinstellungAenderung, request: Request, ich: Benutzer = Depends(nur_admin),
+                            db: Session = Depends(get_db)):
+    for k, w in daten.model_dump(exclude_none=True).items():
+        einstellungen.pruefen(k, w)
+        alt = einstellungen.wert(db, k)
+        e = db.get(Einstellung, k) or Einstellung(schluessel=k, wert={})
+        e.wert, e.geaendert_von_id, e.geaendert_am = {"wert": w}, ich.id, jetzt()
+        db.merge(e)
+        if alt != w:
+            protokollieren(db, request, "einstellung_geaendert", ich.id, schluessel=k, alt=alt, neu=w)
+    db.commit()
+    return _einstellungen_aus(db)

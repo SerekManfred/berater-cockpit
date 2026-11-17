@@ -7,7 +7,7 @@ from sqlalchemy.orm import Session
 
 from app import (angebotsvorlagen_api, auth, bericht_init, benutzer_api, checkliste, dateien_api, foerderpruefung, konditionen_zentrale,
                  projekte_api, word)
-from app import ki_referenzen_api, wohneinheiten
+from app import init_schnellweg, ki_referenzen_api, wohneinheiten
 from app.auth import aktueller_benutzer, rolle
 from app.db import get_db
 from app.rechnen import FoerdervergleichEingaben, FoerdervergleichIn, foerdervergleich_rechnen, lade_geplante, lade_konditionen
@@ -30,6 +30,7 @@ app.include_router(word.router)
 app.include_router(checkliste.router)
 app.include_router(konditionen_zentrale.router)
 app.include_router(bericht_init.router)
+app.include_router(init_schnellweg.router)
 app.include_router(angebotsvorlagen_api.router)
 app.include_router(foerderpruefung.router)
 

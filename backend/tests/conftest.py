@@ -65,6 +65,8 @@ def _leere_tabellen():
         db.execute(delete(FoerderMeldung))   # vor Konditionen und Benutzern (Fremdschlüssel)
         from app.modelle import KiReferenz
         db.execute(delete(KiReferenz))       # Handschrift-Profil: zurück auf die ausgelieferte Datei
+        from app.modelle import Einstellung
+        db.execute(delete(Einstellung))      # Admin-Einstellungen: zurück auf die Standardwerte
         # Konditionen: nur der Startbestand (Version 1, aktiv) bleibt
         db.execute(delete(KonditionenVersion).where(KonditionenVersion.version != 1))
         db.execute(update(KonditionenVersion).where(KonditionenVersion.version == 1).values(status="aktiv"))

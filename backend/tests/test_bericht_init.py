@@ -455,7 +455,8 @@ def test_ki_fehler_und_tagesgrenze(v3_aktiv, ki_an, monkeypatch):
     assert r.status_code == 503 and "nicht erreichbar" in r.json()["detail"]
     e = berater.get(ENTWURF.format(p["id"])).json()
     assert e["ki"]["laeufe_heute"] == 1 and e["ki"]["laeufe"][-1]["ok"] is False
-    monkeypatch.setattr(config, "KI_MAX_LAEUFE_TAG", 1)
+    admin = konto("admin")
+    assert admin.put("/einstellungen", json={"ki_laeufe_je_benutzer_tag": 1}).status_code == 200   # je Benutzer (Phase 2h)
     r = berater.post(ENTWURF.format(p["id"]) + "/ki-vorschlag", json={})
     assert r.status_code == 429 and "Tagesgrenze" in r.json()["detail"]
 

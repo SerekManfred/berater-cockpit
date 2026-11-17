@@ -22,7 +22,7 @@ from sqlalchemy import func, select
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session
 
-from app import checkliste_import, config, dateien, ki, ki_texte, wohneinheiten
+from app import checkliste_import, config, dateien, einstellungen, ki, ki_texte, wohneinheiten
 from app.auth import aktueller_benutzer, rolle
 from app.dateien_api import _namen, datei_aus
 from app.db import get_db
@@ -299,11 +299,6 @@ def _fehlende_pflicht(d: dict) -> list[dict]:
     return fehlt
 
 
-def _ki_laeufe_heute(e: BerichtEntwurf) -> int:
-    heute = datetime.now(BERLIN).date().isoformat()
-    return sum(1 for l in e.ki_laeufe or [] if str(l.get("tag")) == heute)
-
-
 def _foerder_eingaben(d: dict) -> InitFoerderEingaben:
     f = d.get("foerder") or {}
     try:
@@ -374,17 +369,17 @@ def entwurf_aus(db: Session, e: BerichtEntwurf | None, p: Projekt, ich: Benutzer
                           "pruefungen": [{k: x.get(k) for k in ("von", "am", "texte")} for x in (e.we_pruefungen if e else None) or []]},
         "darf_bearbeiten": any(r in ich.rollen for r in ("admin", "berater", "verwaltung")),
         "darf_freigeben": "berater" in ich.rollen,
-        "ki": {"aktiv": config.KI_AKTIV, "modell": config.KI_MODELL, "laeufe_heute": _ki_laeufe_heute(e) if e else 0,
-               "max_laeufe_tag": config.KI_MAX_LAEUFE_TAG,
+        "ki": {"aktiv": config.KI_AKTIV, "modell": config.KI_MODELL, "laeufe_heute": einstellungen.ki_laeufe_heute(db, ich.id),
+               "max_laeufe_tag": einstellungen.wert(db, "ki_laeufe_je_benutzer_tag"),
                "laeufe": [{k: v for k, v in l.items() if k != "rohantwort"} for l in (e.ki_laeufe if e else [])][-10:]},
         "bearbeitet_von": namen.get(e.bearbeitet_von_id) if e else None, "bearbeitet_am": e.bearbeitet_am if e else None,
         "letzter_bericht_id": e.letzter_bericht_id if e else None,
         "foerder_vorschau": _foerder_vorschau(db, daten),
-        "checkliste_import": _import_aus(e),
+        "checkliste_import": _import_aus(e, db, ich),
     }
 
 
-def _import_aus(e: BerichtEntwurf | None) -> dict:
+def _import_aus(e: BerichtEntwurf | None, db: Session, ich: Benutzer) -> dict:
     """Stand „Checkliste einlesen“ (Phase 2g) für die Oberfläche – ohne Rohantwort und ohne wartendes Leseergebnis."""
     st = (e.checkliste_import if e else None) or {}
     lauf = {k: v for k, v in (st.get("letzter_lauf") or {}).items() if k != "rohantwort"}
@@ -393,14 +388,9 @@ def _import_aus(e: BerichtEntwurf | None) -> dict:
     return {"markierungen": markierungen, "konflikte": st.get("konflikte") or [], "hinweise": st.get("hinweise") or [],
             "unsicher_offen": checkliste_import.offene_unsichere(markierungen), "letzter_lauf": lauf or None,
             "warnung": ausstehend.get("warnung"), "warnung_dateien": ausstehend.get("datei_ids") or [],
-            "ki_aktiv": config.KI_AKTIV, "laeufe_heute": _import_laeufe_heute(e) if e else 0,
-            "max_laeufe_tag": config.KI_MAX_LAEUFE_TAG, "max_dateien": config.CHECKLISTE_MAX_DATEIEN,
+            "ki_aktiv": config.KI_AKTIV, "laeufe_heute": einstellungen.ki_laeufe_heute(db, ich.id),
+            "max_laeufe_tag": einstellungen.wert(db, "ki_laeufe_je_benutzer_tag"), "max_dateien": config.CHECKLISTE_MAX_DATEIEN,
             "max_bytes": config.CHECKLISTE_MAX_BYTES}
-
-
-def _import_laeufe_heute(e: BerichtEntwurf) -> int:
-    heute = datetime.now(BERLIN).date().isoformat()
-    return sum(1 for t in (e.checkliste_import or {}).get("ki_tage", []) if t == heute)
 
 
 # ---------- Routen: Entwurf ----------
@@ -546,9 +536,7 @@ def ki_vorschlag(projekt_id: int, start: KiStart, request: Request, ich: Benutze
         raise HTTPException(409, "Die KI ist ausgeschaltet (KI_AKTIV). Texte bitte von Hand schreiben.")
     p = _projekt(db, projekt_id)
     e = _entwurf_oder_neu(db, p, ich)
-    if _ki_laeufe_heute(e) >= config.KI_MAX_LAEUFE_TAG:
-        raise HTTPException(429, f"Für diesen Entwurf sind heute schon {config.KI_MAX_LAEUFE_TAG} KI-Läufe erfolgt "
-                                 "(Tagesgrenze). Bitte morgen erneut oder Texte von Hand bearbeiten.")
+    einstellungen.ki_lauf_erlaubt(db, ich.id)   # Tageslimit je Benutzer (Phase 2h, Admin-Einstellung)
     kond = lade_konditionen(db=db)
     prompt_version, system = ki_texte.systemprompt()
     ph = _platzhalter(p)
@@ -732,13 +720,9 @@ def foerder_vorschau(projekt_id: int, _: Benutzer = Depends(lesen), db: Session 
     return init_rechnen(_foerder_eingaben(e.daten), kond)
 
 
-@router.post("/projekte/{projekt_id}/bericht-init/erzeugen", status_code=201)
-def bericht_erzeugen(projekt_id: int, request: Request, ich: Benutzer = Depends(bearbeiten), db: Session = Depends(get_db)):
-    """Rechenkern + Generator → neue Version in „berichte“ und das Word-Dokument in den Unterlagen (Kategorie „bericht“)."""
-    p = _projekt(db, projekt_id, sperren=True)  # Versionsnummern je Projekt nacheinander
-    e = _entwurf(db, p, sperren=True)
-    if e is None:
-        raise HTTPException(404, "Für dieses Projekt gibt es noch keinen Entwurf")
+def erzeugen_pruefen(e: BerichtEntwurf, p: Projekt) -> list[dict]:
+    """Alle Voraussetzungen für eine Berichtsversion (Abschnitte geprüft, Checkliste bestätigt, Pflicht, Wohneinheiten).
+    Liefert die Bestätigungen der Wohneinheiten-Hinweise, die zu diesem Bericht gehören."""
     offen = [ki_texte.ABSCHNITTE[a][0] for a in ki_texte.ABSCHNITTE
              if ((e.abschnitte or {}).get(a) or {}).get("status") != "geprueft"
              or (e.abschnitte or {})[a].get("fingerabdruck") != ki_texte.fingerabdruck(ki_texte.inhalt(a, e.daten, e.foto_zuordnung))]
@@ -760,13 +744,20 @@ def bericht_erzeugen(projekt_id: int, request: Request, ich: Benutzer = Depends(
                                   "wohneinheiten": we_offen})
     we_texte = {x["text"] for x in we_hinweise}
     # Snapshot: die Bestätigungen, die zu den Warnungen dieses Berichts gehören
-    we_geprueft = [x for x in e.we_pruefungen or [] if we_texte & set(x.get("texte", []))]
+    return [x for x in e.we_pruefungen or [] if we_texte & set(x.get("texte", []))]
+
+
+def naechste_version(db: Session, p: Projekt) -> int:
+    return (db.scalar(select(func.max(Bericht.versionsnummer)).where(Bericht.projekt_id == p.id, Bericht.modul == MODUL)) or 0) + 1
+
+
+def word_bauen(db: Session, p: Projekt, e: BerichtEntwurf, version: int) -> dict:
+    """Rechenkern + Generator für den aktuellen Stand des Entwurfs (Bericht oder Vorschau). Speichert nichts.
+    Ergebnis: docx, rk, kond, foerder, daten (an den Generator), foto_nachweis."""
     kond = lade_konditionen(db=db)
     foerder = _foerder_eingaben(e.daten)
     rk = init_rechnen(foerder, kond)  # 422 ohne KfW 458 („Version 3 freigeben“)
-    version = (db.scalar(select(func.max(Bericht.versionsnummer)).where(Bericht.projekt_id == p.id, Bericht.modul == MODUL)) or 0) + 1
     daten, benutzt = generator_daten(p, e.daten, e.foto_zuordnung or {}, rk, kond, version)
-
     fotos = {f.id: f for f in _fotos_des_projekts(db, p.id)}
     bilder, foto_nachweis = {}, []
     for fid in dict.fromkeys(benutzt):
@@ -779,11 +770,22 @@ def bericht_erzeugen(projekt_id: int, request: Request, ich: Benutzer = Depends(
             raise HTTPException(422, f"Foto „{f.dateiname_original}“ lässt sich nicht lesen. Bitte abwählen.") from None
         bilder[_foto_name(fid)] = base64.b64encode(jpeg).decode("ascii")
         foto_nachweis.append({"datei_id": fid, "sha256": f.sha256, "name": _foto_name(fid)})
+    antwort = generator_anfrage("/bericht/init", {"daten": daten, "bilder": bilder}, "Der Beratungsbericht",
+                                timeout=config.GENERATOR_TIMEOUT_BERICHT)
+    inhalt = antwort.content
+    if inhalt[:2] != b"PK":
+        raise HTTPException(502, "Der Word-Generator hat keine gültige Word-Datei geliefert. Bitte einen Admin informieren.")
+    return {"docx": inhalt, "rk": rk, "kond": kond, "foerder": foerder, "daten": daten, "foto_nachweis": foto_nachweis}
 
+
+def bericht_speichern(db: Session, request: Request, p: Projekt, e: BerichtEntwurf, ich: Benutzer, we_geprueft: list[dict],
+                      status: str = "entwurf", freigabe: dict | None = None) -> dict:
+    """Neue Berichtsversion: Generator erzeugt das Word neu (nie nachbearbeitet), Ablage in den Unterlagen, Bericht mit
+    Konditionen-Snapshot. Mit „freigabe“ (Schnellweg) gleich im Status „freigegeben“."""
+    version = naechste_version(db, p)
     try:
-        antwort = generator_anfrage("/bericht/init", {"daten": daten, "bilder": bilder}, "Der Beratungsbericht",
-                                    timeout=config.GENERATOR_TIMEOUT_BERICHT)
-        inhalt = antwort.content
+        w = word_bauen(db, p, e, version)
+        inhalt = w["docx"]
         speichername = dateien.neuer_speichername()
         ziel = dateien.inhalt_pfad(speichername)
         ziel.write_bytes(inhalt)
@@ -795,7 +797,7 @@ def bericht_erzeugen(projekt_id: int, request: Request, ich: Benutzer = Depends(
                        modul=MODUL, status=fehler.status_code)
         db.commit()
         raise
-
+    kond, rk = w["kond"], w["rk"]
     jetzt_ = jetzt()
     d = Datei(projekt_id=p.id, kategorie="bericht", quelle="generator",
               dateiname_original=f"Bericht_INIT_{p.projektnummer}_V{version}.docx",  # ohne Kundennamen
@@ -808,14 +810,15 @@ def bericht_erzeugen(projekt_id: int, request: Request, ich: Benutzer = Depends(
                  for a, st in (e.abschnitte or {}).items()}
     letzte_ki = [l for l in e.ki_laeufe or [] if l.get("ok")]
     eingaben = {
-        "foerder": foerder.model_dump(), "bericht_daten": daten, "fotos": foto_nachweis, "freigaben": freigaben,
+        "foerder": w["foerder"].model_dump(), "bericht_daten": w["daten"], "fotos": w["foto_nachweis"], "freigaben": freigaben,
         "ki": {"laeufe": len(e.ki_laeufe or []), "letzter_lauf": ({k: letzte_ki[-1].get(k) for k in ("nr", "modell", "prompt_version", "zeit")}
                                                                if letzte_ki else None)},
         "entwurf_id": e.id, "entwurf_revision": e.revision, "word_datei_id": d.id,
         **({"wohneinheiten_geprueft": we_geprueft} if we_geprueft else {}),
+        **({"freigabe": {**freigabe, "konditionen_version": kond["version"]}} if freigabe else {}),
     }
     b = Bericht(projekt_id=p.id, modul=MODUL, versionsnummer=version, eingaben=eingaben, ergebnis=rk,
-                konditionen_version=kond["version"], konditionen_snapshot=kond, status="entwurf",
+                konditionen_version=kond["version"], konditionen_snapshot=kond, status=status,
                 erstellt_von_id=ich.id, erstellt_am=jetzt_, we_pruefungen=we_geprueft or None)
     db.add(b)
     p.geaendert_am = jetzt_
@@ -825,15 +828,30 @@ def bericht_erzeugen(projekt_id: int, request: Request, ich: Benutzer = Depends(
                    modul=MODUL, versionsnummer=version, konditionen_version=kond["version"])
     protokollieren(db, request, "bericht_word_erzeugt", ich.id, projekt_id=p.id, projektnummer=p.projektnummer, bericht_id=b.id,
                    versionsnummer=version, konditionen_version=kond["version"], datei_id=d.id, groesse=d.groesse,
-                   fotos=len(foto_nachweis))
+                   fotos=len(w["foto_nachweis"]))
+    if freigabe:
+        protokollieren(db, request, "bericht_freigegeben", ich.id, projekt_id=p.id, projektnummer=p.projektnummer, bericht_id=b.id,
+                       modul=MODUL, versionsnummer=version, konditionen_version=kond["version"], weg=freigabe.get("weg"),
+                       zeit=jetzt_.isoformat())
     try:
         db.commit()
     except IntegrityError:
         db.rollback()
         dateien.entfernen(speichername)
         raise HTTPException(409, "Gleichzeitig wurde eine andere Version erzeugt. Bitte erneut versuchen.") from None
-    return {"bericht_id": b.id, "versionsnummer": version, "konditionen_version": kond["version"],
+    return {"bericht_id": b.id, "versionsnummer": version, "konditionen_version": kond["version"], "status": status,
             "datei": datei_aus(d, _namen(db, [ich.id])), "foerderung": rk}
+
+
+@router.post("/projekte/{projekt_id}/bericht-init/erzeugen", status_code=201)
+def bericht_erzeugen(projekt_id: int, request: Request, ich: Benutzer = Depends(bearbeiten), db: Session = Depends(get_db)):
+    """Rechenkern + Generator → neue Version in „berichte“ und das Word-Dokument in den Unterlagen (Kategorie „bericht“)."""
+    p = _projekt(db, projekt_id, sperren=True)  # Versionsnummern je Projekt nacheinander
+    e = _entwurf(db, p, sperren=True)
+    if e is None:
+        raise HTTPException(404, "Für dieses Projekt gibt es noch keinen Entwurf")
+    we_geprueft = erzeugen_pruefen(e, p)
+    return bericht_speichern(db, request, p, e, ich, we_geprueft)
 
 
 # ---------- Vor-Ort-Checkliste einlesen (Phase 2g) ----------
@@ -853,52 +871,25 @@ class Bestaetigen(BaseModel):
     pfade: list[str] = Field(min_length=1, max_length=100)
 
 
-@router.post("/projekte/{projekt_id}/bericht-init/entwurf/checkliste-einlesen")
-def checkliste_einlesen(projekt_id: int, daten: ChecklisteEinlesen, request: Request, ich: Benutzer = Depends(bearbeiten),
-                        db: Session = Depends(get_db)):
-    """Ausgefüllte Vor-Ort-Checkliste (Unterlagen, Kategorie „checkliste“) einlesen und leere Felder von „1. Daten“ füllen.
-    Word ohne KI; Fotos/PDF per KI (KI_AKTIV). Gehört der Bogen vermutlich zu einem anderen Projekt/Kunden, kommt zuerst eine
-    Warnung (Ergebnis wird zwischengespeichert, „trotz_warnung“ übernimmt es ohne zweiten KI-Lauf)."""
-    p = _projekt(db, projekt_id)
-    e = _entwurf_oder_neu(db, p, ich)
-    if daten.revision != e.revision:
-        raise HTTPException(409, "Der Entwurf wurde inzwischen geändert. Bitte zuerst speichern bzw. neu laden.")
-    liste = checkliste_import.dateien_pruefen(db, p, daten.datei_ids)
+def checkliste_lesen(db: Session, liste: list[Datei], ich: Benutzer) -> tuple[dict, list[str], dict]:
+    """Word ohne KI, Fotos/PDF per KI (Tageslimit je Benutzer). Getipptes (Word) geht vor. Wirft ki.KiFehler."""
+    ir, hinweise, lauf = {}, [], {"art": "word", "kosten_usd": 0.0}
+    for d in [x for x in liste if x.mime_typ == checkliste_import.WORD]:
+        ir.update({k: v for k, v in checkliste_import.word_lesen(dateien.inhalt_pfad(d.speichername)).items() if k not in ir})
+    bilder = [x for x in liste if x.mime_typ != checkliste_import.WORD]
+    if bilder:
+        einstellungen.ki_lauf_erlaubt(db, ich.id)
+        ki_ir, hinweise, lauf = checkliste_import.ki_lesen(db, bilder)
+        if ir:
+            lauf["art"] = "word+ki"
+        ir.update({k: v for k, v in ki_ir.items() if k not in ir})
+    return ir, hinweise, lauf
+
+
+def checkliste_uebernehmen(db: Session, e: BerichtEntwurf, ids: list[int], ir: dict, hinweise: list[str], lauf: dict,
+                           ich: Benutzer) -> tuple[list[str], list[dict], list[str]]:
+    """Gelesene Werte in leere Felder des Entwurfs (Konflikte und Markierungen wie Phase 2g). → (gefüllt, Konflikte, unsicher)"""
     st = dict(e.checkliste_import or {})
-    ids = [d.id for d in liste]
-    wartend = st.get("ausstehend") or {}
-    if daten.trotz_warnung and wartend.get("datei_ids") == ids:
-        ir, hinweise, lauf = wartend["ir"], wartend.get("hinweise", []), wartend["lauf"]
-    else:
-        ir, hinweise, lauf = {}, [], {"art": "word", "kosten_usd": 0.0}
-        for d in [x for x in liste if x.mime_typ == checkliste_import.WORD]:
-            ir.update({k: v for k, v in checkliste_import.word_lesen(dateien.inhalt_pfad(d.speichername)).items() if k not in ir})
-        bilder = [x for x in liste if x.mime_typ != checkliste_import.WORD]
-        if bilder:
-            if _import_laeufe_heute(e) >= config.KI_MAX_LAEUFE_TAG:
-                raise HTTPException(429, f"Heute wurden für diesen Entwurf bereits {config.KI_MAX_LAEUFE_TAG} Checklisten per KI "
-                                         "eingelesen. Bitte morgen erneut.")
-            try:
-                ki_ir, hinweise, lauf = checkliste_import.ki_lesen(db, bilder)
-            except ki.KiFehler as fehler:
-                protokollieren(db, request, "checkliste_einlesen_fehlgeschlagen", ich.id, projekt_id=p.id, status=fehler.status,
-                               meldung=fehler.meldung[:200])
-                db.commit()
-                raise HTTPException(fehler.status, fehler.meldung) from None
-            st["ki_tage"] = [*[t for t in st.get("ki_tage", []) if t >= datetime.now(BERLIN).date().isoformat()],
-                             datetime.now(BERLIN).date().isoformat()]
-            if ir:
-                lauf["art"] = "word+ki"
-            ir.update({k: v for k, v in ki_ir.items() if k not in ir})   # Getipptes (Word) geht vor
-        warnung, abgleich_hinweise = checkliste_import.abgleich(ir, p)
-        hinweise = [*hinweise, *abgleich_hinweise]
-        if warnung and not daten.trotz_warnung:
-            st["ausstehend"] = {"datei_ids": ids, "ir": ir, "hinweise": hinweise, "lauf": lauf, "warnung": warnung}
-            e.checkliste_import = st
-            protokollieren(db, request, "checkliste_einlesen_warnung", ich.id, projekt_id=p.id, art=lauf["art"],
-                           kosten_usd=lauf.get("kosten_usd"))
-            db.commit()
-            return {"warnung": warnung, "entwurf": entwurf_aus(db, e, p, ich)}
     try:
         kond = lade_konditionen(db=db)
     except HTTPException:
@@ -919,6 +910,44 @@ def checkliste_einlesen(projekt_id: int, daten: ChecklisteEinlesen, request: Req
     e.revision += 1
     e.status = "offen"
     e.bearbeitet_von_id, e.bearbeitet_am = ich.id, jetzt()
+    return gefuellt, konflikte, unsicher
+
+
+@router.post("/projekte/{projekt_id}/bericht-init/entwurf/checkliste-einlesen")
+def checkliste_einlesen(projekt_id: int, daten: ChecklisteEinlesen, request: Request, ich: Benutzer = Depends(bearbeiten),
+                        db: Session = Depends(get_db)):
+    """Ausgefüllte Vor-Ort-Checkliste (Unterlagen, Kategorie „checkliste“) einlesen und leere Felder von „1. Daten“ füllen.
+    Word ohne KI; Fotos/PDF per KI (KI_AKTIV). Gehört der Bogen vermutlich zu einem anderen Projekt/Kunden, kommt zuerst eine
+    Warnung (Ergebnis wird zwischengespeichert, „trotz_warnung“ übernimmt es ohne zweiten KI-Lauf)."""
+    p = _projekt(db, projekt_id)
+    e = _entwurf_oder_neu(db, p, ich)
+    if daten.revision != e.revision:
+        raise HTTPException(409, "Der Entwurf wurde inzwischen geändert. Bitte zuerst speichern bzw. neu laden.")
+    liste = checkliste_import.dateien_pruefen(db, p, daten.datei_ids)
+    st = dict(e.checkliste_import or {})
+    ids = [d.id for d in liste]
+    wartend = st.get("ausstehend") or {}
+    if daten.trotz_warnung and wartend.get("datei_ids") == ids:
+        ir, hinweise, lauf = wartend["ir"], wartend.get("hinweise", []), wartend["lauf"]
+    else:
+        try:
+            ir, hinweise, lauf = checkliste_lesen(db, liste, ich)
+        except ki.KiFehler as fehler:
+            protokollieren(db, request, "checkliste_einlesen_fehlgeschlagen", ich.id, projekt_id=p.id, status=fehler.status,
+                           meldung=fehler.meldung[:200])
+            db.commit()
+            raise HTTPException(fehler.status, fehler.meldung) from None
+        warnung, abgleich_hinweise = checkliste_import.abgleich(ir, p)
+        hinweise = [*hinweise, *abgleich_hinweise]
+        if warnung and not daten.trotz_warnung:
+            st["ausstehend"] = {"datei_ids": ids, "ir": ir, "hinweise": hinweise, "lauf": lauf, "warnung": warnung}
+            e.checkliste_import = st
+            protokollieren(db, request, "checkliste_einlesen_warnung", ich.id, projekt_id=p.id, art=lauf["art"],
+                           kosten_usd=lauf.get("kosten_usd"))
+            db.commit()
+            return {"warnung": warnung, "entwurf": entwurf_aus(db, e, p, ich)}
+    e.checkliste_import = st
+    gefuellt, konflikte, unsicher = checkliste_uebernehmen(db, e, ids, ir, hinweise, lauf, ich)
     p.geaendert_am = jetzt()
     protokollieren(db, request, "checkliste_eingelesen", ich.id, projekt_id=p.id, art=lauf["art"], dateien=ids,
                    felder=len(gefuellt), unsicher=len(unsicher), konflikte=len(konflikte), kosten_usd=lauf.get("kosten_usd"),

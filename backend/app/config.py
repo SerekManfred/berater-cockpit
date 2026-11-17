@@ -39,6 +39,7 @@ VORSCHAU_KANTE = 320  # Vorschaubilder: längste Kante in Pixel
 # Word-Generator (eigener Container im internen Netz, kein Port nach außen)
 GENERATOR_URL = os.environ.get("GENERATOR_URL", "http://cockpit-generator:3000").rstrip("/")
 GENERATOR_TIMEOUT = 60.0  # Sekunden
+PDF_URL = os.environ.get("PDF_URL", "http://cockpit-pdf:3100").rstrip("/")   # Vorschau Schnellweg INIT (Phase 2h)
 
 # KI-Textvorschläge (Phase 2b). Standard AUS. Einschalten erst, wenn kommerzielle API-Bedingungen und AVV (DPA) mit dem
 # Anbieter vorliegen und der Geschäftsführer freigibt (CLAUDE.md). Schlüssel nur in der .env (ANTHROPIC_API_KEY).

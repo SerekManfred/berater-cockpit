@@ -29,6 +29,8 @@ def _bloecke(inhalt: list[dict]) -> list[dict]:
                                                        "data": base64.standard_b64encode(teil["pdf"]).decode("ascii")}})
         else:
             aus.append({"type": "text", "text": teil["text"]})
+        if teil.get("cache"):   # Cache-Punkt: alles bis hierher wird zwischengespeichert (Phase 2h, Korrekturen)
+            aus[-1]["cache_control"] = {"type": "ephemeral"}
     return aus
 
 
@@ -162,9 +164,9 @@ class AnthropicAnbieter:
         except ValueError:
             raise KiFehler(502, "Die KI hat kein gültiges JSON geliefert. Bitte erneut versuchen.") from None
         nutzung = {}
-        if getattr(nachricht, "usage", None) is not None:
-            nutzung = {"eingabe_tokens": getattr(nachricht.usage, "input_tokens", None),
-                       "ausgabe_tokens": getattr(nachricht.usage, "output_tokens", None)}
+        _zaehlen(nutzung, nachricht)   # inkl. Cache schreiben/lesen (Kostenschätzung)
+        for k in ("suchen", "abrufe"):
+            nutzung.pop(k, None)
         return KiAntwort(daten=daten, rohtext=rohtext, modell=getattr(nachricht, "model", self.modell), nutzung=nutzung)
 
     def websuche(self, system: str, text: str, domains: tuple[str, ...], max_suchen: int, max_abrufe: int,

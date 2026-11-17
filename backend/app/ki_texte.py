@@ -12,12 +12,13 @@ import re
 from datetime import date
 from pathlib import Path
 
-PROMPT_DATEI = Path(__file__).parent / "ki" / "prompts" / "init_v1.md"
+PROMPT_DATEI = Path(__file__).parent / "ki" / "prompts" / "init_v1.md"        # Detailbearbeitung (Vorschläge mit [PRÜFEN])
+PROMPT_SCHNELL = Path(__file__).parent / "ki" / "prompts" / "init_v2.md"      # Schnellweg (Phase 2h): Kundentext + Hinweise
 
 
-def systemprompt() -> tuple[str, str]:
+def systemprompt(datei: Path = PROMPT_DATEI) -> tuple[str, str]:
     """(Prompt-Version, Text) aus der versionierten Datei im Repository."""
-    text = PROMPT_DATEI.read_text(encoding="utf-8")
+    text = datei.read_text(encoding="utf-8")
     kopf, _, rest = text.partition("\n")
     return kopf.split(":", 1)[1].strip(), rest.strip()
 
@@ -312,3 +313,49 @@ def ki_eingabe(daten: dict, objekt: dict, kond: dict, fotos: list[dict]) -> str:
                      + ", ".join(f"Foto-ID {f['id']}" for f in fotos) + ".")
     teile.append("Erstelle jetzt die Textvorschläge für alle Abschnitte nach dem vorgegebenen Schema.")
     return "\n\n".join(teile)
+
+
+# ---------- Schnellweg (Phase 2h): ein Lauf, Kundentext ohne Prüfmarken, Hinweise an den Berater ----------
+
+MAX_HINWEISE = 10
+HINWEISE = {"type": "array", "items": S}
+SCHEMA_SCHNELL = {**SCHEMA, "properties": {**SCHEMA["properties"], "hinweise": HINWEISE},
+                  "required": [*SCHEMA["required"], "hinweise"]}
+
+
+def schema_abschnitt(abschnitt: str) -> dict:
+    """Antwort-Schema für die Korrektur genau eines Abschnitts (nur dessen Felder + Hinweise)."""
+    felder = ["fotos"] if abschnitt == "fotos" else ABSCHNITTE[abschnitt][1]
+    return _obj({**{f: SCHEMA["properties"][f] for f in felder}, "hinweise": HINWEISE})
+
+
+def _pruefmarken_entfernen(t: str, ort: str, hinweise: list[str]) -> str:
+    """„[PRÜFEN: …]“ gehört nie in den Kundentext: Marke entfernen, Inhalt als Hinweis an den Berater."""
+    for m in PRUEFEN_GANZ.finditer(t):
+        inhalt = re.sub(r"^\[\s*PR(Ü|UE)FEN\s*:?\s*", "", m.group(0), flags=re.IGNORECASE).rstrip("]").strip()
+        hinweise.append(f"{ort}: {inhalt or 'Prüfmarke entfernt'}")
+    t = PRUEFEN_GANZ.sub("", t)
+    return re.sub(r"[ \t]{2,}", " ", re.sub(r"\s+([.,;:])", r"\1", t)).strip()
+
+
+def kundentext_saeubern(wert, ort: str, hinweise: list[str]):
+    """Rekursiv alle Texte eines Abschnitts von Prüfmarken befreien (Sicherung, falls die KI sie doch schreibt)."""
+    if isinstance(wert, str):
+        return _pruefmarken_entfernen(wert, ort, hinweise) if PRUEFEN.search(wert) else wert
+    if isinstance(wert, list):
+        return [kundentext_saeubern(x, ort, hinweise) for x in wert]
+    if isinstance(wert, dict):
+        return {k: kundentext_saeubern(v, ort, hinweise) for k, v in wert.items()}
+    return wert
+
+
+def hinweise_bereinigen(roh, grenze: int = MAX_HINWEISE) -> list[str]:
+    aus = []
+    for h in roh or []:
+        if isinstance(h, str) and h.strip() and h.strip()[:300] not in aus:
+            aus.append(h.strip()[:300])
+    return aus[:grenze]
+
+
+def abschnitt_titel_kurz(abschnitt: str) -> str:
+    return ABSCHNITTE[abschnitt][0].split(" ", 1)[0] if abschnitt != "fotos" else "Fotos"

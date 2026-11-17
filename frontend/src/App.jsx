@@ -7,7 +7,7 @@ import { Foerdervergleich } from "./Foerdervergleich.jsx";
 import { Fehlergrenze } from "./Fehlergrenze.jsx";
 import { OffeneMeldungen } from "./Foerderpruefung.jsx";
 import { FristHinweise, GeplantHinweis, Konditionen } from "./Konditionen.jsx";
-import { KiReferenz } from "./KiReferenz.jsx";
+import { KiEinstellungen, KiReferenz } from "./KiReferenz.jsx";
 import { Papierkorb } from "./Papierkorb.jsx";
 import { MeineProjekte, Projekte } from "./Projekte.jsx";
 
@@ -77,7 +77,7 @@ function Cockpit({ ich, onAbmelden }) {
     ["benutzer", "Benutzer", hatRolle(ich)],
     ["protokoll", "Protokoll", hatRolle(ich)],
     ["papierkorb", "Papierkorb", hatRolle(ich)],
-    ["handschrift", "Handschrift-Profil", hatRolle(ich)],
+    ["handschrift", "KI-Einstellungen", hatRolle(ich)],
   ].filter(([, , sichtbar]) => sichtbar);
   return (
     <>
@@ -98,7 +98,7 @@ function Cockpit({ ich, onAbmelden }) {
           <Fehlergrenze key={ansicht + projektZiel.n + konditionenZiel.n}>
           {ansicht === "start" && <Start ich={ich} onOpen={gehe} onProjekt={projektOeffnen} onKonditionen={konditionenOeffnen} darfRechnen={hatRolle(ich, "berater")} />}
           {ansicht === "projekte" && <Projekte key={projektZiel.n} ich={ich} startProjekt={projektZiel.id} />}
-          {ansicht === "handschrift" && <KiReferenz />}
+          {ansicht === "handschrift" && <><h1>KI-Einstellungen</h1><KiEinstellungen /><KiReferenz /></>}
           {ansicht === "schnell" && <Foerdervergleich titel="Schnellrechnung Fördervergleich EM/EH"
             untertitel="Freie Berechnung ohne Projekt und ohne Speichern. Für einen gespeicherten Bericht den Fördervergleich aus der Projektakte starten." />}
           {ansicht === "konditionen" && <Konditionen key={konditionenZiel.n} ich={ich} startVersion={konditionenZiel.id} />}

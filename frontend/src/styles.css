@@ -247,3 +247,35 @@ td.angekuendigt { background: var(--gold-l); }
 .klein-knopf { min-height: 32px; padding: 4px 10px; font-size: 13px; }
 .datei-waehlen { position: relative; cursor: pointer; display: inline-flex; align-items: center; }
 .mit-marke { display: flex; flex-direction: column; }
+
+/* Schnellweg INIT (Phase 2h) */
+.ablage { border: 2px dashed var(--rand); border-radius: 12px; padding: 18px; display: flex; align-items: center; gap: 10px; flex-wrap: wrap; }
+.ablage-aktiv { border-color: var(--gold); background: var(--gold-l); }
+.dateiliste { list-style: none; padding: 0; margin: 12px 0; }
+.dateiliste li { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; padding: 6px 0; border-bottom: 1px solid var(--rand); }
+.dateiliste .dateiname { flex: 1 1 240px; overflow-wrap: anywhere; }
+.dateiliste select { min-height: 44px; }
+.zeile-check { display: flex; gap: 16px; align-items: center; flex-wrap: wrap; margin: 8px 0; }
+.zeile-check input { width: 20px; height: 20px; }
+.zwei { display: grid; grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)); gap: 12px; }
+.schritte { list-style: none; padding: 0; font-size: 16px; }
+.schritte li { padding: 6px 0; }
+.schritt-fertig { color: var(--gruen); }
+.schritt-laeuft { font-weight: bold; }
+.schritt-fehler { color: var(--rot); }
+.schritt-offen, .schritt-uebersprungen { color: var(--grau); }
+.rueckfrage { padding: 10px 0; border-bottom: 1px solid var(--rand); }
+.rueckfrage label { font-weight: bold; }
+.rueckfrage p.klein { margin: 4px 0; }
+.rueckfrage-zeile { display: flex; gap: 10px; align-items: flex-start; flex-wrap: wrap; }
+.rueckfrage-zeile input, .rueckfrage-zeile select, .rueckfrage-zeile textarea { flex: 1 1 260px; min-height: 44px; }
+.rueckfrage-weg label { text-decoration: line-through; color: var(--grau); }
+.pdf-vorschau { width: 100%; height: 80vh; min-height: 480px; border: 1px solid var(--rand); border-radius: 8px; }
+.vorschau-hinweis { font-weight: bold; color: #3C3C44; background: var(--gold-l); border-radius: 6px; padding: 6px 10px; display: inline-block; }
+.ki-hinweise { margin: 0; padding-left: 20px; }
+.ki-hinweise li { margin: 4px 0; }
+.sw-abschnitte { list-style: none; padding: 0; margin: 0; }
+.sw-abschnitt { padding: 10px 0; border-bottom: 1px solid var(--rand); }
+.sw-abschnitt p.klein { margin: 4px 0 0; }
+.korrektur { margin-top: 8px; }
+.sw-eintrag { border-left: 3px solid var(--rand); padding-left: 10px; margin-bottom: 10px; }

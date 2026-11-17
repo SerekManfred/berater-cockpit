@@ -19,6 +19,7 @@ services:
       SECRET_KEY: ${SECRET_KEY:?SECRET_KEY fehlt in der .env}   # Sitzungen und Verschlüsselung des 2FA-Geheimnisses
       ZWEI_FAKTOR_PFLICHT: ${ZWEI_FAKTOR_PFLICHT:-true}         # nur in der Entwicklung false
       GENERATOR_URL: http://cockpit-generator:3000
+      PDF_URL: http://cockpit-pdf:3100            # Vorschau Schnellweg INIT (Phase 2h)
       # KI-Textvorschläge (Phase 2b): Standard AUS. Erst einschalten, wenn API-Bedingungen und AVV vorliegen und der
       # Geschäftsführer freigegeben hat (CLAUDE.md). Schlüssel nur in der .env, nie im Repository.
       KI_AKTIV: ${KI_AKTIV:-false}
@@ -59,6 +60,21 @@ services:
     security_opt: ["no-new-privileges:true"]
     healthcheck:
       test: ["CMD", "wget", "-qO-", "http://127.0.0.1:3000/health"]
+      interval: 30s
+      timeout: 5s
+      retries: 3
+
+  cockpit-pdf:   # Word → PDF für die Vorschau im Schnellweg INIT (Phase 2h); LibreOffice headless, eine Umwandlung gleichzeitig
+    build: { context: ./pdf }
+    restart: unless-stopped
+    networks: [cockpit-intern]   # nur internes Netz: kein Port, kein Internet
+    read_only: true
+    tmpfs: ["/tmp:size=512m"]
+    cap_drop: [ALL]
+    security_opt: ["no-new-privileges:true"]
+    mem_limit: 1g
+    healthcheck:
+      test: ["CMD", "python3", "-c", "import urllib.request; urllib.request.urlopen('http://127.0.0.1:3100/health', timeout=3)"]
       interval: 30s
       timeout: 5s
       retries: 3

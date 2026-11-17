@@ -135,7 +135,7 @@ export function ChecklisteEinlesen({ imp, darf, laeuft, fortschritt, onEinlesen,
   );
 }
 
-export function BerichtInit({ ich, projekt, onZurueck }) {
+export function BerichtInit({ ich, projekt, onZurueck, onSchnellweg }) {
   const [e, setE] = useState(null);
   const [d, setD] = useState(null);
   const [z, setZ] = useState(null);
@@ -184,7 +184,8 @@ export function BerichtInit({ ich, projekt, onZurueck }) {
 
   return (
     <>
-      <div className="aktionen" style={{ marginTop: 0, marginBottom: 12 }}><button className="btn2" onClick={onZurueck}>← Zurück zur Projektakte</button></div>
+      <div className="aktionen" style={{ marginTop: 0, marginBottom: 12 }}><button className="btn2" onClick={onZurueck}>← Zurück zur Projektakte</button>
+        {onSchnellweg && <button className="btn2" onClick={onSchnellweg}>Zum Schnellweg (Vorschau, Gesamtfreigabe)</button>}</div>
       <h1>Beratungsbericht INIT · {projekt.projektnummer}</h1>
       <p className="hinweis">{projekt.projektname} · Kunde im Bericht: {projekt.berichtskunde} · Entwurf zuletzt bearbeitet {zeit(e.bearbeitet_am)}{e.bearbeitet_von ? ` von ${e.bearbeitet_von}` : ""} ·
         {" "}{offen ? `${offen} von ${e.abschnitte.length} Abschnitten noch nicht geprüft` : "alle Abschnitte geprüft"}</p>

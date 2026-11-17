@@ -32,7 +32,11 @@
 
 	header {
 		X-Content-Type-Options nosniff
-		X-Frame-Options DENY
 		Referrer-Policy strict-origin-when-cross-origin
 	}
+	# Einbetten verboten – außer der PDF-Vorschau des Schnellwegs INIT (Phase 2h), und auch die nur im Cockpit selbst
+	@vorschau path_regexp ^/api/projekte/[0-9]+/bericht-init/schnellweg/vorschau\.pdf$
+	header @vorschau X-Frame-Options SAMEORIGIN
+	@sonst not path_regexp ^/api/projekte/[0-9]+/bericht-init/schnellweg/vorschau\.pdf$
+	header @sonst X-Frame-Options DENY
 }
