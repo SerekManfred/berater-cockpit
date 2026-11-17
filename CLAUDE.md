@@ -356,9 +356,11 @@ Ausführliches Fachkonzept: `docs/Konzept_Berater-Cockpit.docx` (falls abgelegt)
   (geprüft 16.11.2026: bei den 3 vorhandenen Berichten dreht sich nichts um), `kennzeichnung_nachgetragen: true`.
 - Oberfläche (`Ergebnis` in `Foerdervergleich.jsx`): gelber Hinweis über der Tabelle, Spalte 1b „angekündigt“, „¹“ an
   WPB-Bonus und Summen mit Fußnote, `beste_wahl_hinweis` als Hinweis. Test `ErgebnisAngekuendigt.test.jsx`, `tests/test_wpb_angekuendigt.py`.
-- **Word:** Datenvertrag für Generator 0.4.4 in `docs/Datenvertrag_Generator_WPB_angekuendigt.md` mit Fixtures in `docs/fixtures/`
-  (Lieferung durch den Geschäftsführer). Bis dahin zeigt der Word-Bericht den Bonus noch ohne Kennzeichnung; `wpb_bonus_ab` bleibt
-  deshalb gesetzt (0.4.3 druckt sonst „ab ****“).
+- **Word: Generator 0.4.4** (eingespielt 17.11.2026, Datenvertrag `docs/Datenvertrag_Generator_WPB_angekuendigt.md`, Fixtures
+  `docs/fixtures/`) kennzeichnet den Bonus in Kapitel 1, 3, 8 („b) mit WPB¹“, Fußnote, `beste_wahl_hinweis`) und „Zeitpunkt“;
+  ein leeres `wpb_bonus_ab` druckt kein „ab ****“ mehr → **`wpb_bonus_ab` darf in einer späteren Konditionen-Version leer bleiben**
+  (in Version 4/5 noch 2027-01-01). `app/word.py: eingaben_vollstaendig()` ergänzt fehlende Eingaben mit den Schema-Standardwerten
+  (z. B. `eh_stufe`), gespeicherte Werte gehen vor – gespeicherte Berichte enthalten sie ohnehin (Speichern über das Schema).
 
 ## Fehlergrenze und Zeitlimits (Stand 15.11.2026)
 - `frontend/src/Fehlergrenze.jsx` um die ganze Oberfläche (`main.jsx`) und um den Inhaltsbereich (`App.jsx`, Navigation bleibt
@@ -426,7 +428,7 @@ Fachregeln, Rechenkern, Generator. Die Oberfläche soll Masken aus dieser Beschr
 - **Phase 2e (umgesetzt 14.11.2026, Abnahme offen):** Plausibilität der Wohneinheiten mit „Wohneinheiten geprüft“, Angebotsvorlagen A–D, Generator 0.4.2.
 - **Phase 2b (umgesetzt 13.11.2026, Abnahme offen):** Beratungsbericht INIT mit KI-Textvorschlägen (siehe Abschnitte oben).
 - **Phase 2f (umgesetzt 16.11.2026, Abnahme 1–4 bestanden 16.11.2026; Kostensenkung zweistufig/Sonnet, alle 14 Tage):** Förderprüfung mit Meldungen und E-Mail an Empfänger, Stand-Angabe
-  „Förderbedingungen Stand … (interne Version N)“, Generator 0.4.3.
+  „Förderbedingungen Stand … (interne Version N)“, Generator 0.4.3; Generator 0.4.4 (17.11.2026): WPB-Bonus EM „angekündigt“ im Word.
 - **Phase 2:** MEH (danach) und Kirche nach demselben Muster; INIT und MEH mit KI (Checklisten-Erkennung, Fotozuordnung) – vorhandene Generatoren `generate_report.js` aus den Skills einbinden.
 - **Phase 3:** Kirche. **Phase 4:** Änderungs-Monitor für Förderquellen, Freigabe-Workflow, Anbindung IR-Planer.
 

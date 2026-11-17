@@ -97,3 +97,7 @@ Ergänzungen Version 3 + KfW-261-Korrektur + `ergaenzung_v4_wpb.json` (entsprich
 
 Geprüft am 16.11.2026 gegen Generator 0.4.3: alle vier werden angenommen (200); die neuen Felder werden ignoriert, Fall 4 druckt
 „… gilt für BAFA-Anträge ab ****.“ – genau das soll 0.4.4 beheben.
+
+Korrektur 17.11.2026: Die Fixtures enthielten anfangs keine vollständigen `eingaben` (u. a. fehlte `eh_stufe` → „undefined mit WPB“).
+Sie sind jetzt wie im Cockpit gespeichert (Schema mit Standardwerten). Das Cockpit ergänzt beim Senden fehlende Felder zusätzlich
+(`app/word.py: eingaben_vollstaendig`).

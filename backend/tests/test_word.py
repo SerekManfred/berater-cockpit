@@ -219,3 +219,17 @@ def test_echter_generator_nutzt_fachwerte_aus_freigegebener_version(monkeypatch)
     assert "Haftungshinweis TESTVERSION 2" in t_neu and "(interne Version 2)" in t_neu and "Förderbedingungen Stand" in t_neu
     assert "Haftungshinweis TESTVERSION 2" not in t_alt and "(interne Version 1)" in t_alt
     assert "Konditionen-Version" not in t_neu + t_alt
+
+
+def test_eingaben_ohne_eh_stufe_bekommen_den_standardwert(generator):
+    """Generator 0.4.4 druckte bei fehlender eh_stufe „undefined mit WPB“ (Fixtures 16.11.2026). Gespeicherte Berichte haben
+    sie immer (Schema-Standardwerte beim Speichern); ältere oder unvollständige Eingaben werden beim Senden ergänzt."""
+    c = nutzer("berater")
+    _, b = bericht_anlegen(c)
+    with SessionLocal() as db:
+        gespeichert = db.get(Bericht, b["id"]).eingaben
+        assert gespeichert["eh_stufe"] == "EH55EE" and gespeichert["ee_klasse_erreichbar"] is True
+    assert word.eingaben_vollstaendig({k: v for k, v in gespeichert.items() if k != "eh_stufe"})["eh_stufe"] == "EH55EE"
+    assert word.eingaben_vollstaendig({**gespeichert, "eh_stufe": "EH40EE"})["eh_stufe"] == "EH40EE"   # Gespeichertes geht vor
+    assert c.get(f"/berichte/{b['id']}/word").status_code == 200
+    assert generator[-1]["daten"]["eingaben"]["eh_stufe"] == "EH55EE"

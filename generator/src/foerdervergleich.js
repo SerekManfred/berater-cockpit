@@ -155,12 +155,20 @@ function erstelleFoerdervergleich(d) {
   // ---------- 1 Kurzfazit ----------
   const bo = s[erg.beste_wahl.ohne_WPB], bm = s[erg.beste_wahl.WPB];
   const andere = key => s[key.startsWith("EM") ? key.replace("EM", "EH") : key.replace("EH", "EM")];
+  // WPB-Bonus Einzelmaßnahmen „angekündigt, noch nicht in Kraft“ (ab 0.4.4, Datenvertrag 16.11.2026).
+  // Maßgeblich ist ergebnis.szenarien[].angekuendigt; Texte kommen fertig aus dem Cockpit. Fehlen die Felder: wie 0.4.3.
+  const A = !!(s.EM_WPB && s.EM_WPB.angekuendigt);
+  const T = (s.EM_WPB && s.EM_WPB.angekuendigt_text) || "angekündigt, noch nicht in Kraft";
+  const angek = key => !!(s[key] && s[key].angekuendigt);
+  const vorbehalt = key => angek(key) ? ` inkl. WPB-Bonus – ${T}` : "";
+  const hinweisBeste = A && erg.beste_wahl_hinweis ? erg.beste_wahl_hinweis : null;
   ch.push(H1("1  Kurzfazit"));
   const fazit = [];
   fazit.push(P(`**Ohne WPB-Einstufung:** ${bo.titel} – **${eur(bo.summe_zuschuesse_gesamt)}** Zuschüsse` +
     (andere(bo.schluessel).foerderfaehig ? ` (Alternative: ${eur(andere(bo.schluessel).summe_zuschuesse_gesamt)}).` : ".")));
-  fazit.push(P(`**Mit WPB-Einstufung:** ${bm.titel} – **${eur(bm.summe_zuschuesse_gesamt)}** Zuschüsse` +
-    (andere(bm.schluessel).foerderfaehig ? ` (Alternative: ${eur(andere(bm.schluessel).summe_zuschuesse_gesamt)}).` : ".")));
+  fazit.push(P(`**Mit WPB-Einstufung:** ${bm.titel} – **${eur(bm.summe_zuschuesse_gesamt)}** Zuschüsse` + vorbehalt(bm.schluessel) +
+    (andere(bm.schluessel).foerderfaehig ? ` (Alternative: ${eur(andere(bm.schluessel).summe_zuschuesse_gesamt)}${vorbehalt(andere(bm.schluessel).schluessel)}).` : ".")));
+  if (hinweisBeste) fazit.push(P(hinweisBeste));
   if (e.wpb_status === "ja") fazit.push(P("Das Gebäude ist als **Worst Performing Building** eingestuft – maßgeblich ist die zweite Zeile."));
   else if (e.wpb_status === "nein") fazit.push(P("Das Gebäude ist **kein** Worst Performing Building – maßgeblich ist die erste Zeile."));
   else fazit.push(P("**Erster Schritt:** klären, ob das Gebäude als Worst Performing Building gilt (Klasse H bzw. ≥ 300 kWh/(m²a) Endenergie). Davon hängt ab, welcher Weg der richtige ist."));
@@ -185,7 +193,9 @@ function erstelleFoerdervergleich(d) {
   const prog = [
     [{ t: "**BEG EM – Gebäudehülle / Anlagentechnik** (BAFA)" },
      `${prozent(em.foerdersatz)} Zuschuss; iSFP-Bonus +${prozent(em.isfp_bonus)} (${em.isfp_bonus_regel}). Höchstgrenzen ${em.hoechstgrenze_bezug}: ohne iSFP ${eur(g.erste_we)} (1. WE) / ${eur(g.we_2_bis_6)} (2.–6. WE) / ${eur(g.ab_we_7)} (ab 7. WE); mit iSFP ${eur(gi.erste_we)} / ${eur(gi.we_2_bis_6)} / ${eur(gi.ab_we_7)}`,
-     `WPB-Bonus +${prozent(em.wpb_bonus)}: ${em.wpb_bonus_regel}`],
+     (em.wpb_bonus_status === "angekuendigt" || A)
+       ? `WPB-Bonus +${prozent(em.wpb_bonus)} – angekündigt${em.wpb_bonus_ab_text ? ", " + em.wpb_bonus_ab_text : ""} (noch nicht in Kraft): ${em.wpb_bonus_regel}`
+       : `WPB-Bonus +${prozent(em.wpb_bonus)}: ${em.wpb_bonus_regel}`],
     [{ t: "**BEG EM – Fachplanung/Baubegleitung**" }, `${prozent(bbE.satz)}; EFH/ZFH max. ${eur(bbE.efh_zfh_max)}, MFH ${eur(bbE.mfh_je_we)}/WE, max. ${eur(bbE.mfh_max)}`, "Nur für BAFA-Maßnahmen"],
     [{ t: "**BAFA Energieberatung (iSFP)**" }, `${prozent(k.isfp_beratung.satz)} des Honorars, max. ${eur(k.isfp_beratung.efh_zfh_max)} (EFH/ZFH) bzw. ${eur(k.isfp_beratung.mfh_max)} (ab 3 WE)`, "Voraussetzung für den iSFP-Bonus"],
     [{ t: "**BEG WG – KfW 261**" }, `Kredit bis ${eur(wg.kredit_je_we)}/WE; Tilgungszuschuss: ` +
@@ -220,7 +230,7 @@ function erstelleFoerdervergleich(d) {
   if (e.isfp) bes.push(`**iSFP-Bonus:** ${em.isfp_bonus_regel}. Der iSFP lohnt sich vor allem durch die höhere Höchstgrenze.`);
   const hgHinweis = (s.EM_ohne_WPB.hinweise || []).find(h => /Höchstgrenze/.test(h));
   if (hgHinweis) bes.push(`**${hgHinweis.replace(/:.*/, "")}:** ${hgHinweis.replace(/^[^:]*:\s*/, "")}.`);
-  bes.push(`**WPB-Bonus Einzelmaßnahmen:** ${em.wpb_bonus_regel}.`);
+  bes.push(`**WPB-Bonus Einzelmaßnahmen:** ${em.wpb_bonus_regel}.` + (A ? " Angekündigt, noch nicht in Kraft – vor Antragstellung prüfen." : ""));
   bes.push("**Tilgungszuschuss KfW 261:** wird nur auf einen tatsächlich abgerufenen Kredit gewährt.");
   if (mit266) {
     bes.push("**KfW 266:** gefördert werden nur nicht-energetische Umbaukosten der neuen Wohneinheiten; energetische Kosten laufen über BEG EM bzw. BEG WG.");
@@ -260,18 +270,19 @@ function erstelleFoerdervergleich(d) {
   const HD = (t, fill = C.anth, span) => ({ t: "**" + t + "**", fill, color: "FFFFFF", align: Z, span });
   const SEC = t => [{ t: "**" + t + "**", fill: C.grauL, span: 5 }];
   const wert = (key, f) => s[key].foerderfaehig ? f(s[key]) : "–";
+  const fz = (key, o) => o.fussnote && angek(key) && s[key].foerderfaehig ? "¹" : "";
   const zeile = (label, f, o = {}) => [o.bold ? { t: "**" + label + "**" } : label, ...REIHE.map(key => ({
-    t: o.bold ? "**" + wert(key, f) + "**" : wert(key, f), align: R,
+    t: (o.bold ? "**" + wert(key, f) + "**" : wert(key, f)) + fz(key, o), align: R,
     fill: o.markiere && Object.values(erg.beste_wahl).includes(key) ? C.goldL : undefined }))];
   const posten = [["beg_em", "BAFA Gebäudehülle/Anlagentechnik"], ["isfp_bonus", "iSFP-Bonus"], ["wpb_bonus", "WPB-Bonus"],
     ["tilgungszuschuss", "Tilgungszuschuss KfW 261"], ["baubegleitung", "Fachplanung / Baubegleitung"], ["isfp_beratung", "iSFP-Beratung"]]
     .filter(([p]) => REIHE.some(key => s[key].zuschuesse && s[key].zuschuesse[p] !== undefined));
   const t9 = [
     [HD(""), HD("1  Einzelmaßnahmen", C.anth, 2), HD("2  " + stufe.name, C.anthD, 2)],
-    [HD(""), HD("a) ohne WPB", C.grau), HD("b) mit WPB", C.grau), HD("a) ohne WPB", C.grau), HD("b) mit WPB", C.grau)],
+    [HD(""), HD("a) ohne WPB", C.grau), A ? HD("b) mit WPB¹", C.gold) : HD("b) mit WPB", C.grau), HD("a) ohne WPB", C.grau), HD("b) mit WPB", C.grau)],
     SEC("A  Zuschüsse – nicht rückzahlbar"),
-    ...posten.map(([p, l]) => zeile(l, x => x.zuschuesse[p] !== undefined ? eur(x.zuschuesse[p]) : "–")),
-    zeile("Summe Zuschüsse energetisch", x => eur(x.summe_zuschuesse_energetisch), { bold: true, markiere: !mit266 }),
+    ...posten.map(([p, l]) => zeile(l, x => x.zuschuesse[p] !== undefined ? eur(x.zuschuesse[p]) : "–", { fussnote: p === "wpb_bonus" })),
+    zeile("Summe Zuschüsse energetisch", x => eur(x.summe_zuschuesse_energetisch), { bold: true, markiere: !mit266, fussnote: true }),
     SEC("B  Darlehen – zinsgünstig, rückzahlbar"),
     zeile("Förderkredit", x => x.kreditprogramm),
     zeile("Kreditrahmen", x => "bis " + eur(x.kreditrahmen)),
@@ -279,17 +290,21 @@ function erstelleFoerdervergleich(d) {
   ];
   if (mit266) t9.push(SEC("C  Zusätzlich: KfW 266 „Gewerbe zu Wohnen“"), zeile("Zuschuss Umbau neue WE", x => eur(x.zuschuss_266)));
   t9.push(SEC((mit266 ? "D" : "C") + "  Ergebnis"),
-    ...(mit266 ? [zeile("Zuschüsse gesamt inkl. KfW 266", x => eur(x.summe_zuschuesse_gesamt), { bold: true, markiere: true })] : []),
+    ...(mit266 ? [zeile("Zuschüsse gesamt inkl. KfW 266", x => eur(x.summe_zuschuesse_gesamt), { bold: true, markiere: true, fussnote: true })] : []),
     zeile("Eigenanteil energetische Maßnahmen", x => eur(x.eigenanteil_energetisch)),
     zeile("Förderquote energetisch", x => pct(x.foerderquote_energetisch)),
     ["**Bewertung**", ...REIHE.map(key => ({ t: erg.beste_wahl.ohne_WPB === key ? "**beste Wahl ohne WPB**" : erg.beste_wahl.WPB === key ? "**beste Wahl mit WPB**" : "",
       align: R, color: C.gruen }))]);
   ch.push(tabelle([2804, 1850, 1850, 1850, 1850], null, t9));
+  if (A) ch.push(P(`¹ Enthält den WPB-Bonus Einzelmaßnahmen: ${T} – Betrag unter Vorbehalt, zählt nicht für die Bewertung.`,
+    { size: 15, color: C.grau, before: 60, after: hinweisBeste ? 20 : undefined }));
+  if (hinweisBeste) ch.push(P(hinweisBeste, { size: 15, color: C.grau }));
   const nf = REIHE.filter(key => !s[key].foerderfaehig);
   if (nf.length) ch.push(P("„–“: " + [...new Set(nf.flatMap(key => s[key].hinweise || []))].join("; "), { size: 15, color: C.grau, before: 60 }));
 
   ch.push(H2("So treffen Sie die Entscheidung"));
-  const diff = (a, b) => eur(Math.abs(s[a].summe_zuschuesse_gesamt - s[b].summe_zuschuesse_gesamt));
+  const inKraft = key => s[key].summe_zuschuesse_in_kraft ?? s[key].summe_zuschuesse_gesamt;
+  const diff = (a, b) => eur(Math.abs(inKraft(a) - inKraft(b)));
   const regel = [];
   regel.push([{ t: "**Gebäude ist kein WPB**", fill: C.grauL }, `**${bo.titel.replace(/ ohne WPB$/, "")}** wählen` +
     (andere(bo.schluessel).foerderfaehig ? `: ${diff("EM_ohne_WPB", "EH_ohne_WPB")} mehr Zuschuss als die Alternative.` : ".") +
@@ -299,8 +314,12 @@ function erstelleFoerdervergleich(d) {
     (bm.kredit_pflicht ? " Voraussetzung: Kreditfinanzierung über KfW 261." : "")]);
   if (ee && wg.ee_klasse_pflicht) regel.push([{ t: "**EE-Klasse nicht erreichbar**", fill: C.rotL },
     `Nur Einzelmaßnahmen${mit266 ? " ohne KfW 266" : ""} möglich (${eur(s.EM_ohne_WPB.summe_zuschuesse_energetisch)}).`]);
-  regel.push([{ t: "**Zeitpunkt**", fill: C.grauL }, (mit266 && k266.antragsfrist ? `KfW 266 bis **${datum(k266.antragsfrist)}** beantragen. ` : "") +
-    `Der WPB-Bonus bei Einzelmaßnahmen gilt für BAFA-Anträge ab **${datum(em.wpb_bonus_ab)}**.`]);
+  const wpbZeit = A
+    ? "Der WPB-Bonus bei Einzelmaßnahmen ist angekündigt (" + (em.wpb_bonus_ab_text || (em.wpb_bonus_ab ? "ab " + datum(em.wpb_bonus_ab) : "Termin offen")) +
+      "), aber noch nicht in Kraft – vor Antragstellung prüfen."
+    : (em.wpb_bonus_ab ? `Der WPB-Bonus bei Einzelmaßnahmen gilt für BAFA-Anträge ab **${datum(em.wpb_bonus_ab)}**.` : "");
+  const zeitText = (mit266 && k266.antragsfrist ? `KfW 266 bis **${datum(k266.antragsfrist)}** beantragen. ` : "") + wpbZeit;
+  if (zeitText.trim()) regel.push([{ t: "**Zeitpunkt**", fill: C.grauL }, zeitText.trim()]);
   ch.push(tabelle([3400, 6804], null, regel));
 
   // ---------- 9 Unsere Leistungen (nur mit Angeboten) ----------

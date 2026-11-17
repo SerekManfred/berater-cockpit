@@ -97,5 +97,20 @@ async function text(daten) {
   await assert.rejects(erzeugeBericht("init", { daten: { ...bd, objekt: { ...bd.objekt, wohneinheiten: "3" } }, bilder }), /Wohneinheiten passen nicht/);
   await assert.rejects(erzeugeBericht("init", { daten: bd, bilder: { ...bilder, "../x.jpg": "AA==" } }), /Unzulässiger Bildname/);
   await assert.rejects(erzeugeBericht("meh", { daten: bd, bilder }), /Unbekanntes Modul/);
-  console.log(`OK – Bericht INIT + ${n} Beispiele + Referenzzahlen + Schutzprüfungen + Fachwerte mit/ohne + ${MODULE.length} Checklisten`);
+  // WPB-Bonus Einzelmaßnahmen „angekündigt, noch nicht in Kraft“ (ab 0.4.4, Fixtures aus dem Cockpit, Datenvertrag 16.11.2026)
+  const fx = n => JSON.parse(fs.readFileSync(path.join(__dirname, "fixtures_wpb", `foerdervergleich_wpb_${n}.json`), "utf8"));
+  const w1 = await text(fx("fall1_angekuendigt"));
+  for (const z of ["b) mit WPB¹", "5.555 €¹", "49.155 €¹", "169.155 €¹", "¹ Enthält den WPB-Bonus Einzelmaßnahmen: angekündigt, noch nicht in Kraft (voraussichtlich Q1 2027)",
+    "WPB-Bonus +5 % – angekündigt, voraussichtlich Q1 2027 (noch nicht in Kraft)", "Angekündigt, noch nicht in Kraft – vor Antragstellung prüfen.",
+    "ist angekündigt (voraussichtlich Q1 2027), aber noch nicht in Kraft", "(Alternative: 169.155 € inkl. WPB-Bonus – angekündigt"]) assert(w1.includes(z), "WPB Fall 1: " + z);
+  assert(!w1.includes("Sobald der angekündigte"), "WPB Fall 1: kein Umkehr-Hinweis");
+  const w2 = await text(fx("fall2_beste_wahl_hinweis"));
+  assert((w2.match(/Sobald der angekündigte Zuschuss gilt/g) || []).length === 2, "WPB Fall 2: Hinweis in Kapitel 1 und 8");
+  const w3 = await text(fx("fall3_in_kraft"));
+  assert(!w3.includes("¹") && !w3.includes("angekündigt") && w3.includes("gilt für BAFA-Anträge ab 01.01.2027"), "WPB Fall 3: in Kraft wie bisher");
+  const w4 = await text(fx("fall4_ohne_datum"));
+  assert(!w4.includes("****") && w4.includes("ist angekündigt (voraussichtlich Q1 2027)"), "WPB Fall 4: kein „ab ****“");
+  const ohneDatum = fx("fall3_in_kraft"); ohneDatum.konditionen.beg_em.wpb_bonus_ab = null;
+  assert(!(await text(ohneDatum)).includes("****"), "WPB in Kraft ohne Datum: kein „ab ****“");
+  console.log(`OK – WPB angekündigt (4 Fälle) + Bericht INIT + ${n} Beispiele + Referenzzahlen + Schutzprüfungen + Fachwerte mit/ohne + ${MODULE.length} Checklisten`);
 })().catch(e => { console.error("FEHLER:", e.message); process.exit(1); });

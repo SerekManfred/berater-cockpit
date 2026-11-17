@@ -17,48 +17,59 @@
  },
  "eingaben": {
   "we_nach_sanierung": 6,
-  "we_neu": 4,
-  "kfw266": true,
-  "umbaukosten_neue_we": 420000,
-  "kosten_baubegleitung": 20000,
-  "kosten_isfp": 2800,
   "massnahmen": [
    {
     "name": "Oberste Geschossdecke",
-    "kosten": 12000,
-    "em_kategorie": "daemmung"
+    "kosten": 12000.0,
+    "em_kategorie": "daemmung",
+    "eh_foerderfaehig": true
    },
    {
     "name": "WDVS",
-    "kosten": 76000,
-    "em_kategorie": "daemmung"
+    "kosten": 76000.0,
+    "em_kategorie": "daemmung",
+    "eh_foerderfaehig": true
    },
    {
     "name": "Fenster",
-    "kosten": 66500,
-    "em_kategorie": "fenster"
+    "kosten": 66500.0,
+    "em_kategorie": "fenster",
+    "eh_foerderfaehig": true
    },
    {
     "name": "Bodendämmung UG",
-    "kosten": 23100,
-    "em_kategorie": "daemmung"
+    "kosten": 23100.0,
+    "em_kategorie": "daemmung",
+    "eh_foerderfaehig": true
    },
    {
     "name": "Lüftung mit WRG",
-    "kosten": 54000,
-    "em_kategorie": "anlagentechnik"
+    "kosten": 54000.0,
+    "em_kategorie": "anlagentechnik",
+    "eh_foerderfaehig": true
    },
    {
     "name": "Infrarotheizung",
-    "kosten": 28500,
-    "em_kategorie": "nicht_foerderfaehig"
+    "kosten": 28500.0,
+    "em_kategorie": "nicht_foerderfaehig",
+    "eh_foerderfaehig": true
    },
    {
     "name": "Brauchwasser-WP",
-    "kosten": 27000,
-    "em_kategorie": "nicht_foerderfaehig"
+    "kosten": 27000.0,
+    "em_kategorie": "nicht_foerderfaehig",
+    "eh_foerderfaehig": true
    }
-  ]
+  ],
+  "kosten_baubegleitung": 20000.0,
+  "kosten_isfp": 2800.0,
+  "isfp": true,
+  "eh_stufe": "EH55EE",
+  "ee_klasse_erreichbar": true,
+  "serielle_sanierung": false,
+  "kfw266": true,
+  "we_neu": 4,
+  "umbaukosten_neue_we": 420000.0
  },
  "ergebnis": {
   "konditionen_version": 4,

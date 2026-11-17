@@ -38,11 +38,26 @@ def generator_daten(b: Bericht, p: Projekt, ersteller: str | None) -> dict:
         "berater": {"name": ersteller or "–"},
         "bericht": {"versionsnummer": b.versionsnummer,
                     "erstellt_am": b.erstellt_am.astimezone(ZoneInfo("Europe/Berlin")).date().isoformat()},
-        "eingaben": b.eingaben,
+        "eingaben": eingaben_vollstaendig(b.eingaben),
         "ergebnis": kennzeichnung_nachtragen(b.ergebnis, b.konditionen_snapshot),   # ältere Berichte: „angekündigt“ ableiten
         "konditionen": b.konditionen_snapshot,
         "kosten_hinweis": (b.eingaben or {}).get("kosten_hinweis") or None,
     }
+
+
+def eingaben_vollstaendig(eingaben: dict | None) -> dict:
+    """Gespeicherte Eingaben + Standardwerte, mit denen der Rechenkern gerechnet hat (z. B. eh_stufe „EH55EE“), falls ein
+    Feld fehlt – sonst druckt der Generator „undefined mit WPB“ (Hinweis Geschäftsführer 17.11.2026). Gespeicherte Werte gehen
+    immer vor; nichts wird gespeichert oder neu gerechnet."""
+    from pydantic import ValidationError
+
+    from app.rechnen import FoerdervergleichEingaben
+    eingaben = eingaben or {}
+    try:
+        standard = FoerdervergleichEingaben.model_validate(eingaben).model_dump(exclude_none=True)
+    except ValidationError:
+        return eingaben
+    return {**standard, **eingaben}
 
 
 def generator_senden(pfad: str, daten: dict, was: str = "Der Word-Bericht") -> bytes:

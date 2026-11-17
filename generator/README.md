@@ -64,6 +64,13 @@ Kopf mit Objektdaten · 1 Kurzfazit · 2 Varianten · 3 Programme und Konditione
 **8 Fördervergleich auf einen Blick** (Pflichtkapitel, eigene Seite) · **9 Unsere Leistungen auf Ihrem Weg** (nur wenn
 Angebote A–D vorliegen, ab 0.3.0) · 9 bzw. 10 Empfohlenes Vorgehen · Quellen · Haftungshinweis
 
+## WPB-Bonus Einzelmaßnahmen „angekündigt“ (ab 0.4.4)
+Datenvertrag: `docs/Datenvertrag_Generator_WPB_angekuendigt.md` im Cockpit-Repository. Maßgeblich ist
+`ergebnis.szenarien[].angekuendigt` / `angekuendigt_text`; Kennzeichnung in Kapitel 1, 3, 5 und 8 (Spalte „b) mit WPB¹“,
+Fußnote, `beste_wahl_hinweis`) sowie „Zeitpunkt“. Der Unterschied in „So treffen Sie die Entscheidung“ rechnet mit
+`summe_zuschuesse_in_kraft` (falls vorhanden). Ein leeres `wpb_bonus_ab` druckt kein „ab ****“ mehr.
+Ohne die neuen Felder verhält sich der Generator wie 0.4.3 (alle Beispiele textgleich geprüft). Tests: `test/fixtures_wpb/`.
+
 ## Stand-Angabe (ab 0.4.3)
 Fördervergleich und INIT-Bericht nennen den Stand für Kunden lesbar: „Förderbedingungen Stand TT.MM.JJJJ (interne Version N)“
 (Datum = `gueltig_ab` der Konditionen-Version). Beim INIT-Bericht kommt der Text aus `foerderung.rechenkern.saetze.konditionen_stand`.
