@@ -63,6 +63,13 @@ KI_ZEITLIMIT = float(_zahl("KI_ZEITLIMIT", 180, 10))      # Sekunden je KI-Lauf
 KI_MAX_FOTOS = _zahl("KI_MAX_FOTOS", 20)                  # so viele Fotos (verkleinert) gehen höchstens an die KI
 GENERATOR_TIMEOUT_BERICHT = 150.0  # Berichte mit Fotos brauchen länger als Checklisten (Generator-Zeitlimit 120 s)
 
+# Vor-Ort-Checkliste einlesen (Phase 2g): Fotos/PDF per KI (Schalter KI_AKTIV), Word ohne KI
+CHECKLISTE_MODELL = os.environ.get("CHECKLISTE_MODELL", "claude-sonnet-5-5").strip() or "claude-sonnet-5-5"
+CHECKLISTE_ZEITLIMIT = float(_zahl("CHECKLISTE_ZEITLIMIT", 180, 30))
+CHECKLISTE_MAX_DATEIEN = 10
+CHECKLISTE_MAX_BYTES = 15_000_000
+CHECKLISTE_BILD_KANTE = 1568        # Handschrift braucht Auflösung; größere Bilder verkleinert die API ohnehin
+
 # Wöchentliche Förderprüfung (Phase 2f). An die KI gehen nur Förderwerte und Quellen – keine Personen- oder Projektdaten –,
 # deshalb ein eigener Schalter unabhängig von KI_AKTIV. Standard AUS; der Geschäftsführer schaltet ein.
 FOERDERPRUEFUNG_AKTIV = _schalter(os.environ.get("FOERDERPRUEFUNG_AKTIV"), False)

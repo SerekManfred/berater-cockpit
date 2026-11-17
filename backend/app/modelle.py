@@ -226,6 +226,8 @@ class BerichtEntwurf(Base):
     foto_zuordnung: Mapped[dict] = mapped_column(DETAILS_TYP, nullable=False, default=dict)  # Datei-ID → Abschnitt/Unterschrift
     abschnitte: Mapped[dict] = mapped_column(DETAILS_TYP, nullable=False, default=dict)      # Status je Abschnitt
     ki_laeufe: Mapped[list] = mapped_column(DETAILS_TYP, nullable=False, default=list)       # Modell, Prompt, Rohantwort …
+    # Phase 2g (Migration 0012): Markierungen „aus Checkliste“, Abweichungen, letzter Lauf, wartendes Ergebnis
+    checkliste_import: Mapped[dict] = mapped_column(DETAILS_TYP, nullable=False, default=dict)
     status: Mapped[str] = mapped_column(String(20), nullable=False, default="offen")
     revision: Mapped[int] = mapped_column(Integer, nullable=False, default=1)  # gegen gleichzeitiges Überschreiben
     letzter_bericht_id: Mapped[int | None] = mapped_column(ForeignKey("berichte.id", ondelete="SET NULL"))
@@ -267,3 +269,15 @@ class FoerderMeldung(Base):
     begruendung: Mapped[str | None] = mapped_column(Text)
     entwurf_id: Mapped[int | None] = mapped_column(ForeignKey("konditionen_versionen.id", ondelete="SET NULL"))
     benachrichtigung: Mapped[dict | None] = mapped_column(DETAILS_TYP)    # {an, fehler} der E-Mail
+
+
+# ---------- KI-Referenztexte (Phase 2g, Migration 0012) ----------
+
+class KiReferenz(Base):
+    """Im Admin-Bereich bearbeitbarer Referenztext für die KI, z. B. das Handschrift-Profil (Schlüssel „handschrift_profil“).
+    Fehlt die Zeile, gilt die Datei app/ki/referenz/<schluessel>.md."""
+    __tablename__ = "ki_referenzen"
+    schluessel: Mapped[str] = mapped_column(String(50), primary_key=True)
+    inhalt: Mapped[str] = mapped_column(Text, nullable=False)
+    geaendert_von_id: Mapped[int | None] = mapped_column(ForeignKey("benutzer.id", ondelete="SET NULL"))
+    geaendert_am: Mapped[datetime] = mapped_column(UTCZeit, nullable=False, default=jetzt)

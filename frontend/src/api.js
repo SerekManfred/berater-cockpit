@@ -74,7 +74,7 @@ export function dateiHochladen(projektId, datei, kategorie, onFortschritt) {
       if (xhr.status >= 200 && xhr.status < 300) return ok(daten);
       if (xhr.status === 401) window.dispatchEvent(new Event(ABGEMELDET));
       const text = fehlertext(daten) || (xhr.status === 413 ? "Die Datei ist größer als 25 MB." : `Fehler ${xhr.status}`);
-      const e = new Error(text); e.status = xhr.status; fehler(e);
+      const e = new Error(text); e.status = xhr.status; e.detail = daten?.detail; fehler(e);
     };
     xhr.onerror = () => fehler(new Error("Verbindung unterbrochen."));
     xhr.timeout = 15 * 60_000; // 25 MB auch über langsame Leitungen; danach Fehlermeldung statt endlosem Fortschritt

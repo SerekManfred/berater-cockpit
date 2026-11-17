@@ -17,6 +17,7 @@ konditionen konditionen_versionen id
 entwuerfe bericht_entwuerfe id
 angebotsvorlagen angebotsvorlagen kennung
 foerdermeldungen foerder_meldungen id
+kireferenzen ki_referenzen schluessel
 zaehler projektnummer_zaehler jahr"
 
 sql() { docker exec -i "$CONTAINER" psql -X -q -v ON_ERROR_STOP=1 -U "$BENUTZER" -d "$DB" -At -F' ' "$@"; }

@@ -1,5 +1,5 @@
 import React, { useEffect, useState } from "react";
-import { api, wordHerunterladen, ZEITLIMIT_LANG_MS, zeit } from "./api.js";
+import { api, dateiHochladen, groesseText, wordHerunterladen, ZEITLIMIT_LANG_MS, zeit } from "./api.js";
 import { PruefungVeraltet } from "./Foerderpruefung.jsx";
 import { ZahlFeld } from "./ZahlFeld.jsx";
 import { zahlUngueltig } from "./zahl.js";
@@ -47,18 +47,92 @@ function Markiert({ text, zahlen }) {
   return <p className="markiert">{teile}</p>;
 }
 
-function Textfeld({ id, label, wert, onChange, zeilen = 4, zahlen = [] }) {
+function Textfeld({ id, label, wert, onChange, zeilen = 4, zahlen = [], marke = null }) {
   return (
     <div className="feld breit">
       <label htmlFor={id}>{label}</label>
-      <textarea id={id} rows={zeilen} value={wert || ""} onChange={e => onChange(e.target.value)} />
+      <textarea id={id} rows={zeilen} value={wert || ""} onChange={e => onChange(e.target.value)} className={marke?.props?.m && !marke.props.m.sicher && !marke.props.m.bestaetigt ? "feld-unsicher" : undefined} />
+      {marke}
       {(zahlen.length > 0 || /\[\s*PR(Ü|UE)FEN/i.test(wert || "")) && <Markiert text={wert} zahlen={zahlen} />}
     </div>
   );
 }
 
-function Eingabe({ id, label, wert, onChange, typ = "text", ...rest }) {
-  return <label htmlFor={id}>{label}<input id={id} type={typ} value={wert ?? ""} onChange={e => onChange(e.target.value)} {...rest} /></label>;
+function Eingabe({ id, label, wert, onChange, typ = "text", marke = null, ...rest }) {
+  const unsicher = marke?.props?.m && !marke.props.m.sicher && !marke.props.m.bestaetigt;
+  return <label htmlFor={id}>{label}<input id={id} type={typ} value={wert ?? ""} onChange={e => onChange(e.target.value)}
+    className={unsicher ? "feld-unsicher" : undefined} {...rest} />{marke}</label>;
+}
+
+// ---------- Checkliste einlesen (Phase 2g) ----------
+
+const lesenPfad = (o, pfad) => pfad.split(".").reduce((w, t) => (w == null ? undefined : w[t]), o);
+const gleich = (a, b) => JSON.stringify(a ?? null) === JSON.stringify(b ?? null);
+
+/** Markierung an einem Feld: „aus Checkliste“ bzw. gelb „bitte prüfen“ mit gelesenem Rohtext. */
+export function Marke({ m }) {
+  if (!m) return null;
+  if (m.sicher || m.bestaetigt) return <span className="marke-cl">aus Checkliste{m.bestaetigt && !m.sicher ? " · bestätigt" : ""}</span>;
+  return <span className="marke-cl unsicher" role="note">bitte prüfen{m.rohtext ? ` – gelesen: „${m.rohtext}“` : ""}</span>;
+}
+
+const zeigeWert = w => w === true ? "ja" : w === false ? "nein" : Array.isArray(w)
+  ? w.map(r => typeof r === "object" ? [r.traeger, r.menge, r.kosten].filter(Boolean).join(" · ") : r).join("; ") : (w ?? "–") === "" ? "–" : String(w ?? "–");
+
+export function ChecklisteEinlesen({ imp, darf, laeuft, fortschritt, onEinlesen, onTrotzdem, onKonflikt, onBestaetigen }) {
+  const [auswahl, setAuswahl] = useState([]);
+  const [hinweis, setHinweis] = useState("");
+  const kiAus = imp && !imp.ki_aktiv;
+  const nurWord = f => /\.docx$/i.test(f.name);
+  function waehlen(liste) {
+    const dateien = [...liste];
+    const zuViel = dateien.length > (imp?.max_dateien || 10);
+    const zuGross = dateien.filter(f => f.size > (imp?.max_bytes || 15_000_000));
+    const gesperrt = kiAus ? dateien.filter(f => !nurWord(f)) : [];
+    setHinweis(zuViel ? `Höchstens ${imp?.max_dateien || 10} Dateien.` : zuGross.length ? `Zu groß (max. ${groesseText(imp?.max_bytes || 15_000_000)}): ${zuGross.map(f => f.name).join(", ")}`
+      : gesperrt.length ? "Die KI ist ausgeschaltet – Fotos und PDF können nicht eingelesen werden, Word-Checklisten schon." : "");
+    setAuswahl(zuViel || zuGross.length || gesperrt.length ? [] : dateien);
+  }
+  const offen = (imp?.unsicher_offen || []).map(p => [p, imp.markierungen[p]]);
+  const lauf = imp?.letzter_lauf;
+  return (
+    <section className="karte checkliste-einlesen">
+      <h2>Checkliste einlesen</h2>
+      <p className="klein" style={{ marginTop: 0 }}>Ausgefüllte Vor-Ort-Checkliste hochladen – Foto/Scan der Papierversion (JPG, PNG, HEIC, PDF; mehrere Seiten möglich)
+        oder die am Rechner ausgefüllte Word-Datei. Erkannte Werte füllen leere Felder; bereits ausgefüllte Felder bleiben, Abweichungen erscheinen unten.
+        Kunden- und Objektanschrift kommen immer aus den Projektdaten.</p>
+      {kiAus && <div className="info" role="status" style={{ marginBottom: 8 }}>Die KI ist ausgeschaltet: Bild- und PDF-Import gesperrt, Word-Import möglich.</div>}
+      {darf && <div className="aktionen" style={{ marginTop: 0 }}>
+        <label className="btn2 datei-waehlen">Datei(en) wählen
+          <input type="file" multiple accept=".jpg,.jpeg,.png,.heic,.pdf,.docx" onChange={x => waehlen(x.target.files)} className="sr" /></label>
+        <button className="btn" disabled={!auswahl.length || !!laeuft} onClick={() => onEinlesen(auswahl)}>
+          {laeuft === "einlesen" ? "Wird eingelesen …" : "Einlesen"}</button>
+        {auswahl.length > 0 && <span className="klein" style={{ alignSelf: "center" }}>{auswahl.map(f => f.name).join(", ")}</span>}
+      </div>}
+      {hinweis && <div className="fehler" role="alert">{hinweis}</div>}
+      {fortschritt && <p role="status" className="klein">{fortschritt}</p>}
+      {imp?.warnung && <div className="warnung" role="alert">
+        <strong>{imp.warnung}</strong>
+        {darf && <div className="aktionen"><button className="btn" onClick={() => onTrotzdem(imp.warnung_dateien)} disabled={!!laeuft}>Trotzdem übernehmen</button></div>}
+      </div>}
+      {lauf && <p className="klein">Zuletzt eingelesen {zeit(lauf.zeit)} ({lauf.art === "word" ? "Word, ohne KI" : `KI ${lauf.modell || ""}`}):
+        {" "}{lauf.gefuellt} Feld(er) gefüllt{lauf.konflikte ? `, ${lauf.konflikte} Abweichung(en)` : ""}
+        {typeof lauf.kosten_usd === "number" && lauf.kosten_usd > 0 ? ` · Kosten ca. ${lauf.kosten_usd.toLocaleString("de-DE", { maximumFractionDigits: 3 })} US-$` : ""}.</p>}
+      {offen.length > 0 && <div className="warnung" role="status">
+        <strong>{offen.length} {offen.length === 1 ? "Wert" : "Werte"} bitte prüfen</strong> – vor dem Erzeugen ändern oder bestätigen:
+        <ul className="liste-kompakt">{offen.map(([p, m]) => <li key={p}>{m.label}{m.rohtext ? ` – gelesen: „${m.rohtext}“` : ""}
+          {darf && <> <button className="btn2 klein-knopf" onClick={() => onBestaetigen([p])}>Wert ist richtig</button></>}</li>)}</ul>
+      </div>}
+      {(imp?.konflikte || []).length > 0 && <div className="info" role="status">
+        <strong>Abweichungen zwischen Checkliste und vorhandenen Werten</strong>
+        <ul className="liste-kompakt">{imp.konflikte.map(k => <li key={k.pfad}>{k.label}: vorhanden „{zeigeWert(k.alt)}“, Checkliste „{zeigeWert(k.neu)}“
+          {!k.sicher && " (unsicher gelesen)"}
+          {darf && <> <button className="btn2 klein-knopf" onClick={() => onKonflikt(k.pfad, "uebernehmen")}>Übernehmen</button>
+            <button className="btn2 klein-knopf" onClick={() => onKonflikt(k.pfad, "behalten")}>Behalten</button></>}</li>)}</ul>
+      </div>}
+      {(imp?.hinweise || []).map(h => <p key={h} className="klein">Hinweis: {h}</p>)}
+    </section>
+  );
 }
 
 export function BerichtInit({ ich, projekt, onZurueck }) {
@@ -71,6 +145,7 @@ export function BerichtInit({ ich, projekt, onZurueck }) {
   const [meldung, setMeldung] = useState("");
   const [laeuft, setLaeuft] = useState("");
   const [kond, setKond] = useState(null);
+  const [fortschritt, setFortschritt] = useState("");
   const pfad = `/projekte/${projekt.id}/bericht-init/entwurf`;
 
   const uebernehmen = x => { setE(x); setD(kopie(x.daten)); setZ(kopie(x.foto_zuordnung)); setGeaendert(false); };
@@ -120,7 +195,30 @@ export function BerichtInit({ ich, projekt, onZurueck }) {
         {SCHRITTE.map(([k, t]) => <button key={k} role="tab" aria-selected={schritt === k} className={schritt === k ? "aktiv" : ""} onClick={() => wechseln(k)}>{t}</button>)}
       </div>
 
-      {schritt === "daten" && <DatenSchritt d={d} e={e} kond={kond} projekt={projekt} aendern={aendern} />}
+      {schritt === "daten" && <DatenSchritt d={d} e={e} kond={kond} projekt={projekt} aendern={aendern}
+        einlesen={<ChecklisteEinlesen imp={e.checkliste_import} darf={darf} laeuft={laeuft} fortschritt={fortschritt}
+          onEinlesen={dateien => aktion("einlesen", async () => {
+            if (geaendert && !(await speichern())) return;
+            const ids = [];
+            try {
+              for (const [i, f] of dateien.entries()) {
+                setFortschritt(`Lade Datei ${i + 1} von ${dateien.length} hoch …`);
+                try { ids.push((await dateiHochladen(projekt.id, f, "checkliste")).id); }
+                catch (x) { if (x.status === 409 && x.detail?.vorhandene_datei_id) ids.push(x.detail.vorhandene_datei_id); else throw x; }
+              }
+              setFortschritt(dateien.every(f => /\.docx$/i.test(f.name)) ? "Word-Checkliste wird gelesen …" : "Checkliste wird gelesen (KI, bis zu einer Minute) …");
+              const aktuell = await api(pfad);
+              const r = await api(pfad + "/checkliste-einlesen", { method: "POST", body: { datei_ids: ids, revision: aktuell.revision }, zeitlimit: ZEITLIMIT_LANG_MS });
+              uebernehmen(r.entwurf);
+              if (!r.warnung) setMeldung(einleseText(r.ergebnis));
+            } finally { setFortschritt(""); }
+          })}
+          onTrotzdem={ids => aktion("einlesen", async () => {
+            const r = await api(pfad + "/checkliste-einlesen", { method: "POST", body: { datei_ids: ids, revision: e.revision, trotz_warnung: true }, zeitlimit: ZEITLIMIT_LANG_MS });
+            uebernehmen(r.entwurf); setMeldung(einleseText(r.ergebnis));
+          })}
+          onKonflikt={(p, a) => aktion("konflikt", async () => uebernehmen(await api(pfad + "/checkliste-konflikt", { method: "POST", body: { pfad: p, aktion: a } })))}
+          onBestaetigen={pfade => aktion("bestaetigen", async () => uebernehmen(await api(pfad + "/checkliste-bestaetigen", { method: "POST", body: { pfade } })))} />} />}
       {schritt === "fotos" && <FotoSchritt e={e} z={z} aendernZ={aendernZ} />}
       {schritt === "ki" && <KiSchritt e={e} ab={ab} darf={darf} laeuft={laeuft}
         onStart={auswahl => aktion("ki", async () => {
@@ -157,7 +255,27 @@ export function BerichtInit({ ich, projekt, onZurueck }) {
 
 // ---------- 1. Daten ----------
 
-function DatenSchritt({ d, e, kond, projekt, aendern }) {
+export function einleseText(erg) {
+  if (!erg) return "";
+  const n = erg.gefuellt.length, u = erg.unsicher.length, k = erg.konflikte.length;
+  return `Checkliste eingelesen: ${n} Feld${n === 1 ? "" : "er"} gefüllt` + (u ? `, ${u} ${u === 1 ? "Wert" : "Werte"} bitte prüfen` : "")
+    + (k ? `, ${k} Abweichung${k === 1 ? "" : "en"} zu vorhandenen Werten` : "") + ". Der Entwurf ist gespeichert.";
+}
+
+/** Klimabonus-Hinweis ohne doppelten Gas-Satz (steht oft schon im Konditionen-Hinweis) und mit Satzzeichen. */
+export function klimabonusText(hinweis) {
+  const k = (hinweis || "").trim();
+  const gas = /gas/i.test(k) && /20 Jahre/.test(k);
+  return "Klimabonus nur beim Austausch einer funktionstüchtigen fossilen Heizung"
+    + (gas ? "." : " – bei einer Gasheizung nur, wenn die Inbetriebnahme mindestens 20 Jahre zurückliegt.")
+    + (k ? ` Konditionen: ${k.replace(/[.\s]*$/, "")}.` : "")
+    + " Kosten nur aus Angaben des Beraters (keine Schätzung durch die KI).";
+}
+
+function DatenSchritt({ d, e, kond, projekt, aendern, einlesen = null }) {
+  const imp = e.checkliste_import;
+  // Markierung nur, solange der Wert noch der aus der Checkliste ist (von Hand geändert = geprüft)
+  const mk = p => { const m = imp?.markierungen?.[p]; return m && gleich(lesenPfad(d, p), m.wert) ? <Marke m={m} /> : null; };
   const f = d.foerder;
   const stufen = kond?.kfw_458?.einkommensbonus_stufen || [];
   const ehStufen = Object.keys(kond?.beg_wg?.tilgungszuschuss || {});
@@ -167,19 +285,20 @@ function DatenSchritt({ d, e, kond, projekt, aendern }) {
   const zeile = (i, k, w) => aendern("verbrauch.tabelle", d.verbrauch.tabelle.map((r, j) => j === i ? { ...r, [k]: w } : r));
   return (
     <>
+      {einlesen}
       <section className="karte">
         <h2>Objekt und Termin</h2>
         <p className="klein">Kunde (je nach „Berichte adressiert an“), Anschriften und Wohneinheiten kommen aus den Projektdaten. Die Kundenanschrift wird nie mit der Objektadresse aufgefüllt.</p>
         <div className="felder">
-          <Eingabe id="o-typ" label="Gebäudetyp" wert={d.objekt.gebaeudetyp} onChange={w => aendern("objekt.gebaeudetyp", w)} />
-          <Eingabe id="o-bj" label="Baujahr" wert={d.objekt.baujahr} onChange={w => aendern("objekt.baujahr", w)} />
-          <Eingabe id="o-wf" label="Wohnfläche" wert={d.objekt.wohnflaeche} onChange={w => aendern("objekt.wohnflaeche", w)} placeholder="z. B. ca. 165 m²" />
-          <Eingabe id="o-gs" label="Beheizte Geschosse" wert={d.objekt.geschosse} onChange={w => aendern("objekt.geschosse", w)} />
-          <Eingabe id="o-et" label="Energieträger (Bestand)" wert={d.objekt.energietraeger} onChange={w => aendern("objekt.energietraeger", w)} />
+          <Eingabe id="o-typ" label="Gebäudetyp" wert={d.objekt.gebaeudetyp} onChange={w => aendern("objekt.gebaeudetyp", w)} marke={mk("objekt.gebaeudetyp")} />
+          <Eingabe id="o-bj" label="Baujahr" wert={d.objekt.baujahr} onChange={w => aendern("objekt.baujahr", w)} marke={mk("objekt.baujahr")} />
+          <Eingabe id="o-wf" label="Wohnfläche" wert={d.objekt.wohnflaeche} onChange={w => aendern("objekt.wohnflaeche", w)} marke={mk("objekt.wohnflaeche")} placeholder="z. B. ca. 165 m²" />
+          <Eingabe id="o-gs" label="Beheizte Geschosse" wert={d.objekt.geschosse} onChange={w => aendern("objekt.geschosse", w)} marke={mk("objekt.geschosse")} />
+          <Eingabe id="o-et" label="Energieträger (Bestand)" wert={d.objekt.energietraeger} onChange={w => aendern("objekt.energietraeger", w)} marke={mk("objekt.energietraeger")} />
           <Eingabe id="o-we" label="Weitere Angaben (optional)" wert={d.objekt.weiteres} onChange={w => aendern("objekt.weiteres", w)} />
-          <Eingabe id="t-dat" label="Datum / Uhrzeit des Termins" wert={d.termin.datum} onChange={w => aendern("termin.datum", w)} />
-          <Eingabe id="t-ber" label="Energieberater" wert={d.termin.berater} onChange={w => aendern("termin.berater", w)} />
-          <Eingabe id="t-anw" label="Anwesende Personen" wert={d.termin.anwesende} onChange={w => aendern("termin.anwesende", w)} />
+          <Eingabe id="t-dat" label="Datum / Uhrzeit des Termins" wert={d.termin.datum} onChange={w => aendern("termin.datum", w)} marke={mk("termin.datum")} />
+          <Eingabe id="t-ber" label="Energieberater" wert={d.termin.berater} onChange={w => aendern("termin.berater", w)} marke={mk("termin.berater")} />
+          <Eingabe id="t-anw" label="Anwesende Personen" wert={d.termin.anwesende} onChange={w => aendern("termin.anwesende", w)} marke={mk("termin.anwesende")} />
           <Eingabe id="t-art" label="Art der Beratung" wert={d.termin.art} onChange={w => aendern("termin.art", w)} />
         </div>
       </section>
@@ -190,7 +309,7 @@ function DatenSchritt({ d, e, kond, projekt, aendern }) {
         <div className="felder">
           {[["zielsetzung", "Zielsetzung des Kunden"], ["baulicher_zustand", "Baulicher Zustand"], ["anlagentechnik", "Anlagentechnik"],
             ["auffaelligkeiten", "Auffälligkeiten"], ["massnahmen", "Besprochene Maßnahmen"]].map(([k, t]) =>
-            <Textfeld key={k} id={"cl-" + k} label={t} wert={d.checkliste[k]} zeilen={3} onChange={w => aendern("checkliste." + k, w)} />)}
+            <Textfeld key={k} id={"cl-" + k} label={t} wert={d.checkliste[k]} zeilen={3} onChange={w => aendern("checkliste." + k, w)} marke={mk("checkliste." + k)} />)}
           <label htmlFor="cl-scan">Scan der ausgefüllten Checkliste (optional)
             <select id="cl-scan" value={d.checkliste.scan_datei_id ?? ""} onChange={x => aendern("checkliste.scan_datei_id", x.target.value ? Number(x.target.value) : null)}>
               <option value="">– keiner –</option>
@@ -205,14 +324,15 @@ function DatenSchritt({ d, e, kond, projekt, aendern }) {
           <label htmlFor="pv-st">PV-Anlage
             <select id="pv-st" value={d.pv.status} onChange={x => aendern("pv.status", x.target.value)}>
               <option value="">– keine Angabe –</option><option value="vorhanden">vorhanden</option><option value="geplant">geplant</option><option value="nein">keine</option>
-            </select></label>
+            </select>{mk("pv.status")}</label>
           {(d.pv.status === "vorhanden" || d.pv.status === "geplant") && PV_FELDER.map(([k, t]) =>
-            <Eingabe key={k} id={"pv-" + k} label={t} wert={d.pv[k]} onChange={w => aendern("pv." + k, w)} />)}
+            <Eingabe key={k} id={"pv-" + k} label={t} wert={d.pv[k]} onChange={w => aendern("pv." + k, w)} marke={mk("pv." + k)} />)}
         </div>
       </section>
 
       <section className="karte">
         <h2>Energieverbräuche (pro Jahr) – nur Angaben des Kunden/Beraters</h2>
+        {mk("verbrauch.tabelle")}
         <div className="tabelle"><table>
           <thead><tr><th>Energieträger</th><th>Jahresverbrauch</th><th>Kosten</th><th><span className="sr">Aktion</span></th></tr></thead>
           <tbody>{d.verbrauch.tabelle.map((r, i) => (
@@ -229,36 +349,35 @@ function DatenSchritt({ d, e, kond, projekt, aendern }) {
 
       <section className="karte">
         <h2>Freie Notizen des Beraters</h2>
-        <Textfeld id="notizen" label="Notizen vom Termin" wert={d.notizen} zeilen={6} onChange={w => aendern("notizen", w)} />
+        <Textfeld id="notizen" label="Notizen vom Termin" wert={d.notizen} zeilen={6} onChange={w => aendern("notizen", w)} marke={mk("notizen")} />
       </section>
 
       <section className="karte">
         <h2>Förderdaten</h2>
         <div className="felder">
-          <ZahlFeld id="f-we" ganzzahl label="Wohneinheiten gesamt" wert={f.we} onChange={w => aendern("foerder.we", w)} />
-          <ZahlFeld id="f-eig" ganzzahl label="davon selbstgenutzt" wert={f.we_eigen} onChange={w => aendern("foerder.we_eigen", w)} />
-          <ZahlFeld id="f-verm" ganzzahl label="davon vermietet" wert={f.we_verm} onChange={w => aendern("foerder.we_verm", w)} />
+          <div className="mit-marke"><ZahlFeld id="f-we" ganzzahl label="Wohneinheiten gesamt" wert={f.we} onChange={w => aendern("foerder.we", w)} />{mk("foerder.we")}</div>
+          <div className="mit-marke"><ZahlFeld id="f-eig" ganzzahl label="davon selbstgenutzt" wert={f.we_eigen} onChange={w => aendern("foerder.we_eigen", w)} />{mk("foerder.we_eigen")}</div>
+          <div className="mit-marke"><ZahlFeld id="f-verm" ganzzahl label="davon vermietet" wert={f.we_verm} onChange={w => aendern("foerder.we_verm", w)} />{mk("foerder.we_verm")}</div>
           <label htmlFor="f-eink">Einkommensbonus KfW 458
             <select id="f-eink" value={String(f.einkommensbonus || 0)} onChange={x => aendern("foerder.einkommensbonus", Number(x.target.value))}>
               <option value="0">kein Einkommensbonus</option>
               {stufen.map(s => <option key={s} value={String(s)}>{proz(s)}</option>)}
-            </select></label>
+            </select>{mk("foerder.einkommensbonus")}</label>
           <label htmlFor="f-eh">Effizienzhaus-Ziel (KfW 261)
             <select id="f-eh" value={f.eh_stufe || ""} onChange={x => aendern("foerder.eh_stufe", x.target.value || null)}>
               <option value="">kein Effizienzhaus-Ziel</option>
               {ehStufen.map(s => <option key={s} value={s}>{EH_TEXT[s] || s}</option>)}
             </select></label>
-          <ZahlFeld id="f-ke" label="Investitionskosten Einzelmaßnahmen (€)" wert={f.kosten_einzel} onChange={w => aendern("foerder.kosten_einzel", w)} />
-          <ZahlFeld id="f-kh" label="Investitionskosten Effizienzhaus (€)" wert={f.kosten_effizienzhaus} onChange={w => aendern("foerder.kosten_effizienzhaus", w)} />
+          <div className="mit-marke"><ZahlFeld id="f-ke" label="Investitionskosten Einzelmaßnahmen (€)" wert={f.kosten_einzel} onChange={w => aendern("foerder.kosten_einzel", w)} />{mk("foerder.kosten_einzel")}</div>
+          <div className="mit-marke"><ZahlFeld id="f-kh" label="Investitionskosten Effizienzhaus (€)" wert={f.kosten_effizienzhaus} onChange={w => aendern("foerder.kosten_effizienzhaus", w)} />{mk("foerder.kosten_effizienzhaus")}</div>
         </div>
         <div className="schalter">
-          <label><input type="checkbox" checked={!!f.klimabonus} onChange={x => aendern("foerder.klimabonus", x.target.checked)} /> Klimageschwindigkeitsbonus (KfW 458)</label>
-          <label><input type="checkbox" checked={!!f.eh_wpb} onChange={x => aendern("foerder.eh_wpb", x.target.checked)} /> Worst Performing Building (WPB)</label>
+          <label><input type="checkbox" checked={!!f.klimabonus} onChange={x => aendern("foerder.klimabonus", x.target.checked)} /> Klimageschwindigkeitsbonus (KfW 458) {mk("foerder.klimabonus")}</label>
+          <label><input type="checkbox" checked={!!f.eh_wpb} onChange={x => aendern("foerder.eh_wpb", x.target.checked)} /> Worst Performing Building (WPB) {mk("foerder.eh_wpb")}</label>
           <label><input type="checkbox" checked={!!f.eh_sersan} onChange={x => aendern("foerder.eh_sersan", x.target.checked)} /> Serielle Sanierung (Bonus KfW 261)</label>
         </div>
         <WeHinweise hinweise={e.wohneinheiten?.hinweise} onUebernehmen={w => aendern("foerder.we", w)} />
-        <p className="klein">Klimabonus nur beim Austausch einer funktionstüchtigen fossilen Heizung – bei einer Gasheizung nur, wenn die Inbetriebnahme mindestens 20 Jahre zurückliegt.
-          {kond?.kfw_458?.klimabonus_hinweis ? ` Konditionen: ${kond.kfw_458.klimabonus_hinweis}` : ""} Kosten nur aus Angaben des Beraters (keine Schätzung durch die KI).</p>
+        <p className="klein">{klimabonusText(kond?.kfw_458?.klimabonus_hinweis)}</p>
       </section>
 
       {pflicht.length > 0 && (

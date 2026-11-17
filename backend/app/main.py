@@ -7,7 +7,7 @@ from sqlalchemy.orm import Session
 
 from app import (angebotsvorlagen_api, auth, bericht_init, benutzer_api, checkliste, dateien_api, foerderpruefung, konditionen_zentrale,
                  projekte_api, word)
-from app import wohneinheiten
+from app import ki_referenzen_api, wohneinheiten
 from app.auth import aktueller_benutzer, rolle
 from app.db import get_db
 from app.rechnen import FoerdervergleichEingaben, FoerdervergleichIn, foerdervergleich_rechnen, lade_geplante, lade_konditionen
@@ -23,6 +23,7 @@ async def lebenszyklus(app):
 app = FastAPI(title="Berater-Cockpit API", version="0.2.0", root_path="/api", lifespan=lebenszyklus)
 app.include_router(auth.router)
 app.include_router(benutzer_api.router)
+app.include_router(ki_referenzen_api.router)
 app.include_router(projekte_api.router)
 app.include_router(dateien_api.router)
 app.include_router(word.router)

@@ -24,6 +24,7 @@ services:
       KI_AKTIV: ${KI_AKTIV:-false}
       KI_ANBIETER: ${KI_ANBIETER:-anthropic}
       KI_MODELL: ${KI_MODELL:-claude-sonnet-5-5}
+      CHECKLISTE_MODELL: ${CHECKLISTE_MODELL:-claude-sonnet-5-5}   # Checkliste einlesen (Phase 2g, Foto/PDF)
       KI_MAX_LAEUFE_TAG: ${KI_MAX_LAEUFE_TAG:-10}
       ANTHROPIC_API_KEY: ${ANTHROPIC_API_KEY:-}
       # Wöchentliche Förderprüfung (Phase 2f): nur Förderwerte gehen an die KI, daher eigener Schalter. Standard AUS.

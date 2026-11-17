@@ -24,6 +24,9 @@ def _bloecke(inhalt: list[dict]) -> list[dict]:
         if teil["typ"] == "bild":
             aus.append({"type": "image", "source": {"type": "base64", "media_type": "image/jpeg",
                                                     "data": base64.standard_b64encode(teil["jpeg"]).decode("ascii")}})
+        elif teil["typ"] == "pdf":   # Scan als PDF (Checkliste einlesen, Phase 2g)
+            aus.append({"type": "document", "source": {"type": "base64", "media_type": "application/pdf",
+                                                       "data": base64.standard_b64encode(teil["pdf"]).decode("ascii")}})
         else:
             aus.append({"type": "text", "text": teil["text"]})
     return aus

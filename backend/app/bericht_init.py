@@ -22,7 +22,7 @@ from sqlalchemy import func, select
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session
 
-from app import config, dateien, ki, ki_texte, wohneinheiten
+from app import checkliste_import, config, dateien, ki, ki_texte, wohneinheiten
 from app.auth import aktueller_benutzer, rolle
 from app.dateien_api import _namen, datei_aus
 from app.db import get_db
@@ -368,7 +368,8 @@ def entwurf_aus(db: Session, e: BerichtEntwurf | None, p: Projekt, ich: Benutzer
         "daten": daten, "foto_zuordnung": zuordnung, "abschnitte": abschnitte,
         "fotos": [datei_aus(f, {}) for f in fotos],
         "fehlende_pflichtangaben": fehlend, "pflichtangaben": PFLICHT, "alle_geprueft": alle_geprueft,
-        "bereit": alle_geprueft and not fehlend and not we_offen,
+        "bereit": alle_geprueft and not fehlend and not we_offen
+                  and not checkliste_import.offene_unsichere(((e.checkliste_import if e else None) or {}).get("markierungen")),
         "wohneinheiten": {"hinweise": we_hinweise, "offen": we_offen,
                           "pruefungen": [{k: x.get(k) for k in ("von", "am", "texte")} for x in (e.we_pruefungen if e else None) or []]},
         "darf_bearbeiten": any(r in ich.rollen for r in ("admin", "berater", "verwaltung")),
@@ -379,7 +380,27 @@ def entwurf_aus(db: Session, e: BerichtEntwurf | None, p: Projekt, ich: Benutzer
         "bearbeitet_von": namen.get(e.bearbeitet_von_id) if e else None, "bearbeitet_am": e.bearbeitet_am if e else None,
         "letzter_bericht_id": e.letzter_bericht_id if e else None,
         "foerder_vorschau": _foerder_vorschau(db, daten),
+        "checkliste_import": _import_aus(e),
     }
+
+
+def _import_aus(e: BerichtEntwurf | None) -> dict:
+    """Stand „Checkliste einlesen“ (Phase 2g) für die Oberfläche – ohne Rohantwort und ohne wartendes Leseergebnis."""
+    st = (e.checkliste_import if e else None) or {}
+    lauf = {k: v for k, v in (st.get("letzter_lauf") or {}).items() if k != "rohantwort"}
+    markierungen = st.get("markierungen") or {}
+    ausstehend = st.get("ausstehend") or {}
+    return {"markierungen": markierungen, "konflikte": st.get("konflikte") or [], "hinweise": st.get("hinweise") or [],
+            "unsicher_offen": checkliste_import.offene_unsichere(markierungen), "letzter_lauf": lauf or None,
+            "warnung": ausstehend.get("warnung"), "warnung_dateien": ausstehend.get("datei_ids") or [],
+            "ki_aktiv": config.KI_AKTIV, "laeufe_heute": _import_laeufe_heute(e) if e else 0,
+            "max_laeufe_tag": config.KI_MAX_LAEUFE_TAG, "max_dateien": config.CHECKLISTE_MAX_DATEIEN,
+            "max_bytes": config.CHECKLISTE_MAX_BYTES}
+
+
+def _import_laeufe_heute(e: BerichtEntwurf) -> int:
+    heute = datetime.now(BERLIN).date().isoformat()
+    return sum(1 for t in (e.checkliste_import or {}).get("ki_tage", []) if t == heute)
 
 
 # ---------- Routen: Entwurf ----------
@@ -417,6 +438,10 @@ def entwurf_speichern(projekt_id: int, aenderung: EntwurfAenderung, request: Req
         raise HTTPException(422, "Der Checklisten-Scan muss eine Datei aus den Unterlagen dieses Projekts sein.")
     geaendert = d != e.daten or z != e.foto_zuordnung
     if geaendert:
+        st = dict(e.checkliste_import or {})
+        if st.get("markierungen"):   # von Hand geänderte Felder aus der Checkliste gelten als geprüft
+            st["markierungen"] = checkliste_import.markierungen_nachfuehren(st["markierungen"], d)
+            e.checkliste_import = st
         e.daten, e.foto_zuordnung = d, z
         _status_nachfuehren(e)
         e.revision += 1
@@ -719,6 +744,11 @@ def bericht_erzeugen(projekt_id: int, request: Request, ich: Benutzer = Depends(
              or (e.abschnitte or {})[a].get("fingerabdruck") != ki_texte.fingerabdruck(ki_texte.inhalt(a, e.daten, e.foto_zuordnung))]
     if offen:
         raise HTTPException(422, {"meldung": f"Noch nicht freigegeben: {', '.join(offen)}.", "abschnitte": offen})
+    unsicher = checkliste_import.offene_unsichere((e.checkliste_import or {}).get("markierungen"))
+    if unsicher:   # Regel 4: Werte aus der Checkliste, die die KI nicht sicher lesen konnte, erst nach Bestätigung
+        marken = (e.checkliste_import or {}).get("markierungen") or {}
+        raise HTTPException(422, {"meldung": f"{len(unsicher)} Wert(e) aus der Checkliste bitte prüfen: "
+                                             + ", ".join(marken[x]["label"] for x in unsicher) + ".", "checkliste": unsicher})
     fehlend = _fehlende_pflicht(e.daten)
     if fehlend:
         raise HTTPException(422, {"meldung": "Pflichtangaben fehlen (ausfüllen oder „bewusst leer“ markieren): "
@@ -804,3 +834,142 @@ def bericht_erzeugen(projekt_id: int, request: Request, ich: Benutzer = Depends(
         raise HTTPException(409, "Gleichzeitig wurde eine andere Version erzeugt. Bitte erneut versuchen.") from None
     return {"bericht_id": b.id, "versionsnummer": version, "konditionen_version": kond["version"],
             "datei": datei_aus(d, _namen(db, [ich.id])), "foerderung": rk}
+
+
+# ---------- Vor-Ort-Checkliste einlesen (Phase 2g) ----------
+
+class ChecklisteEinlesen(BaseModel):
+    datei_ids: list[int] = Field(min_length=1, max_length=20)
+    revision: int
+    trotz_warnung: bool = False
+
+
+class KonfliktEntscheidung(BaseModel):
+    pfad: str = Field(max_length=100)
+    aktion: Literal["uebernehmen", "behalten"]
+
+
+class Bestaetigen(BaseModel):
+    pfade: list[str] = Field(min_length=1, max_length=100)
+
+
+@router.post("/projekte/{projekt_id}/bericht-init/entwurf/checkliste-einlesen")
+def checkliste_einlesen(projekt_id: int, daten: ChecklisteEinlesen, request: Request, ich: Benutzer = Depends(bearbeiten),
+                        db: Session = Depends(get_db)):
+    """Ausgefüllte Vor-Ort-Checkliste (Unterlagen, Kategorie „checkliste“) einlesen und leere Felder von „1. Daten“ füllen.
+    Word ohne KI; Fotos/PDF per KI (KI_AKTIV). Gehört der Bogen vermutlich zu einem anderen Projekt/Kunden, kommt zuerst eine
+    Warnung (Ergebnis wird zwischengespeichert, „trotz_warnung“ übernimmt es ohne zweiten KI-Lauf)."""
+    p = _projekt(db, projekt_id)
+    e = _entwurf_oder_neu(db, p, ich)
+    if daten.revision != e.revision:
+        raise HTTPException(409, "Der Entwurf wurde inzwischen geändert. Bitte zuerst speichern bzw. neu laden.")
+    liste = checkliste_import.dateien_pruefen(db, p, daten.datei_ids)
+    st = dict(e.checkliste_import or {})
+    ids = [d.id for d in liste]
+    wartend = st.get("ausstehend") or {}
+    if daten.trotz_warnung and wartend.get("datei_ids") == ids:
+        ir, hinweise, lauf = wartend["ir"], wartend.get("hinweise", []), wartend["lauf"]
+    else:
+        ir, hinweise, lauf = {}, [], {"art": "word", "kosten_usd": 0.0}
+        for d in [x for x in liste if x.mime_typ == checkliste_import.WORD]:
+            ir.update({k: v for k, v in checkliste_import.word_lesen(dateien.inhalt_pfad(d.speichername)).items() if k not in ir})
+        bilder = [x for x in liste if x.mime_typ != checkliste_import.WORD]
+        if bilder:
+            if _import_laeufe_heute(e) >= config.KI_MAX_LAEUFE_TAG:
+                raise HTTPException(429, f"Heute wurden für diesen Entwurf bereits {config.KI_MAX_LAEUFE_TAG} Checklisten per KI "
+                                         "eingelesen. Bitte morgen erneut.")
+            try:
+                ki_ir, hinweise, lauf = checkliste_import.ki_lesen(db, bilder)
+            except ki.KiFehler as fehler:
+                protokollieren(db, request, "checkliste_einlesen_fehlgeschlagen", ich.id, projekt_id=p.id, status=fehler.status,
+                               meldung=fehler.meldung[:200])
+                db.commit()
+                raise HTTPException(fehler.status, fehler.meldung) from None
+            st["ki_tage"] = [*[t for t in st.get("ki_tage", []) if t >= datetime.now(BERLIN).date().isoformat()],
+                             datetime.now(BERLIN).date().isoformat()]
+            if ir:
+                lauf["art"] = "word+ki"
+            ir.update({k: v for k, v in ki_ir.items() if k not in ir})   # Getipptes (Word) geht vor
+        warnung, abgleich_hinweise = checkliste_import.abgleich(ir, p)
+        hinweise = [*hinweise, *abgleich_hinweise]
+        if warnung and not daten.trotz_warnung:
+            st["ausstehend"] = {"datei_ids": ids, "ir": ir, "hinweise": hinweise, "lauf": lauf, "warnung": warnung}
+            e.checkliste_import = st
+            protokollieren(db, request, "checkliste_einlesen_warnung", ich.id, projekt_id=p.id, art=lauf["art"],
+                           kosten_usd=lauf.get("kosten_usd"))
+            db.commit()
+            return {"warnung": warnung, "entwurf": entwurf_aus(db, e, p, ich)}
+    try:
+        kond = lade_konditionen(db=db)
+    except HTTPException:
+        kond = {}
+    neu = copy.deepcopy(e.daten)
+    markierungen = dict(st.get("markierungen") or {})
+    gefuellt, konflikte = checkliste_import.anwenden(neu, checkliste_import.ziele(ir, kond), markierungen)
+    if not (neu.get("checkliste") or {}).get("scan_datei_id"):
+        neu.setdefault("checkliste", {})["scan_datei_id"] = ids[0]        # Nachweis am Bericht
+    neu = EntwurfDaten.model_validate(neu).model_dump()                    # nur gültige Formularwerte
+    unsicher = checkliste_import.offene_unsichere(markierungen)
+    st.update({"markierungen": markierungen, "konflikte": konflikte, "hinweise": hinweise, "ausstehend": None,
+               "letzter_lauf": {**lauf, "zeit": jetzt().isoformat(), "datei_ids": ids, "von_id": ich.id,
+                                "gefuellt": len(gefuellt), "unsicher": len(unsicher), "konflikte": len(konflikte)}})
+    e.checkliste_import = st
+    e.daten = neu
+    _status_nachfuehren(e)
+    e.revision += 1
+    e.status = "offen"
+    e.bearbeitet_von_id, e.bearbeitet_am = ich.id, jetzt()
+    p.geaendert_am = jetzt()
+    protokollieren(db, request, "checkliste_eingelesen", ich.id, projekt_id=p.id, art=lauf["art"], dateien=ids,
+                   felder=len(gefuellt), unsicher=len(unsicher), konflikte=len(konflikte), kosten_usd=lauf.get("kosten_usd"),
+                   modell=lauf.get("modell"), trotz_warnung=daten.trotz_warnung)
+    db.commit()
+    return {"warnung": None, "ergebnis": {"gefuellt": gefuellt, "unsicher": unsicher, "konflikte": konflikte, "hinweise": hinweise,
+                                          "kosten_usd": lauf.get("kosten_usd")},
+            "entwurf": entwurf_aus(db, e, p, ich)}
+
+
+@router.post("/projekte/{projekt_id}/bericht-init/entwurf/checkliste-konflikt")
+def checkliste_konflikt(projekt_id: int, daten: KonfliktEntscheidung, request: Request, ich: Benutzer = Depends(bearbeiten),
+                        db: Session = Depends(get_db)):
+    """Abweichung zwischen Checkliste und vorhandenem Wert: „uebernehmen“ (Wert der Checkliste) oder „behalten“."""
+    p = _projekt(db, projekt_id)
+    e = _entwurf(db, p)
+    st = dict((e.checkliste_import if e else None) or {})
+    k = next((x for x in st.get("konflikte") or [] if x["pfad"] == daten.pfad), None)
+    if e is None or k is None:
+        raise HTTPException(404, "Diese Abweichung gibt es nicht (mehr).")
+    st["konflikte"] = [x for x in st["konflikte"] if x["pfad"] != daten.pfad]
+    if daten.aktion == "uebernehmen":
+        neu = copy.deepcopy(e.daten)
+        checkliste_import.setzen_pfad(neu, daten.pfad, k["neu"])
+        e.daten = EntwurfDaten.model_validate(neu).model_dump()
+        st["markierungen"] = {**(st.get("markierungen") or {}), daten.pfad: {
+            "label": k["label"], "wert": k["neu"], "sicher": k["sicher"], "rohtext": k["rohtext"], "bestaetigt": False}}
+        _status_nachfuehren(e)
+        e.revision += 1
+        e.bearbeitet_von_id, e.bearbeitet_am = ich.id, jetzt()
+    e.checkliste_import = st
+    protokollieren(db, request, "checkliste_konflikt", ich.id, projekt_id=p.id, pfad=daten.pfad, entscheidung=daten.aktion)
+    db.commit()
+    return entwurf_aus(db, e, p, ich)
+
+
+@router.post("/projekte/{projekt_id}/bericht-init/entwurf/checkliste-bestaetigen")
+def checkliste_bestaetigen(projekt_id: int, daten: Bestaetigen, request: Request, ich: Benutzer = Depends(bearbeiten),
+                           db: Session = Depends(get_db)):
+    """Unsichere Werte aus der Checkliste nach Sichtprüfung bestätigen (Regel 4: KI-Werte bis zur Bestätigung markiert)."""
+    p = _projekt(db, projekt_id)
+    e = _entwurf(db, p)
+    st = dict((e.checkliste_import if e else None) or {})
+    markierungen = dict(st.get("markierungen") or {})
+    unbekannt = [x for x in daten.pfade if x not in markierungen]
+    if e is None or unbekannt:
+        raise HTTPException(404, "Markierung nicht gefunden: " + ", ".join(unbekannt))
+    for x in daten.pfade:
+        markierungen[x] = {**markierungen[x], "bestaetigt": True, "bestaetigt_von_id": ich.id, "bestaetigt_am": jetzt().isoformat()}
+    st["markierungen"] = markierungen
+    e.checkliste_import = st
+    protokollieren(db, request, "checkliste_werte_bestaetigt", ich.id, projekt_id=p.id, pfade=daten.pfade)
+    db.commit()
+    return entwurf_aus(db, e, p, ich)

@@ -395,6 +395,35 @@ Ausführliches Fachkonzept: `docs/Konzept_Berater-Cockpit.docx` (falls abgelegt)
 - Protokoll: `bericht_entwurf_geaendert`, `bericht_ki_vorschlag`, `bericht_ki_fehlgeschlagen`, `bericht_abschnitt_freigegeben`,
   `bericht_gespeichert`, `bericht_word_erzeugt`/`_fehlgeschlagen` – ohne Texte, Namen oder Anschriften.
 
+## Vor-Ort-Checkliste einlesen (Stand 17.11.2026, Phase 2g)
+- INIT, Reiter „1. Daten“, Kasten „Checkliste einlesen“: Dateien werden als Unterlagen (Kategorie `checkliste`, Nachweis;
+  Duplikat → vorhandene Datei) hochgeladen, dann `POST …/bericht-init/entwurf/checkliste-einlesen` {datei_ids, revision,
+  trotz_warnung} (berater, verwaltung, admin). Höchstens 10 Dateien, je 15 MB; JPG/PNG/HEIC/PDF/DOCX. Erste Datei → `checkliste.scan_datei_id`.
+- `app/checkliste_import.py`: **Word ohne KI** (`word_lesen`: Zellen mit fetter Beschriftung, ☒/☑/✓ bzw. „☐ X“ = angekreuzt,
+  freie Zeilen der Ankreuzlisten, Projekt-ID aus dem Fuß; Aufbau wie `generate_checklist.js`). **Foto/PDF per KI** (`ki_lesen`:
+  `CHECKLISTE_MODELL`, Standard Sonnet 5.5, strukturierte Ausgabe `SCHEMA`, Bilder 1568 px, PDF als Dokument; nur mit `KI_AKTIV`,
+  sonst 503 – Word geht weiter). Prompt `app/ki/prompts/checkliste_v1.md` (`PROMPT-VERSION: checkliste-1`) + Handschrift-Profil +
+  Feldliste `FELDER`. Feste Regeln: Zahlen nie raten (unsicher → leer + Rohtext, auch im Code erzwungen), nichts ergänzen, wörtlich
+  mit Einheit, Fachbegriffe aus dem Profil, kein Telefon/E-Mail.
+- Gemeinsames Zwischenformat → `ziele()` (Entwurfspfade, zusammengesetzte Stichpunkt-Texte, Verbrauchstabelle, KfW-458-Klimabonus,
+  WPB aus „Gebäude entspricht WPB“) → `anwenden()`: **nur leere Felder füllen**, abweichende vorhandene Werte = Konflikte
+  (`…/checkliste-konflikt` übernehmen/behalten; Abkürzungen wie „M. Serek“ zählen nicht). Markierungen je Feld in
+  `bericht_entwuerfe.checkliste_import` (Migration 0012): „aus Checkliste“, unsicher = gelb „bitte prüfen“ mit Rohtext. Von Hand
+  geänderte Felder verlieren die Markierung beim Speichern; unsichere bestätigen per `…/checkliste-bestaetigen`. **Erzeugen
+  gesperrt, solange unsichere Werte offen sind** (Regel 4). Investitionskosten nur abgeschrieben und immer „bitte prüfen“.
+- **Abgleich** (`abgleich`): andere Projekt-ID, deutlich anderer Kundenname oder andere Objekt-PLZ → Warnung „Checkliste gehört
+  vermutlich zu … – trotzdem übernehmen?“; das Leseergebnis wartet in `checkliste_import.ausstehend` (kein zweiter KI-Lauf).
+  Kunden-/Objektanschrift werden **nie** in die Projektdaten geschrieben, Abweichungen nur als Hinweis.
+- Kosten wie Förderprüfung (`kosten_usd`) im letzten Lauf und im Protokoll `checkliste_eingelesen` (Art, Datei-IDs, Anzahlen,
+  Kosten, Modell – keine Inhalte); `checkliste_einlesen_warnung`, `_fehlgeschlagen`, `checkliste_konflikt`, `checkliste_werte_bestaetigt`.
+  Grenze `KI_MAX_LAEUFE_TAG` je Entwurf und Tag (KI-Läufe). Testlauf 17.11.2026 (synthetisches Handschrift-Bild, Seite 1): 0,03–0,04 $.
+- **Handschrift-Profil:** Admin-Seite „Handschrift-Profil“ (`/ki-referenzen/handschrift_profil`, Tabelle `ki_referenzen`, Protokoll
+  `ki_referenz_geaendert` nur mit Zeichenzahl); ohne gespeicherte Fassung gilt `app/ki/referenz/handschrift_profil.md`.
+- **Datenschutz:** Ein Foto des Bogens enthält zwangsläufig Namen, Anschriften, Telefon und Anwesende – Platzhalter sind hier nicht
+  möglich. Deshalb gilt dieselbe Freigabe wie für `KI_AKTIV` (AVV, GF); auf dem Testserver eingeschaltet (17.11.2026), nur Testdaten.
+- Tests: `tests/test_checkliste_import.py` (Word-Datei `tests/daten/checkliste_init_ausgefuellt.docx` aus Generator 0.4.4, Ersatz-KI),
+  `frontend/src/ChecklisteEinlesen.test.jsx`.
+
 ## KI-Textvorschläge (Stand 13.11.2026, Phase 2b)
 - `app/ki/` = austauschbare Schnittstelle (Regel 7; `anthropic` umgesetzt, `langdock` meldet „noch nicht angebunden“), offizielles SDK
   `anthropic`, strukturierte Ausgabe per JSON-Schema (`ki_texte.SCHEMA`). Fachlogik in `app/ki_texte.py`; Systemprompt versioniert als
@@ -429,6 +458,7 @@ Fachregeln, Rechenkern, Generator. Die Oberfläche soll Masken aus dieser Beschr
 - **Phase 2b (umgesetzt 13.11.2026, Abnahme offen):** Beratungsbericht INIT mit KI-Textvorschlägen (siehe Abschnitte oben).
 - **Phase 2f (umgesetzt 16.11.2026, Abnahme 1–4 bestanden 16.11.2026; Kostensenkung zweistufig/Sonnet, alle 14 Tage):** Förderprüfung mit Meldungen und E-Mail an Empfänger, Stand-Angabe
   „Förderbedingungen Stand … (interne Version N)“, Generator 0.4.3; Generator 0.4.4 (17.11.2026): WPB-Bonus EM „angekündigt“ im Word.
+- **Phase 2g (umgesetzt 17.11.2026, Abnahme offen):** Vor-Ort-Checkliste einlesen (Word ohne KI, Foto/PDF per KI), Handschrift-Profil.
 - **Phase 2:** MEH (danach) und Kirche nach demselben Muster; INIT und MEH mit KI (Checklisten-Erkennung, Fotozuordnung) – vorhandene Generatoren `generate_report.js` aus den Skills einbinden.
 - **Phase 3:** Kirche. **Phase 4:** Änderungs-Monitor für Förderquellen, Freigabe-Workflow, Anbindung IR-Planer.
 

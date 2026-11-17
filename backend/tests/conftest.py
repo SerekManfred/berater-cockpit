@@ -63,6 +63,8 @@ def _leere_tabellen():
     mail.GESENDET.clear()
     with SessionLocal() as db:
         db.execute(delete(FoerderMeldung))   # vor Konditionen und Benutzern (Fremdschlüssel)
+        from app.modelle import KiReferenz
+        db.execute(delete(KiReferenz))       # Handschrift-Profil: zurück auf die ausgelieferte Datei
         # Konditionen: nur der Startbestand (Version 1, aktiv) bleibt
         db.execute(delete(KonditionenVersion).where(KonditionenVersion.version != 1))
         db.execute(update(KonditionenVersion).where(KonditionenVersion.version == 1).values(status="aktiv"))

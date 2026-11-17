@@ -237,3 +237,13 @@ td.angekuendigt { background: var(--gold-l); }
 .vorschau-karte { border: 3px dashed var(--gold); background: repeating-linear-gradient(135deg, #fff, #fff 18px, #FBF6EC 18px, #FBF6EC 36px); }
 .vorschau-band { background: var(--gold); color: #2F2F36; font-weight: bold; padding: 10px 14px; border-radius: 6px; font-size: 15px; }
 .warnung-karte { border-left: 4px solid var(--gold); background: #FFFDF7; }
+
+/* Checkliste einlesen (Phase 2g) */
+.marke-cl { display: inline-block; margin-top: 4px; padding: 1px 6px; border-radius: 4px; background: var(--grau-l); color: #4A4A52; font-size: 12px; font-weight: normal; }
+.marke-cl.unsicher { background: var(--gold-l); color: #5C4310; border-left: 3px solid var(--gold); }
+.feld-unsicher { background: #FFF8E6; border-color: var(--gold) !important; }
+.liste-kompakt { margin: 6px 0 0; padding-left: 20px; }
+.liste-kompakt li { margin: 4px 0; }
+.klein-knopf { min-height: 32px; padding: 4px 10px; font-size: 13px; }
+.datei-waehlen { position: relative; cursor: pointer; display: inline-flex; align-items: center; }
+.mit-marke { display: flex; flex-direction: column; }
