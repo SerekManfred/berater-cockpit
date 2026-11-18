@@ -110,7 +110,7 @@ FELDER: tuple[Feld, ...] = (
     Feld("einkommensbonus_stufe", "Einkommensbonus – Stufe (40/30/10 %), falls handschriftlich angegeben", "auswahl",
          ("40", "30", "10"), "KfW 458"),
     Feld("sonstige_notizen", "Sonstige Notizen / Skizze / Reihenfolge", abschnitt="Notizen"),
-    Feld("eh_ziel", "Angestrebtes Effizienzniveau (z. B. „EH 55 EE“, „EH 70 EE NH“) – nur wenn notiert, wörtlich", abschnitt="Notizen"),
+    Feld("eh_ziel", "Angestrebtes Effizienzniveau (z. B. „EH 55 EE“, „EH 70 NH“) – nur wenn notiert, wörtlich", abschnitt="Notizen"),
     Feld("kosten_einzel", "Investitionskosten Einzelmaßnahmen (€) – nur wenn ausdrücklich notiert", "zahl", abschnitt="Notizen"),
     Feld("kosten_effizienzhaus", "Investitionskosten Effizienzhaus (€) – nur wenn ausdrücklich notiert", "zahl", abschnitt="Notizen"),
 )
@@ -374,14 +374,15 @@ ZIEL_LABEL = {
     "verbrauch.tabelle": "Energieverbräuche", "notizen": "Notizen vom Termin", "foerder.klimabonus": "Klimageschwindigkeitsbonus",
     "foerder.einkommensbonus": "Einkommensbonus KfW 458", "foerder.eh_wpb": "Worst Performing Building (WPB)",
     "foerder.kosten_einzel": "Investitionskosten Einzelmaßnahmen", "foerder.kosten_effizienzhaus": "Investitionskosten Effizienzhaus",
-    "foerder.eh_stufe": "Effizienzhaus-Ziel (KfW 261)", "foerder.eh_nh": "Nachhaltigkeits-Klasse (NH)",
+    "foerder.eh_stufe": "Effizienzhaus-Ziel (KfW 261)", "foerder.eh_nh": "NH-Klasse statt EE-Klasse",
 }
 EH_MUSTER = re.compile(r"(?:\bEH|Effizienzhaus)\s*-?\s*(40|55|70|85|Denkmal)\b((?:\s*[-/+,]?\s*(?:EE|NH)\b)*)", re.IGNORECASE)
 
 
 def eh_ziel_lesen(texte: list[str]) -> tuple[dict | None, dict | None]:
-    """Angestrebtes Effizienzniveau aus Notizen/freien Zeilen. Nur mit EE-Klasse eindeutig (Stufen der Konditionen sind EE-Stufen);
-    ohne Klasse, nur NH oder mehrere verschiedene Angaben → unsicher (Rückfrage), nie geraten. → (eh_stufe-Ziel, eh_nh-Ziel)"""
+    """Angestrebtes Effizienzniveau aus Notizen/freien Zeilen. Eindeutig nur mit genau einer Klasse – EE oder NH (Alternativen,
+    Merkblatt 261). Ohne Klasse, „EE + NH“ oder mehrere verschiedene Angaben → unsicher (Rückfrage), nie geraten.
+    → (eh_stufe-Ziel, eh_nh-Ziel); eh_stufe ist immer der Stufenschlüssel der Konditionen (…EE)."""
     treffer = []
     for t in texte:
         for m in EH_MUSTER.finditer(t or ""):
@@ -392,10 +393,11 @@ def eh_ziel_lesen(texte: list[str]) -> tuple[dict | None, dict | None]:
         return None, None
     roh = "; ".join(dict.fromkeys(x[3] for x in treffer))
     eindeutig = {(s, ee, nh) for s, ee, nh, _ in treffer}
-    if len(eindeutig) == 1 and treffer[0][1]:
-        s, _, nh, _ = treffer[0]
+    s, ee, nh, _ = treffer[0]
+    if len(eindeutig) == 1 and ee != nh:          # genau eine Klasse
         return _ziel(True, s, [roh]), (_ziel(True, True, [roh]) if nh else None)
-    grund = "mehrere Angaben" if len(eindeutig) > 1 else "Klasse (EE) fehlt"
+    grund = ("mehrere Angaben" if len(eindeutig) > 1 else "EE und NH sind Alternativen" if ee and nh
+             else "Klasse (EE oder NH) fehlt")
     return _ziel(False, None, [roh, f"{grund} – bitte Stufe wählen"]), None
 EINFACH = {"termin_datum": "termin.datum", "anwesende": "termin.anwesende", "berater": "termin.berater",
            "gebaeudetyp": "objekt.gebaeudetyp", "baujahr": "objekt.baujahr", "wohnflaeche": "objekt.wohnflaeche",

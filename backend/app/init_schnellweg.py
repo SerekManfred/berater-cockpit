@@ -131,14 +131,15 @@ KEIN_EH = "kein"
 
 
 def eh_optionen(db: Session) -> list[list[str]]:
-    """Auswahl „Effizienzhaus-Ziel“: Stufen der aktiven Konditionen, je mit NH-Option, und „kein Effizienzhaus-Vergleich“."""
+    """Auswahl „Effizienzhaus-Ziel“: Stufen der aktiven Konditionen je mit EE- oder NH-Klasse (Alternativen, Merkblatt 261),
+    dazu „kein Effizienzhaus-Vergleich“. Wert NH: Stufenschlüssel mit „NH“ statt „EE“ (z. B. EH55NH)."""
     try:
         stufen = list(lade_konditionen(db=db)["beg_wg"]["tilgungszuschuss"])
     except Exception:
         stufen = list(bi.EH_LABEL)
     aus = []
     for s in stufen:
-        aus += [[s, bi.EH_LABEL.get(s, s)], [s + "+NH", bi.EH_LABEL.get(s, s) + " + NH-Klasse"]]
+        aus += [[s, bi.eh_stufe_text(s)], [s.removesuffix("EE") + "NH", bi.eh_stufe_text(s, nh=True)]]
     return [*aus, [KEIN_EH, "kein Effizienzhaus-Vergleich"]]
 
 
@@ -150,7 +151,8 @@ def eh_setzen(daten: dict, wert: str, erlaubt: list[str]):
     if wert == KEIN_EH:
         f.update(eh_stufe=None, eh_nh=False, eh_kein_vergleich=True)
     else:
-        f.update(eh_stufe=wert.removesuffix("+NH"), eh_nh=wert.endswith("+NH"), eh_kein_vergleich=False)
+        nh = wert.endswith("NH")
+        f.update(eh_stufe=wert.removesuffix("NH") + "EE" if nh else wert, eh_nh=nh, eh_kein_vergleich=False)
 
 
 def rueckfragen(db: Session, e: BerichtEntwurf, p: Projekt, st: dict) -> list[dict]:

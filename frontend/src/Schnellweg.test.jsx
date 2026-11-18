@@ -54,14 +54,14 @@ describe("Schnellweg INIT", () => {
   it("Rückfrage Effizienzhaus-Ziel: Auswahl aus dem Backend, nicht weglassbar, nichts vorausgewählt", () => {
     const s = { status: "rueckfrage", rueckfragen: [{ id: "eh_ziel", pfad: "foerder.eh_stufe", label: "Effizienzhaus-Ziel (KfW 261)",
       typ: "eh_stufe", vorschlag: "", hinweis: "", weglassen_erlaubt: false,
-      optionen: [["EH55EE", "Effizienzhaus 55 EE"], ["EH55EE+NH", "Effizienzhaus 55 EE + NH-Klasse"], ["kein", "kein Effizienzhaus-Vergleich"]] }] };
+      optionen: [["EH55EE", "Effizienzhaus 55 EE"], ["EH55NH", "Effizienzhaus 55 NH"], ["kein", "kein Effizienzhaus-Vergleich"]] }] };
     render(<Rueckfragen z={zustand(s)} pfad="/x" onNeu={() => {}} />);
     const feld = screen.getByLabelText("Effizienzhaus-Ziel (KfW 261)");
     expect(feld.value).toBe("");
     expect([...feld.options].map(o => o.textContent)).toContain("kein Effizienzhaus-Vergleich");
     expect(screen.queryByRole("button", { name: "weglassen" })).toBe(null);
     expect(screen.getByRole("button", { name: "Weiter" }).disabled).toBe(true);
-    fireEvent.change(feld, { target: { value: "EH55EE+NH" } });
+    fireEvent.change(feld, { target: { value: "EH55NH" } });
     expect(screen.getByRole("button", { name: "Weiter" }).disabled).toBe(false);
   });
 });

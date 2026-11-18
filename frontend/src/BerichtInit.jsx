@@ -382,7 +382,7 @@ function DatenSchritt({ d, e, kond, projekt, aendern, einlesen = null }) {
           <label><input type="checkbox" checked={!!f.klimabonus} onChange={x => aendern("foerder.klimabonus", x.target.checked)} /> Klimageschwindigkeitsbonus (KfW 458) {mk("foerder.klimabonus")}</label>
           <label><input type="checkbox" checked={!!f.eh_wpb} onChange={x => aendern("foerder.eh_wpb", x.target.checked)} /> Worst Performing Building (WPB) {mk("foerder.eh_wpb")}</label>
           <label><input type="checkbox" checked={!!f.eh_sersan} onChange={x => aendern("foerder.eh_sersan", x.target.checked)} /> Serielle Sanierung (Bonus KfW 261)</label>
-          <label><input type="checkbox" checked={!!f.eh_nh} disabled={!f.eh_stufe} onChange={x => aendern("foerder.eh_nh", x.target.checked)} /> Nachhaltigkeits-Klasse (NH) {mk("foerder.eh_nh")}</label>
+          <label><input type="checkbox" checked={!!f.eh_nh} disabled={!f.eh_stufe} onChange={x => aendern("foerder.eh_nh", x.target.checked)} /> NH-Klasse statt EE-Klasse {mk("foerder.eh_nh")}</label>
         </div>
         <WeHinweise hinweise={e.wohneinheiten?.hinweise} onUebernehmen={w => aendern("foerder.we", w)} />
         <p className="klein">{klimabonusText(kond?.kfw_458?.klimabonus_hinweis)}</p>

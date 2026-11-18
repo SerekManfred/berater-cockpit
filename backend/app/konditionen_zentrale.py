@@ -113,8 +113,10 @@ PROGRAMME = [
         F("beg_wg.wpb_bonus_stufen", "WPB-Bonus für die Stufen", "mehrfach", optionen=STUFEN_OPTIONEN),
         # Bonus serielle Sanierung je Stufe (Merkblatt 261, Stand 09/2026; ab Version 3), Anteil wie der Tilgungszuschuss
         *[F(f"beg_wg.sersan_bonus.{s}", f"Bonus serielle Sanierung {EH_TEXT[s]} (ab Version 3)", "prozent", kern=True) for s in EH],
-        # Bonus Nachhaltigkeits-Klasse (NH) – optional; leer = nicht hinterlegt, dann rechnet das Cockpit keinen NH-Bonus (18.11.2026)
-        F("beg_wg.nh_bonus", "Bonus Nachhaltigkeits-Klasse (NH) – leer = nicht hinterlegt", "prozent", pflicht=False, kern=True),
+        # NH-Klasse statt EE-Klasse (Merkblatt 261, Stand 09/2026): Satz der Stufe + diese Prozentpunkte. Optional; leer = nicht
+        # hinterlegt → für NH-Stufen kein Tilgungszuschuss (GF 18.11.2026)
+        F("beg_wg.nh_bonus", "NH-Klasse: Aufschlag auf den Satz der Stufe (Prozentpunkte) – leer = nicht hinterlegt", "prozent",
+          pflicht=False, kern=True),
         F("beg_wg.kredit_je_we", "Kreditrahmen je WE", "euro", kern=True),
         F("beg_wg.tilgungszuschuss_max", "Tilgungszuschuss – Höchstsatz inkl. Boni (ab Version 3)", "prozent", kern=True),
         *baubegleitung("beg_wg"),

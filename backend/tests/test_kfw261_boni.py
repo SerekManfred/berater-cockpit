@@ -101,20 +101,35 @@ def test_init_ohne_haekchen_unveraendert():
     assert (w["eh_tilgung"], w["eh_sersan_bonus"], w["eh_hinweise"]) == (pytest.approx(0.15), 0.0, [])
 
 
-# ---------- NH-Klasse (18.11.2026): Bonus nur, wenn beg_wg.nh_bonus in den Konditionen steht ----------
+# ---------- NH-Klasse (Fachkorrektur GF 18.11.2026, Merkblatt 261 Stand 09/2026) ----------
+# EE und NH sind Alternativen. „Tilgungszuschuss EH xx EE“ ist der Satz der Stufe; mit NH „erhöht sich der jeweils anzusetzende
+# Prozentwert um zusätzliche 5 Prozentpunkte“ (beg_wg.nh_bonus). Keine Doppelzählung; ohne nh_bonus kein Ersatzwert.
 
-def test_init_nh_ohne_hinterlegten_satz_kein_bonus_mit_hinweis():
-    assert "nh_bonus" not in KOND_V3["beg_wg"]
-    mit = init_foerderung(InitEingaben(we=1, eh_stufe="EH55EE", eh_nh=True), KOND_V3)["werte"]
-    ohne = init_foerderung(InitEingaben(we=1, eh_stufe="EH55EE"), KOND_V3)["werte"]
-    assert mit["eh_tilgung_basis"] == ohne["eh_tilgung_basis"] == 0.05 and mit["eh_nh_bonus"] == 0.0
-    assert "NH-Bonus ist in dieser Konditionen-Version nicht hinterlegt" in mit["eh_hinweise"]
-
-
-def test_init_nh_mit_hinterlegtem_satz_und_hoechstsatz():
+@pytest.mark.parametrize("stufe,erwartet", [("EH40EE", 0.15), ("EH55EE", 0.10), ("EH70EE", 0.05), ("EH85EE", 0.05),
+                                            ("DenkmalEE", 0.10)])
+def test_init_nh_satz_regression_produktseite(stufe, erwartet):
+    """KfW-Produktseite: 40 NH 15 %, 55 NH 10 %, 70 NH 5 %, 85 NH 5 %, Denkmal NH 10 % (bei nh_bonus 0,05)."""
     k = copy.deepcopy(KOND_V3)
     k["beg_wg"]["nh_bonus"] = 0.05
-    w = init_foerderung(InitEingaben(we=1, eh_stufe="EH55EE", eh_nh=True), k)["werte"]
-    assert w["eh_tilgung_basis"] == pytest.approx(0.10) and w["eh_nh_bonus"] == 0.05 and w["eh_tilgung_stufe"] == 0.05
+    w = init_foerderung(InitEingaben(we=1, eh_stufe=stufe, eh_nh=True), k)["werte"]
+    assert w["eh_tilgung_basis"] == pytest.approx(erwartet) and w["eh_tilgung"] == pytest.approx(erwartet)
+    assert w["eh_tilgung_stufe"] == pytest.approx(erwartet) and w["eh_nh_bonus"] == 0.05 and w["eh_hinweise"] == []
+    ee = init_foerderung(InitEingaben(we=1, eh_stufe=stufe), k)["werte"]          # EE derselben Stufe: Satz der Stufe
+    assert ee["eh_tilgung"] == pytest.approx(KOND_V3["beg_wg"]["tilgungszuschuss"][stufe])
+
+
+def test_init_nh_ohne_hinterlegten_bonus_kein_ersatzwert():
+    assert "nh_bonus" not in KOND_V3["beg_wg"]
+    w = init_foerderung(InitEingaben(we=1, eh_stufe="EH55EE", eh_nh=True), KOND_V3)["werte"]
+    assert w["eh_tilgung_basis"] is None and w["eh_tilgung"] is None and w["eh_foerder"] is None
+    assert any(h.startswith("NH-Bonus ist in dieser Konditionen-Version nicht hinterlegt") for h in w["eh_hinweise"])
+
+
+def test_init_nh_mit_wpb_und_sersan_wie_ee_und_hoechstsatz():
+    k = copy.deepcopy(KOND_V3)
+    k["beg_wg"]["nh_bonus"] = 0.05
+    w = init_foerderung(InitEingaben(we=1, eh_stufe="EH70EE", eh_nh=True, eh_wpb=True, eh_sersan=True), k)["werte"]
+    assert w["eh_tilgung_basis"] == pytest.approx(0.05 + 0.05) and w["eh_wpb"] is True        # 70 NH + SerSan 5 %
+    assert w["eh_tilgung"] == pytest.approx(0.20)                                            # + WPB 10 %
     voll = init_foerderung(InitEingaben(we=1, eh_stufe="EH40EE", eh_nh=True, eh_wpb=True, eh_sersan=True), k)["werte"]
-    assert voll["eh_tilgung"] <= k["beg_wg"]["tilgungszuschuss_max"] + 1e-9          # Höchstsatz begrenzt auch mit NH
+    assert voll["eh_tilgung"] == pytest.approx(k["beg_wg"]["tilgungszuschuss_max"])          # 15 + 15 + 10 = 40 = Höchstsatz

@@ -59,7 +59,6 @@ def _zahl(name: str, standard: int, minimum: int = 1) -> int:
 KI_AKTIV = _schalter(os.environ.get("KI_AKTIV"), False)
 KI_ANBIETER = os.environ.get("KI_ANBIETER", "anthropic").strip().lower() or "anthropic"   # anthropic | langdock
 KI_MODELL = os.environ.get("KI_MODELL", "claude-sonnet-5-5").strip() or "claude-sonnet-5-5"
-KI_MAX_LAEUFE_TAG = _zahl("KI_MAX_LAEUFE_TAG", 10)        # je Entwurf und Kalendertag (Europe/Berlin)
 KI_ZEITLIMIT = float(_zahl("KI_ZEITLIMIT", 180, 10))      # Sekunden je KI-Lauf
 KI_MAX_FOTOS = _zahl("KI_MAX_FOTOS", 20)                  # so viele Fotos (verkleinert) gehen höchstens an die KI
 GENERATOR_TIMEOUT_BERICHT = 150.0  # Berichte mit Fotos brauchen länger als Checklisten (Generator-Zeitlimit 120 s)

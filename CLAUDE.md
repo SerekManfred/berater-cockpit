@@ -331,7 +331,7 @@ Ausführliches Fachkonzept: `docs/Konzept_Berater-Cockpit.docx` (falls abgelegt)
 ## KfW 261: WPB-Bonus und serielle Sanierung (Fachkorrektur Geschäftsführer 16.11.2026, Merkblatt 261 Stand 09/2026)
 - WPB-Bonus (+10 Prozentpunkte) nur für die Stufen in `beg_wg.wpb_bonus_stufen` (EH 40/55/70 EE – nicht EH 85, nicht Denkmal).
   Bonus serielle Sanierung je Stufe in `beg_wg.sersan_bonus` (EH 40/55: 15 %, EH 70: 5 %, sonst 0; Pflichtfeld ab Version 3).
-  NH-Stufen kennt das Cockpit (noch) nicht – nur EE-Stufen und Denkmal.
+  NH-Klasse: im INIT-Bericht seit 18.11.2026 (siehe „Schnellweg INIT“, Effizienzhaus-Ziel); im Fördervergleich noch nicht.
 - Eingabe: Fördervergleich `serielle_sanierung`, INIT `foerder.eh_sersan` (Häkchen in der Oberfläche). Konditionen ohne
   `sersan_bonus` (Version 1/2) → kein Bonus, Hinweis „nicht hinterlegt“.
 - **Der Bonus zählt zum Tilgungszuschuss** (der Generator kennt keinen eigenen Posten und wird nicht geändert): Fördervergleich →
@@ -451,14 +451,18 @@ Ausführliches Fachkonzept: `docs/Konzept_Berater-Cockpit.docx` (falls abgelegt)
   KI, auch fehlgeschlagene). `KI_MAX_LAEUFE_TAG` gilt nicht mehr.
 - Protokoll: `schnellweg_gestartet`, `_rueckfrage`, `_texte`, `_vorschau`, `_korrektur`, `_fehlgeschlagen`,
   `_vorschau_heruntergeladen`, `bericht_freigegeben`, `einstellung_geaendert` (ohne Texte/Namen).
-- **Effizienzhaus-Ziel (Geschäftsführer 18.11.2026):** Auswahl auf der Unterlagen-Seite (Stufen der aktiven Konditionen, je mit
-  NH-Option, dazu „kein Effizienzhaus-Vergleich“; `eh_optionen()`), **keine Voreinstellung**. Steht das Niveau auf der Checkliste
-  (Notizen/freie Zeilen/KI-Feld `eh_ziel`), übernimmt `checkliste_import.eh_ziel_lesen()` es **nur mit EE-Klasse**; ohne Klasse, nur
-  NH oder widersprüchlich → unsicher → Rückfrage mit Auswahl (nie geraten). Rückfrage „Effizienzhaus-Ziel“ sonst nur, wenn
+- **Effizienzhaus-Ziel (Geschäftsführer 18.11.2026):** Auswahl auf der Unterlagen-Seite – je Stufe der aktiven Konditionen **EE oder
+  NH** (Alternativen laut Merkblatt 261, Stand 09/2026; Werte z. B. `EH55EE`/`EH55NH`, kein „EE + NH“), dazu „kein
+  Effizienzhaus-Vergleich“ (`eh_optionen()`), **keine Voreinstellung**. Steht das Niveau auf der Checkliste (Notizen/freie Zeilen/
+  KI-Feld `eh_ziel`), übernimmt `checkliste_import.eh_ziel_lesen()` es **nur mit genau einer Klasse** („EH 55 EE“ bzw. „EH 55 NH“);
+  ohne Klasse, „EE + NH“ oder widersprüchlich → unsicher → Rückfrage mit Auswahl (nie geraten). Rückfrage „Effizienzhaus-Ziel“ sonst nur, wenn
   Effizienzhaus-Kosten eingetragen sind, aber keine Stufe. Entwurf: `foerder.eh_nh`, `foerder.eh_kein_vergleich` (Vorrang vor der
-  Checkliste; dann sind Effizienzhaus-Kosten keine Pflicht). **NH-Bonus nur aus `beg_wg.nh_bonus`** (optionales Konditionen-Feld,
-  leer = nicht hinterlegt → kein Bonus, Hinweis „NH-Bonus … nicht hinterlegt“; in Version 4/5 noch leer). Label
-  „Effizienzhaus 55 EE + NH-Klasse“. **„kein Vergleich“** → Generator bekommt `foerderung.eh_vergleich: false`, kein `eh_ziel`, keine
+  Checkliste; dann sind Effizienzhaus-Kosten keine Pflicht). **NH-Satz = Satz der EE-Stufe derselben Stufe +
+  `beg_wg.nh_bonus`** („Tilgungszuschuss EH xx EE“ ist der Satz der Stufe, kein separater EE-Bonus; keine Doppelzählung). `nh_bonus`
+  ist optional; **leer → für die NH-Stufe kein Tilgungszuschuss, kein Ersatzwert**, Hinweis „NH-Bonus … nicht hinterlegt“ (in
+  Version 4/5 noch leer). WPB und serielle Sanierung wie bei EE. Entwurf: `eh_stufe` bleibt der Stufenschlüssel (…EE), `eh_nh` = NH
+  statt EE; Label „Effizienzhaus 55 NH“. Regressionstest (nh_bonus 0,05): 40 NH 15 %, 55 NH 10 %, 70 NH 5 %, 85 NH 5 %, Denkmal NH 10 %
+  (`tests/test_kfw261_boni.py`). **„kein Vergleich“** → Generator bekommt `foerderung.eh_vergleich: false`, kein `eh_ziel`, keine
   Effizienzhaus-Kosten, leere Variante 8.1; die KI stellt den Weg nicht dar. **Weg B entfällt erst ab Generator 0.4.5** (Datenvertrag
   `docs/Datenvertrag_Generator_EH_Vergleich.md`); 0.4.4 zeigt Weg B noch mit „—“.
 - Messung 17.11.2026 (echte API, Kopie der DB, Testbogen Word + 6 Fotos): ohne Rückfrage, **94–112 s** bis Word + PDF, Texte Opus
@@ -503,6 +507,9 @@ Fachregeln, Rechenkern, Generator. Die Oberfläche soll Masken aus dieser Beschr
 - **Phase 2g (umgesetzt 17.11.2026, Abnahme offen):** Vor-Ort-Checkliste einlesen (Word ohne KI, Foto/PDF per KI), Handschrift-Profil.
 - **Phase 2h (umgesetzt 17.11.2026, Abnahme offen):** Schnellweg INIT (ein Klick zum Bericht, Rückfrage-Liste, PDF-Vorschau,
   Korrektur je Abschnitt, Gesamtfreigabe), Container `cockpit-pdf`, KI-Einstellungen.
+- **Offen (notiert 18.11.2026, nicht umgesetzt):** NH-Stufen auch im Fördervergleich (`foerderung-em-eh`, Rechenkern
+  `app/rechenkern/foerdervergleich.py`), damit INIT-Bericht und Fördervergleich dieselben Stufen kennen (NH-Satz = Satz der EE-Stufe +
+  `beg_wg.nh_bonus`, wie im INIT-Rechenkern).
 - **Phase 2:** MEH (danach) und Kirche nach demselben Muster; INIT und MEH mit KI (Checklisten-Erkennung, Fotozuordnung) – vorhandene Generatoren `generate_report.js` aus den Skills einbinden.
 - **Phase 3:** Kirche. **Phase 4:** Änderungs-Monitor für Förderquellen, Freigabe-Workflow, Anbindung IR-Planer.
 
