@@ -370,7 +370,8 @@ ZIEL_LABEL = {
     "checkliste.massnahmen": "Besprochene Maßnahmen", "pv.status": "PV-Anlage", "pv.speicher": "Stromspeicher",
     "pv.einspeiseart": "Einspeiseart", "pv.eauto": "E-Auto", "pv.gesamtleistung": "Gesamtleistung", "pv.speicherkapazitaet":
     "Speicherkapazität", "pv.ausrichtung": "Ausrichtung / Dachneigung", "pv.jahresertrag": "Jahresertrag", "pv.alter": "Alter der Anlage",
-    "pv.vertragslaufzeit": "Vertragslaufzeit / Vergütung", "pv.heizung_einbindung": "Einbindung Heizung",
+    "pv.vertragslaufzeit": "Laufzeit aktueller Vertrag", "pv.einspeiseverguetung": "Einspeisevergütung",
+    "pv.heizung_einbindung": "Einbindung Heizung",
     "verbrauch.tabelle": "Energieverbräuche", "notizen": "Notizen vom Termin", "foerder.klimabonus": "Klimageschwindigkeitsbonus",
     "foerder.einkommensbonus": "Einkommensbonus KfW 458", "foerder.eh_wpb": "Worst Performing Building (WPB)",
     "foerder.kosten_einzel": "Investitionskosten Einzelmaßnahmen", "foerder.kosten_effizienzhaus": "Investitionskosten Effizienzhaus",
@@ -403,7 +404,7 @@ EINFACH = {"termin_datum": "termin.datum", "anwesende": "termin.anwesende", "ber
            "gebaeudetyp": "objekt.gebaeudetyp", "baujahr": "objekt.baujahr", "wohnflaeche": "objekt.wohnflaeche",
            "geschosse": "objekt.geschosse", "energietraeger": "objekt.energietraeger", "pv_leistung": "pv.gesamtleistung",
            "speicher_kap": "pv.speicherkapazitaet", "pv_ausrichtung": "pv.ausrichtung", "pv_ertrag": "pv.jahresertrag",
-           "pv_alter": "pv.alter", "pv_vertrag": "pv.vertragslaufzeit", "sonstige_notizen": "notizen"}
+           "pv_alter": "pv.alter", "sonstige_notizen": "notizen"}   # pv_vertrag: aufgeteilt in pv_vertrag_teilen()
 GANZZAHL = {"wohneinheiten": "foerder.we", "we_eigen": "foerder.we_eigen", "we_verm": "foerder.we_verm"}
 PV_AUSWAHL = {"pv_status": ("pv.status", {"vorhanden": "vorhanden", "geplant": "geplant", "nein": "nein"}),
               "speicher": ("pv.speicher", {"vorhanden": "vorhanden", "geplant": "geplant", "nein": "keiner"}),
@@ -450,6 +451,33 @@ def _zusammen(ir: dict, teile: list[tuple[str, str]], format_liste=None) -> dict
     return _ziel(sicher, "\n".join(zeilen), roh)
 
 
+VERGUETUNG = re.compile(r"(\d+(?:[.,]\d+)?)\s*(ct|cent)?\.?", re.IGNORECASE)
+
+
+def pv_vertrag_teilen(text: str) -> tuple[str | None, str | None, bool]:
+    """Bogenfeld „Laufzeit akt. Vertrag / Einspeisevergütung (ct/kWh)“ → (Laufzeit, Vergütung, eindeutig).
+    „10 Jahre / 18 ct“ → („10 Jahre“, „18 ct/kWh“). Die Einheit ct/kWh steht in der Beschriftung des Felds. Nicht eindeutig
+    (kein oder mehr als ein Trenner, Vergütung keine Zahl, Laufzeit mit „ct“, reine Zahl ohne Trenner) → eindeutig = False."""
+    t = " ".join(str(text or "").split())
+    if not t:
+        return None, None, True
+    s = re.sub(r"(ct|cent)\.?\s*/\s*kwh", "ct", t, flags=re.IGNORECASE)     # „ct/kWh“ ist kein Trenner
+    teile = [x.strip() for x in s.split("/")]
+    if len(teile) == 2 and all(teile):
+        links, rechts = teile
+        m = VERGUETUNG.fullmatch(rechts)
+        if m and not re.search(r"\b(ct|cent)\b", links, re.IGNORECASE):
+            return links, f"{m.group(1)} ct/kWh", True
+        return None, None, False
+    if len(teile) == 1:
+        m = VERGUETUNG.fullmatch(s)
+        if m and m.group(2):                                    # nur Vergütung, ausdrücklich mit „ct“
+            return None, f"{m.group(1)} ct/kWh", True
+        if re.search(r"jahr|monat|\bbis\b|unbefristet", s, re.IGNORECASE) and not re.search(r"\b(ct|cent)\b", s, re.IGNORECASE):
+            return s, None, True                                # nur Laufzeit
+    return None, None, False
+
+
 def ziele(ir: dict, kond: dict | None = None) -> dict[str, dict]:
     """Zwischenformat → {Entwurfspfad: {wert, sicher, rohtext}}. Leere Werte mit sicher=False bleiben als Markierung."""
     z: dict[str, dict] = {}
@@ -462,6 +490,18 @@ def ziele(ir: dict, kond: dict | None = None) -> dict[str, dict]:
             gut = n is not None and n == int(n) and n >= 0
             z[pfad] = _ziel(e["sicher"] and gut, int(n) if gut and e["sicher"] else None,
                             [e["rohtext"] or ("" if gut else str(e["wert"]))])
+    if e := ir.get("pv_vertrag"):
+        roh = e["rohtext"] or str(e["wert"] or "")
+        lz, vg, eindeutig = pv_vertrag_teilen(e["wert"] or "")
+        if eindeutig and e["sicher"]:
+            if lz:
+                z["pv.vertragslaufzeit"] = _ziel(True, lz, [roh])
+            if vg:
+                z["pv.einspeiseverguetung"] = _ziel(True, vg, [roh])
+        else:   # nie raten: beide Felder leer + gelb „bitte prüfen“ mit dem Rohtext (Schnellweg: Rückfrage)
+            grund = "" if not e["wert"] else "Aufteilung Laufzeit / Einspeisevergütung nicht eindeutig"
+            for pfad in ("pv.vertragslaufzeit", "pv.einspeiseverguetung"):
+                z[pfad] = _ziel(False, None, [roh, grund])
     for schl, (pfad, abb) in PV_AUSWAHL.items():
         if e := ir.get(schl):
             z[pfad] = _ziel(e["sicher"], abb.get(e["wert"], "") if e["wert"] else "", [e["rohtext"]])

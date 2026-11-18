@@ -408,7 +408,9 @@ Ausführliches Fachkonzept: `docs/Konzept_Berater-Cockpit.docx` (falls abgelegt)
   Feldliste `FELDER`. Feste Regeln: Zahlen nie raten (unsicher → leer + Rohtext, auch im Code erzwungen), nichts ergänzen, wörtlich
   mit Einheit, Fachbegriffe aus dem Profil, kein Telefon/E-Mail.
 - Gemeinsames Zwischenformat → `ziele()` (Entwurfspfade, zusammengesetzte Stichpunkt-Texte, Verbrauchstabelle, KfW-458-Klimabonus,
-  WPB aus „Gebäude entspricht WPB“) → `anwenden()`: **nur leere Felder füllen**, abweichende vorhandene Werte = Konflikte
+  WPB aus „Gebäude entspricht WPB“; Bogenfeld „Laufzeit akt. Vertrag / Einspeisevergütung (ct/kWh)“ aufgeteilt per `pv_vertrag_teilen()`
+  in `pv.vertragslaufzeit` („10 Jahre“) und `pv.einspeiseverguetung` („18 ct/kWh“, Einheit aus der Feldbeschriftung); nicht eindeutig →
+  beide unsicher mit Rohtext, Fehler aus Test „Erika Mustermann“ 18.11.2026) → `anwenden()`: **nur leere Felder füllen**, abweichende vorhandene Werte = Konflikte
   (`…/checkliste-konflikt` übernehmen/behalten; Abkürzungen wie „M. Serek“ zählen nicht). Markierungen je Feld in
   `bericht_entwuerfe.checkliste_import` (Migration 0012): „aus Checkliste“, unsicher = gelb „bitte prüfen“ mit Rohtext. Von Hand
   geänderte Felder verlieren die Markierung beim Speichern; unsichere bestätigen per `…/checkliste-bestaetigen`. **Erzeugen

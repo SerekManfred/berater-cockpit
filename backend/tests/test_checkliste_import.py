@@ -97,7 +97,7 @@ def test_word_checkliste_fuellt_alle_felder(monkeypatch):
                                  "Stufe 2 (übergreifend): Außendämmung Fassade (WDVS), Heizungstausch auf Wärmepumpe, Kellertür dämmen",
         "pv.status": "vorhanden", "pv.speicher": "keiner", "pv.einspeiseart": "Teileinspeisung", "pv.eauto": "geplant",
         "pv.gesamtleistung": "9,8", "pv.ausrichtung": "Süd, 35°", "pv.jahresertrag": "9.300", "pv.alter": "6 Jahre",
-        "pv.vertragslaufzeit": "14 Jahre / 8,2 ct", "pv.heizung_einbindung": "nein",
+        "pv.vertragslaufzeit": "14 Jahre", "pv.einspeiseverguetung": "8,2 ct/kWh", "pv.heizung_einbindung": "nein",
         "verbrauch.tabelle": [{"traeger": "Heizöl", "menge": "2.400 l Heizöl", "kosten": "2.300 €"},
                               {"traeger": "Strom", "menge": "4.200 kWh", "kosten": "1.300 €"}],
         "notizen": "Kunde möchte zuerst die Heizung tauschen.",
@@ -303,3 +303,36 @@ def test_abkuerzung_ist_keine_abweichung():
                                                          "objekt.baujahr": {"wert": "1965", "sicher": True, "rohtext": ""}}, {})
     assert [k["pfad"] for k in konflikte] == ["objekt.baujahr"] and d["termin"]["berater"] == "Manfred Serek"
     assert not checkliste_import._gleichwertig("Manfred Serek", "K. Serek")
+
+
+# ---------- Laufzeit / Einspeisevergütung (Fehler aus dem Test „Erika Mustermann“, Projekt 2026-0005, 18.11.2026) ----------
+
+@pytest.mark.parametrize("text, laufzeit, verguetung", [
+    ("10 Jahre / 18 ct", "10 Jahre", "18 ct/kWh"),
+    ("14 Jahre / 8,2 ct", "14 Jahre", "8,2 ct/kWh"),
+    ("10 Jahre / 18 ct/kWh", "10 Jahre", "18 ct/kWh"),          # „ct/kWh“ ist kein Trenner
+    ("bis 2031 / 7,9", "bis 2031", "7,9 ct/kWh"),                 # Einheit aus der Beschriftung des Bogenfelds
+    ("12 Jahre", "12 Jahre", None),
+    ("8,2 ct", None, "8,2 ct/kWh"),
+])
+def test_pv_vertrag_wird_aufgeteilt(text, laufzeit, verguetung):
+    assert checkliste_import.pv_vertrag_teilen(text) == (laufzeit, verguetung, True)
+    z = checkliste_import.ziele({"pv_vertrag": checkliste_import.eintrag(text)})
+    assert (z.get("pv.vertragslaufzeit") or {}).get("wert") == laufzeit
+    assert (z.get("pv.einspeiseverguetung") or {}).get("wert") == verguetung
+    assert all(v["sicher"] for k, v in z.items() if k.startswith("pv."))
+
+
+@pytest.mark.parametrize("text", ["10 / 18 / 2020", "18 ct / 10 Jahre", "10 Jahre / Direktvermarktung", "10", "EEG 2021 Teil"])
+def test_pv_vertrag_nicht_eindeutig_wird_unsicher(text):
+    assert checkliste_import.pv_vertrag_teilen(text)[2] is False
+    z = checkliste_import.ziele({"pv_vertrag": checkliste_import.eintrag(text)})
+    for pfad in ("pv.vertragslaufzeit", "pv.einspeiseverguetung"):
+        assert z[pfad]["sicher"] is False and z[pfad]["wert"] is None and text in z[pfad]["rohtext"]
+        assert "nicht eindeutig" in z[pfad]["rohtext"]
+
+
+def test_pv_vertrag_unsicher_gelesen_bleibt_unsicher():
+    """KI unsicher („sicher“: false) → nichts übernehmen, auch wenn die Aufteilung klappen würde (Regel 4)."""
+    z = checkliste_import.ziele({"pv_vertrag": checkliste_import.eintrag("10 Jahre / 18 ct", sicher=False, rohtext="10 Jahre / 1? ct")})
+    assert z["pv.vertragslaufzeit"]["wert"] is None and z["pv.einspeiseverguetung"]["sicher"] is False
