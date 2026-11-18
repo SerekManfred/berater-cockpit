@@ -106,6 +106,10 @@ def _typ(pfad: str) -> str:
         return "janein"
     if pfad == "foerder.einkommensbonus":
         return "einkommensbonus"
+    if pfad == "foerder.eh_stufe":
+        return "eh_stufe"
+    if pfad == "foerder.eh_nh":
+        return "janein"
     if pfad.startswith("checkliste.") or pfad in ("notizen",):
         return "text_lang"
     return "text"
@@ -121,6 +125,32 @@ def _anzeige(w) -> str:
     if isinstance(w, list):   # Verbrauchstabelle
         return "; ".join(" ".join(str(v) for v in z.values() if v) for z in w if isinstance(z, dict))
     return str(w)
+
+
+KEIN_EH = "kein"
+
+
+def eh_optionen(db: Session) -> list[list[str]]:
+    """Auswahl „Effizienzhaus-Ziel“: Stufen der aktiven Konditionen, je mit NH-Option, und „kein Effizienzhaus-Vergleich“."""
+    try:
+        stufen = list(lade_konditionen(db=db)["beg_wg"]["tilgungszuschuss"])
+    except Exception:
+        stufen = list(bi.EH_LABEL)
+    aus = []
+    for s in stufen:
+        aus += [[s, bi.EH_LABEL.get(s, s)], [s + "+NH", bi.EH_LABEL.get(s, s) + " + NH-Klasse"]]
+    return [*aus, [KEIN_EH, "kein Effizienzhaus-Vergleich"]]
+
+
+def eh_setzen(daten: dict, wert: str, erlaubt: list[str]):
+    """Auswahl → foerder.eh_stufe / eh_nh / eh_kein_vergleich (nie geraten: nur Werte aus der Auswahl)."""
+    if wert not in erlaubt:
+        raise HTTPException(422, "Effizienzhaus-Ziel: bitte einen Wert aus der Auswahl wählen.")
+    f = daten.setdefault("foerder", {})
+    if wert == KEIN_EH:
+        f.update(eh_stufe=None, eh_nh=False, eh_kein_vergleich=True)
+    else:
+        f.update(eh_stufe=wert.removesuffix("+NH"), eh_nh=wert.endswith("+NH"), eh_kein_vergleich=False)
 
 
 def rueckfragen(db: Session, e: BerichtEntwurf, p: Projekt, st: dict) -> list[dict]:
@@ -152,11 +182,21 @@ def rueckfragen(db: Session, e: BerichtEntwurf, p: Projekt, st: dict) -> list[di
         dazu({"id": "klimabonus", "pfad": "foerder.klimabonus", "art": "frage", "weglassen_erlaubt": False,
               "label": "KfW 458 – Klimageschwindigkeitsbonus: wird eine funktionstüchtige fossile Heizung ersetzt?",
               "vorschlag": "", "hinweis": f"Energieträger laut Angaben: {traeger}."})
+    f = d.get("foerder") or {}
+    if f.get("kosten_effizienzhaus") is not None and not f.get("eh_stufe") and not f.get("eh_kein_vergleich"):
+        dazu({"id": "eh_ziel", "pfad": "foerder.eh_stufe", "art": "frage", "weglassen_erlaubt": False,
+              "label": "Effizienzhaus-Ziel (KfW 261)", "vorschlag": "",
+              "hinweis": "Investitionskosten Effizienzhaus sind eingetragen, aber keine Stufe. "
+                         "„kein Effizienzhaus-Vergleich“ lässt Weg B im Bericht weg."})
     _hinw, offen = bi._we_pruefung(d, e, p)
     for w in offen:
         dazu({"id": "we:" + w["code"], "pfad": "foerder.we", "art": "wohneinheiten", "label": "Wohneinheiten (Förder-Übersicht)",
               "vorschlag": _anzeige((d.get("foerder") or {}).get("we")), "hinweis": w["text"] + " Bitte bestätigen oder korrigieren.",
               "weglassen_erlaubt": False})
+    for z in zeilen:
+        if z["typ"] == "eh_stufe":
+            z["optionen"] = eh_optionen(db)
+            z["weglassen_erlaubt"] = False
     return zeilen
 
 
@@ -218,6 +258,8 @@ def antworten_anwenden(db: Session, e: BerichtEntwurf, p: Projekt, st: dict, ant
                                           (None if _typ(pfad) in ("ganzzahl", "euro") else ""))
             if pfad in bi.PFLICHT and pfad not in bewusst:
                 bewusst.append(pfad)
+        elif z["typ"] == "eh_stufe":
+            eh_setzen(daten, a.wert.strip(), [o[0] for o in z.get("optionen") or []])
         elif pfad == "verbrauch.tabelle":
             daten.setdefault("verbrauch", {})["tabelle"] = [{"traeger": a.wert.strip()[:200], "menge": "", "kosten": ""}]
         else:
@@ -351,6 +393,7 @@ def vorschau_bauen(db: Session, e: BerichtEntwurf, p: Projekt, st: dict) -> None
     _schritt(st, "foerderung", "fertig")
     _schritt(st, "word", "fertig", time.monotonic() - beginn)
     _vorschau(e.id, "docx").write_bytes(wasserzeichen.einfuegen(w["docx"]))
+    st["rk_hinweise"] = [f"7.5/Anhang: {h}." for h in (w["rk"].get("werte") or {}).get("eh_hinweise") or []]
     st["vorschau"] = {"revision": e.revision, "version": version, "konditionen_version": w["kond"]["version"],
                       "konditionen_stand": (w["rk"].get("saetze") or {}).get("konditionen_stand"),
                       "erzeugt_am": jetzt().isoformat(), "pdf": False, "pdf_fehler": None}
@@ -372,9 +415,11 @@ def _hinweise_sammeln(e: BerichtEntwurf, st: dict, db: Session, p: Projekt) -> l
     """„Hinweise der KI“ (höchstens 10 Zeilen): Hinweise aus dem Textlauf, dann Lesehinweise der Checkliste, dann Zahlen im Text,
     die nicht in den Eingaben stehen."""
     aus = []
-    if not ((e.daten or {}).get("foerder") or {}).get("eh_stufe"):
+    f = (e.daten or {}).get("foerder") or {}
+    if not f.get("eh_stufe") and not f.get("eh_kein_vergleich"):
         aus.append("7.5/Anhang: Kein Effizienzhaus-Ziel gewählt – Weg B ohne Tilgungszuschuss („—“). Stufe in der Detailbearbeitung "
                    "(Förderung) wählbar.")
+    aus += list(st.get("rk_hinweise") or [])
     aus += list(st.get("ki_hinweise") or [])
     aus += [f"Checkliste: {h}" for h in (e.checkliste_import or {}).get("hinweise") or []]
     erlaubt = bi._erlaubte_zahlen(db, e, p)
@@ -405,6 +450,23 @@ def vorbelegung_ersetzen(db: Session, e: BerichtEntwurf, p: Projekt, ich: Benutz
         e.checkliste_import = {**imp, "markierungen": marken, "konflikte": rest}
         bi._status_nachfuehren(e)
         e.revision += 1
+
+
+def kein_vergleich_durchsetzen(e: BerichtEntwurf, st: dict):
+    """„kein Effizienzhaus-Vergleich“ (Auswahl des Beraters) geht einer Stufe von der Checkliste vor."""
+    f = (e.daten or {}).get("foerder") or {}
+    if not f.get("eh_kein_vergleich") or not (f.get("eh_stufe") or f.get("eh_nh")):
+        return
+    d = copy.deepcopy(e.daten)
+    d["foerder"].update(eh_stufe=None, eh_nh=False)
+    imp = dict(e.checkliste_import or {})
+    marken = {k: v for k, v in (imp.get("markierungen") or {}).items() if k not in ("foerder.eh_stufe", "foerder.eh_nh")}
+    e.daten = bi.EntwurfDaten.model_validate(d).model_dump()
+    e.checkliste_import = {**imp, "markierungen": marken,
+                           "konflikte": [k for k in imp.get("konflikte") or [] if k["pfad"] not in ("foerder.eh_stufe", "foerder.eh_nh")]}
+    st.setdefault("ki_hinweise", []).append("Checkliste nennt ein Effizienzhaus-Ziel – „kein Effizienzhaus-Vergleich“ gewählt, Weg B entfällt.")
+    bi._status_nachfuehren(e)
+    e.revision += 1
 
 
 def notizen_anfuegen(e: BerichtEntwurf, st: dict):
@@ -460,6 +522,7 @@ def ausfuehren(entwurf_id: int, benutzer_id: int, lauf: int, phase: str) -> None
                     _schritt(st, "checkliste", "fertig", time.monotonic() - beginn)
                 else:
                     _schritt(st, "checkliste", "uebersprungen")
+                kein_vergleich_durchsetzen(e, st)
                 notizen_anfuegen(e, st)
                 phase = "pruefen"
             if phase == "pruefen":
@@ -532,6 +595,7 @@ def antwort_aus(db: Session, e: BerichtEntwurf | None, p: Projekt, ich: Benutzer
             "max_laeufe_tag": einstellungen.wert(db, "ki_laeufe_je_benutzer_tag"),
             "darf_bearbeiten": any(r in ich.rollen for r in ("admin", "berater", "verwaltung")),
             "darf_freigeben": "berater" in ich.rollen,
+            "eh_optionen": eh_optionen(db),
             "abschnitte": [{"name": a, "titel": t, "inhalt": ki_texte.inhalt(a, e.daten, e.foto_zuordnung) if e else None,
                             "status": ((e.abschnitte or {}).get(a) or {}).get("status") if e else None}
                            for a, (t, _) in ki_texte.ABSCHNITTE.items()],
@@ -545,6 +609,7 @@ class Start(BaseModel):
     notizen: str = Field("", max_length=20000)
     kosten_einzel: float | None = Field(None, ge=0)          # nur vom Berater (Goldene Regel 1)
     kosten_effizienzhaus: float | None = Field(None, ge=0)
+    eh_ziel: str | None = Field(None, max_length=20)        # Stufe, Stufe+"+NH" oder "kein"; leer = keine Angabe (nie geraten)
 
 
 PFAD = "/projekte/{projekt_id}/bericht-init/schnellweg"
@@ -582,6 +647,8 @@ def schnellweg_starten(projekt_id: int, start: Start, request: Request, ich: Ben
     for k in ("kosten_einzel", "kosten_effizienzhaus"):
         if getattr(start, k) is not None:
             d.setdefault("foerder", {})[k] = getattr(start, k)
+    if start.eh_ziel:
+        eh_setzen(d, start.eh_ziel, [o[0] for o in eh_optionen(db)])
     e.daten = bi.EntwurfDaten.model_validate(d).model_dump()
     bi._status_nachfuehren(e)
     e.revision += 1

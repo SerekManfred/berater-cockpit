@@ -23,6 +23,7 @@ class InitEingaben:
     klimabonus: bool = False          # KfW 458 Klimageschwindigkeitsbonus (Prüfung Heizungsalter durch Berater)
     einkommensbonus: float = 0.0      # 0, 0.10, 0.30 oder 0.40
     eh_stufe: str | None = None       # z. B. "EH55EE"; None = kein Effizienzhaus-Ziel
+    eh_nh: bool = False               # zusätzlich Nachhaltigkeits-Klasse (NH): Bonus nur, wenn beg_wg.nh_bonus hinterlegt ist
     eh_wpb: bool = False
     eh_sersan: bool = False           # Bonus serielle Sanierung (KfW 261)
 
@@ -101,7 +102,7 @@ def init_foerderung(e: InitEingaben, kond: dict) -> dict:
     else:
         we_eigen = e.we_eigen or 0
         we_verm = max(e.we - we_eigen, 0) if e.we_verm is None else e.we_verm
-    tilgung, wpb, sersan, hinweise = None, False, 0.0, []
+    tilgung, wpb, sersan, nh, hinweise = None, False, 0.0, 0.0, []
     if e.eh_stufe:
         wg = kond["beg_wg"]
         if e.eh_stufe not in wg["tilgungszuschuss"]:
@@ -121,8 +122,15 @@ def init_foerderung(e: InitEingaben, kond: dict) -> dict:
                 sersan = tabelle[e.eh_stufe]
         # Der Bonus serielle Sanierung zählt zum Satz der Stufe – so stimmt die Herleitung im Bericht
         # („x % (EH … + Bonus serielle Sanierung) + 10 % WPB-Bonus = y %“); der Höchstsatz begrenzt in rechne().
-        tilgung = stufe_satz + sersan
+        nh = 0.0
+        if e.eh_nh:
+            if wg.get("nh_bonus") is None:
+                hinweise.append("NH-Bonus ist in dieser Konditionen-Version nicht hinterlegt")
+            else:
+                nh = wg["nh_bonus"]
+        tilgung = stufe_satz + sersan + nh
     werte = rechne(fs, e.we, we_eigen, we_verm, e.klimabonus, e.einkommensbonus, tilgung, wpb)
-    werte.update({"eh_tilgung_stufe": None if tilgung is None else tilgung - sersan, "eh_sersan_bonus": sersan,
+    werte.update({"eh_tilgung_stufe": None if tilgung is None else tilgung - sersan - nh, "eh_sersan_bonus": sersan,
+                  "eh_nh_bonus": nh,
                   "eh_wpb": wpb, "eh_hinweise": hinweise})
     return {"konditionen_version": kond["version"], "saetze": fs, "werte": werte}

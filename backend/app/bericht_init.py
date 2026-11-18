@@ -55,6 +55,13 @@ EH_LABEL = {"EH40EE": "Effizienzhaus 40 EE", "EH55EE": "Effizienzhaus 55 EE", "E
             "EH85EE": "Effizienzhaus 85 EE", "DenkmalEE": "Effizienzhaus Denkmal EE"}
 
 
+def eh_label(f: dict, w: dict | None = None) -> str:
+    """„Effizienzhaus 55 EE + NH-Klasse + Bonus serielle Sanierung“ – Bezeichnung wie die Herleitung im Bericht."""
+    w = w or {}
+    return (EH_LABEL.get(f["eh_stufe"], f["eh_stufe"]) + (" + NH-Klasse" if f.get("eh_nh") else "")
+            + (" + Bonus serielle Sanierung" if w.get("eh_sersan_bonus") else ""))
+
+
 # ---------- Schemas (Formular) ----------
 
 class _Frei(BaseModel):
@@ -126,6 +133,8 @@ class FoerderIn(_Frei):
     eh_stufe: str | None = None
     eh_wpb: bool = False
     eh_sersan: bool = False                                    # Bonus serielle Sanierung (KfW 261)
+    eh_nh: bool = False                                        # Nachhaltigkeits-Klasse (NH) zusätzlich zur EE-Stufe
+    eh_kein_vergleich: bool = False                            # „kein Effizienzhaus-Vergleich“: Weg B entfällt im Bericht
     kosten_einzel: float | None = Field(None, ge=0)          # nur vom Berater (Goldene Regel 1 des Skills)
     kosten_effizienzhaus: float | None = Field(None, ge=0)
 
@@ -288,6 +297,8 @@ def _status_nachfuehren(e: BerichtEntwurf):
 def _fehlende_pflicht(d: dict) -> list[dict]:
     fehlt = []
     for pfad, label in PFLICHT.items():
+        if pfad == "foerder.kosten_effizienzhaus" and (d.get("foerder") or {}).get("eh_kein_vergleich"):
+            continue   # kein Effizienzhaus-Vergleich: Weg B entfällt, also auch seine Kosten
         teil, feld = pfad.split(".")
         w = (d.get(teil) or {}).get(feld)
         leer = w is None or (isinstance(w, str) and not w.strip()) or (isinstance(w, list) and not any(
@@ -304,8 +315,9 @@ def _foerder_eingaben(d: dict) -> InitFoerderEingaben:
     try:
         return InitFoerderEingaben(we=f.get("we") or 0, we_eigen=f.get("we_eigen"), we_verm=f.get("we_verm"),
                                    klimabonus=bool(f.get("klimabonus")), einkommensbonus=float(f.get("einkommensbonus") or 0),
-                                   eh_stufe=f.get("eh_stufe") or None, eh_wpb=bool(f.get("eh_wpb")),
-                                   eh_sersan=bool(f.get("eh_sersan")))
+                                   eh_stufe=None if f.get("eh_kein_vergleich") else (f.get("eh_stufe") or None),
+                                   eh_nh=bool(f.get("eh_nh")) and not f.get("eh_kein_vergleich"),
+                                   eh_wpb=bool(f.get("eh_wpb")), eh_sersan=bool(f.get("eh_sersan")))
     except ValidationError as fehler:
         meldung = "; ".join(str(x.get("msg", "")).removeprefix("Value error, ") for x in fehler.errors())
         raise HTTPException(422, f"Förderangaben unvollständig oder ungültig: {meldung}") from None
@@ -643,6 +655,7 @@ def generator_daten(p: Projekt, d: dict, z: dict, rk: dict, kond: dict, version:
     objekt_adresse = ", ".join(t for t in (p.objekt_strasse, " ".join(t for t in (p.objekt_plz, p.objekt_ort) if t)) if t)
     k = berichtskunde(p)
     texte, o, t, f = d.get("texte") or {}, d.get("objekt") or {}, d.get("termin") or {}, d.get("foerder") or {}
+    ohne_eh = bool(f.get("eh_kein_vergleich"))
     fotos_je = {a: [] for a in ki_texte.FOTO_ABSCHNITTE}
     for key, info in (z.get("fotos") or {}).items():
         if info.get("abschnitt") in fotos_je and int(key) != z.get("frontbild"):
@@ -693,16 +706,18 @@ def generator_daten(p: Projekt, d: dict, z: dict, rk: dict, kond: dict, version:
             "quellen": _quellen(kond),
             "kfw458": {"klimageschwindigkeit": "ja" if f.get("klimabonus") else "nein",
                        "einkommensbonus": f"{float(f.get('einkommensbonus') or 0) * 100:.0f}" if f.get("einkommensbonus") else "nein"},
-            **({"eh_ziel": {"label": EH_LABEL.get(f["eh_stufe"], f["eh_stufe"])
-                                     + (" + Bonus serielle Sanierung" if w.get("eh_sersan_bonus") else ""),
-                            "tilgung": w["eh_tilgung_basis"],
-                            "wpb": bool(w.get("eh_wpb", f.get("eh_wpb")))}} if f.get("eh_stufe") else {}),
+            **({"eh_ziel": {"label": eh_label(f, w), "tilgung": w["eh_tilgung_basis"],
+                            "wpb": bool(w.get("eh_wpb", f.get("eh_wpb")))}} if f.get("eh_stufe") and not ohne_eh else {}),
+            # „kein Effizienzhaus-Vergleich“: Schalter für den Generator (Weg B entfällt, Datenvertrag ab Generator 0.4.5)
+            **({"eh_vergleich": False} if ohne_eh else {}),
             **({"kosten_einzel": f["kosten_einzel"]} if f.get("kosten_einzel") is not None else {}),
-            **({"kosten_effizienzhaus": f["kosten_effizienzhaus"]} if f.get("kosten_effizienzhaus") is not None else {}),
+            **({"kosten_effizienzhaus": f["kosten_effizienzhaus"]}
+               if f.get("kosten_effizienzhaus") is not None and not ohne_eh else {}),
             "rechenkern": rk,
         },
         "fazit": texte.get("fazit", ""),
-        "empfehlung_varianten": texte.get("empfehlung_varianten") or {},
+        "empfehlung_varianten": ({**(texte.get("empfehlung_varianten") or {}), "effizienzhaus": {"titel": "", "punkte": []}}
+                                 if ohne_eh else texte.get("empfehlung_varianten") or {}),
         "reihenfolge": texte.get("reihenfolge") or {},
         "anhang_fotos": fotos_je["anhang"],
     }

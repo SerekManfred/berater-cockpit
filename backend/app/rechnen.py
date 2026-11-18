@@ -233,6 +233,7 @@ class InitFoerderEingaben(BaseModel):
     klimabonus: bool = False                            # Klimageschwindigkeitsbonus (Berater prüft das Heizungsalter)
     einkommensbonus: float = 0.0                        # 0 oder eine Stufe aus kfw_458.einkommensbonus_stufen
     eh_stufe: str | None = None                         # z. B. "EH55EE"; leer = kein Effizienzhaus-Ziel
+    eh_nh: bool = False                                 # Nachhaltigkeits-Klasse (NH): Bonus nur mit beg_wg.nh_bonus
     eh_wpb: bool = False
     eh_sersan: bool = False                             # KfW 261 Bonus serielle Sanierung
 

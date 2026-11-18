@@ -99,3 +99,22 @@ def test_init_eh55_wpb_und_serielle_sanierung():
 def test_init_ohne_haekchen_unveraendert():
     w = init_foerderung(InitEingaben(we=1, eh_stufe="EH55EE", eh_wpb=True), KOND_V3)["werte"]
     assert (w["eh_tilgung"], w["eh_sersan_bonus"], w["eh_hinweise"]) == (pytest.approx(0.15), 0.0, [])
+
+
+# ---------- NH-Klasse (18.11.2026): Bonus nur, wenn beg_wg.nh_bonus in den Konditionen steht ----------
+
+def test_init_nh_ohne_hinterlegten_satz_kein_bonus_mit_hinweis():
+    assert "nh_bonus" not in KOND_V3["beg_wg"]
+    mit = init_foerderung(InitEingaben(we=1, eh_stufe="EH55EE", eh_nh=True), KOND_V3)["werte"]
+    ohne = init_foerderung(InitEingaben(we=1, eh_stufe="EH55EE"), KOND_V3)["werte"]
+    assert mit["eh_tilgung_basis"] == ohne["eh_tilgung_basis"] == 0.05 and mit["eh_nh_bonus"] == 0.0
+    assert "NH-Bonus ist in dieser Konditionen-Version nicht hinterlegt" in mit["eh_hinweise"]
+
+
+def test_init_nh_mit_hinterlegtem_satz_und_hoechstsatz():
+    k = copy.deepcopy(KOND_V3)
+    k["beg_wg"]["nh_bonus"] = 0.05
+    w = init_foerderung(InitEingaben(we=1, eh_stufe="EH55EE", eh_nh=True), k)["werte"]
+    assert w["eh_tilgung_basis"] == pytest.approx(0.10) and w["eh_nh_bonus"] == 0.05 and w["eh_tilgung_stufe"] == 0.05
+    voll = init_foerderung(InitEingaben(we=1, eh_stufe="EH40EE", eh_nh=True, eh_wpb=True, eh_sersan=True), k)["werte"]
+    assert voll["eh_tilgung"] <= k["beg_wg"]["tilgungszuschuss_max"] + 1e-9          # Höchstsatz begrenzt auch mit NH

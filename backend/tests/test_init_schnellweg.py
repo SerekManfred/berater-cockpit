@@ -134,7 +134,8 @@ def unterlagen(c, p, ki_an, fotos=6, bogen=WORD.read_bytes()):
 
 def starten(c, p, cid, ids, **extra):
     r = c.post(PFAD.format(p["id"]) + "/start", json={"checkliste_ids": [cid], "foto_ids": ids, "notizen": "Kunde möchte zügig planen.",
-                                                     "kosten_einzel": 85000, "kosten_effizienzhaus": 160000, **extra})
+                                                     "kosten_einzel": 85000, "kosten_effizienzhaus": 160000, "eh_ziel": "EH55EE",
+                                                     **extra})
     assert r.status_code == 202, r.text
     return r.json()
 
@@ -359,6 +360,98 @@ def test_pruefmarken_werden_hinweise():
     h = []
     t = ki_texte.kundentext_saeubern({"a": "Text [PRÜFEN: Baujahr Fenster] weiter.", "b": ["ok", "[PRUEFEN Dach]"]}, "3.1", h)
     assert t == {"a": "Text weiter.", "b": ["ok", ""]} and h == ["3.1: Baujahr Fenster", "3.1: Dach"]
+
+
+# ---------- Effizienzhaus-Ziel (18.11.2026) ----------
+
+def _bogen_mit(monkeypatch, notiz: str):
+    lesen = checkliste_import.word_lesen
+
+    def neu(pfad):
+        ir = lesen(pfad)
+        ir["sonstige_notizen"] = checkliste_import.eintrag(notiz)
+        return ir
+    monkeypatch.setattr(checkliste_import, "word_lesen", neu)
+
+
+def test_eh_niveau_von_der_checkliste_wird_uebernommen(ki_an, v3_aktiv, generator, pdf, ohne_abgleich, monkeypatch):
+    _bogen_mit(monkeypatch, "Ziel: Effizienzhaus 70 EE NH, zuerst Heizung.")
+    berater = konto("berater")
+    p = efh(berater)
+    cid, ids = unterlagen(berater, p, ki_an, fotos=1)
+    s = starten(berater, p, cid, ids, eh_ziel=None)["schnellweg"]
+    assert s["status"] == "fertig" and s["rueckfragen"] == []
+    f = berater.get(f"/projekte/{p['id']}/bericht-init/entwurf").json()["daten"]["foerder"]
+    assert f["eh_stufe"] == "EH70EE" and f["eh_nh"] is True
+    eh = generator[-1]["daten"]["foerderung"]["eh_ziel"]
+    assert eh["label"] == "Effizienzhaus 70 EE + NH-Klasse"
+    assert not any("Kein Effizienzhaus-Ziel" in h for h in s["hinweise"])
+    assert "7.5/Anhang: NH-Bonus ist in dieser Konditionen-Version nicht hinterlegt." in s["hinweise"]   # aus dem Rechenkern
+
+
+def test_eh_ohne_klasse_wird_rueckfrage_mit_auswahl(ki_an, v3_aktiv, generator, pdf, ohne_abgleich, monkeypatch):
+    _bogen_mit(monkeypatch, "Kunde denkt an EH 55.")
+    berater = konto("berater")
+    p = efh(berater)
+    cid, ids = unterlagen(berater, p, ki_an, fotos=1)
+    r = starten(berater, p, cid, ids, eh_ziel=None)
+    z = r["schnellweg"]["rueckfragen"]
+    assert [x["pfad"] for x in z] == ["foerder.eh_stufe"] and z[0]["typ"] == "eh_stufe" and z[0]["vorschlag"] == ""
+    assert "EH 55" in z[0]["hinweis"] and ["kein", "kein Effizienzhaus-Vergleich"] in z[0]["optionen"]
+    assert ["EH55EE+NH", "Effizienzhaus 55 EE + NH-Klasse"] in z[0]["optionen"] and not z[0]["weglassen_erlaubt"]
+    assert berater.post(PFAD.format(p["id"]) + "/antworten", json={"revision": r["revision"], "antworten": [
+        {"id": z[0]["id"], "wert": "EH99"}]}).status_code == 422
+    r = berater.post(PFAD.format(p["id"]) + "/antworten", json={"revision": r["revision"],
+                                                                "antworten": [{"id": z[0]["id"], "wert": "EH55EE+NH"}]})
+    assert r.json()["schnellweg"]["status"] == "fertig"
+    f = berater.get(f"/projekte/{p['id']}/bericht-init/entwurf").json()["daten"]["foerder"]
+    assert (f["eh_stufe"], f["eh_nh"]) == ("EH55EE", True)
+
+
+def test_eh_rueckfrage_nur_mit_kosten_ohne_stufe(ki_an, v3_aktiv, generator, pdf, ohne_abgleich):
+    berater = konto("berater")
+    p, q = efh(berater), efh(berater)
+    cid, ids = unterlagen(berater, p, ki_an, fotos=1)
+    r = starten(berater, p, cid, ids, eh_ziel=None, kosten_effizienzhaus=None)
+    s = r["schnellweg"]   # keine Kosten, keine Stufe → nur die Pflicht-Kosten, keine Frage nach der Stufe
+    assert [x["id"] for x in s["rueckfragen"]] == ["pflicht:foerder.kosten_effizienzhaus"]
+    s = berater.post(PFAD.format(p["id"]) + "/antworten", json={"revision": r["revision"], "antworten": [
+        {"id": "pflicht:foerder.kosten_effizienzhaus", "weglassen": True}]}).json()["schnellweg"]
+    assert s["status"] == "fertig" and any("Kein Effizienzhaus-Ziel" in h for h in s["hinweise"])
+    cid, ids = unterlagen(berater, q, ki_an, fotos=1)
+    s = starten(berater, q, cid, ids, eh_ziel=None)["schnellweg"]     # Kosten Effizienzhaus, aber keine Stufe
+    assert [x["id"] for x in s["rueckfragen"]] == ["eh_ziel"]
+
+
+def test_kein_effizienzhaus_vergleich_weg_b_entfaellt(ki_an, v3_aktiv, generator, pdf, ohne_abgleich, monkeypatch):
+    _bogen_mit(monkeypatch, "Ziel EH 55 EE")                         # Auswahl des Beraters geht der Checkliste vor
+    berater = konto("berater")
+    p = efh(berater)
+    cid, ids = unterlagen(berater, p, ki_an, fotos=1)
+    s = starten(berater, p, cid, ids, eh_ziel="kein", kosten_effizienzhaus=None)["schnellweg"]
+    assert s["status"] == "fertig" and s["rueckfragen"] == []        # Effizienzhaus-Kosten sind dann keine Pflicht
+    foe = generator[-1]["daten"]["foerderung"]
+    assert foe["eh_vergleich"] is False and "eh_ziel" not in foe and "kosten_effizienzhaus" not in foe
+    assert generator[-1]["daten"]["empfehlung_varianten"]["effizienzhaus"] == {"titel": "", "punkte": []}
+    assert foe["rechenkern"]["werte"]["eh_tilgung"] is None
+    text = next(x["text"] for x in ki_an.anfragen[-1]["inhalt"] if x["typ"] == "text")
+    assert "effizienzhaus_vergleich" in text and "nicht als Option" in text
+    assert not any("Kein Effizienzhaus-Ziel" in h for h in s["hinweise"])
+    assert any("Weg B entfällt" in h for h in s["hinweise"])
+    f = berater.get(f"/projekte/{p['id']}/bericht-init/entwurf").json()["daten"]["foerder"]
+    assert f["eh_kein_vergleich"] is True and f["eh_stufe"] is None
+
+
+def test_eh_ziel_lesen_nie_raten():
+    lesen = checkliste_import.eh_ziel_lesen
+    assert lesen(["Ziel EH 40 EE"])[0] == {"wert": "EH40EE", "sicher": True, "rohtext": "EH 40 EE"}
+    assert lesen(["Effizienzhaus Denkmal EE"])[0]["wert"] == "DenkmalEE"
+    eh, nh = lesen(["EH 55 EE/NH"])
+    assert eh["wert"] == "EH55EE" and nh["wert"] is True
+    for t in (["EH 55"], ["EH 70 NH"], ["EH 55 EE", "EH 40 EE"]):
+        eh, nh = lesen(t)
+        assert eh["sicher"] is False and eh["wert"] is None and nh is None
+    assert lesen(["Denkmalschutz beachten", "Heizung tauschen"]) == (None, None)
 
 
 # ---------- echter Generator (nur mit GENERATOR_TEST_URL) ----------

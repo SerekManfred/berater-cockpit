@@ -60,6 +60,7 @@ function Unterlagen({ z, pfad, projekt, letzterFehler, hatVorschau, onZurVorscha
   const [dateien, setDateien] = useState([]);   // {datei, art}
   const [notizen, setNotizen] = useState("");
   const [kosten, setKosten] = useState({ kosten_einzel: null, kosten_effizienzhaus: null });
+  const [ehZiel, setEhZiel] = useState("");   // keine Voreinstellung – nichts raten
   const [vorhandeneFotos, setVorhandeneFotos] = useState(true);
   const [laeuft, setLaeuft] = useState("");
   const [fehler, setFehler] = useState("");
@@ -90,7 +91,7 @@ function Unterlagen({ z, pfad, projekt, letzterFehler, hatVorschau, onZurVorscha
       setLaeuft("Starte …");
       const r = await api(pfad + "/start", { method: "POST", zeitlimit: ZEITLIMIT_LANG_MS, body: {
         revision: z.revision, checkliste_ids: checkliste, foto_ids: [...new Set(fotos)].slice(0, 40), notizen,
-        kosten_einzel: kosten.kosten_einzel ?? null, kosten_effizienzhaus: kosten.kosten_effizienzhaus ?? null } });
+        kosten_einzel: kosten.kosten_einzel ?? null, kosten_effizienzhaus: kosten.kosten_effizienzhaus ?? null, eh_ziel: ehZiel || null } });
       onGestartet(r);
     } catch (f) { setFehler(f.message); } finally { setLaeuft(""); }
   }
@@ -133,6 +134,13 @@ function Unterlagen({ z, pfad, projekt, letzterFehler, hatVorschau, onZurVorscha
         <div className="zwei">
           <ZahlFeld label="Einzelmaßnahmen (€)" wert={kosten.kosten_einzel} onChange={w => setKosten(k => ({ ...k, kosten_einzel: w }))} />
           <ZahlFeld label="Effizienzhaus (€)" wert={kosten.kosten_effizienzhaus} onChange={w => setKosten(k => ({ ...k, kosten_effizienzhaus: w }))} />
+          <div className="feld"><label htmlFor="sw-eh">Effizienzhaus-Ziel (KfW 261)</label>
+            <select id="sw-eh" value={ehZiel} onChange={e => setEhZiel(e.target.value)} aria-describedby="sw-eh-hinweis">
+              <option value="">– keine Angabe (aus der Checkliste) –</option>
+              {(z.eh_optionen || []).map(([w, t]) => <option key={w} value={w}>{t}</option>)}
+            </select>
+            <span className="klein" id="sw-eh-hinweis">Ohne Angabe gilt das Niveau von der Checkliste; fehlt es dort, fragt das Cockpit nur
+              nach, wenn Effizienzhaus-Kosten eingetragen sind.</span></div>
         </div></fieldset>
       {fehler && <div className="fehler" role="alert">{fehler}</div>}
       <div className="aktionen">
@@ -170,6 +178,8 @@ function Eingabe({ zeile, wert, onChange, aus }) {
   const id = "rf-" + zeile.id;
   if (zeile.typ === "janein") return <select id={id} value={wert} disabled={aus} onChange={e => onChange(e.target.value)}>
     <option value="">– bitte wählen –</option><option value="ja">ja</option><option value="nein">nein</option></select>;
+  if (zeile.typ === "eh_stufe") return <select id={id} value={wert} disabled={aus} onChange={e => onChange(e.target.value)}>
+    <option value="">– bitte wählen –</option>{(zeile.optionen || []).map(([w, t]) => <option key={w} value={w}>{t}</option>)}</select>;
   if (zeile.typ === "einkommensbonus") return <select id={id} value={wert} disabled={aus} onChange={e => onChange(e.target.value)}>
     <option value="">– bitte wählen –</option>{["0", "10", "30", "40"].map(x => <option key={x} value={x}>{x === "0" ? "kein" : x + " %"}</option>)}</select>;
   if (zeile.typ === "text_lang") return <textarea id={id} rows={3} value={wert} disabled={aus} onChange={e => onChange(e.target.value)} />;

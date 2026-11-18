@@ -110,6 +110,7 @@ FELDER: tuple[Feld, ...] = (
     Feld("einkommensbonus_stufe", "Einkommensbonus – Stufe (40/30/10 %), falls handschriftlich angegeben", "auswahl",
          ("40", "30", "10"), "KfW 458"),
     Feld("sonstige_notizen", "Sonstige Notizen / Skizze / Reihenfolge", abschnitt="Notizen"),
+    Feld("eh_ziel", "Angestrebtes Effizienzniveau (z. B. „EH 55 EE“, „EH 70 EE NH“) – nur wenn notiert, wörtlich", abschnitt="Notizen"),
     Feld("kosten_einzel", "Investitionskosten Einzelmaßnahmen (€) – nur wenn ausdrücklich notiert", "zahl", abschnitt="Notizen"),
     Feld("kosten_effizienzhaus", "Investitionskosten Effizienzhaus (€) – nur wenn ausdrücklich notiert", "zahl", abschnitt="Notizen"),
 )
@@ -373,7 +374,29 @@ ZIEL_LABEL = {
     "verbrauch.tabelle": "Energieverbräuche", "notizen": "Notizen vom Termin", "foerder.klimabonus": "Klimageschwindigkeitsbonus",
     "foerder.einkommensbonus": "Einkommensbonus KfW 458", "foerder.eh_wpb": "Worst Performing Building (WPB)",
     "foerder.kosten_einzel": "Investitionskosten Einzelmaßnahmen", "foerder.kosten_effizienzhaus": "Investitionskosten Effizienzhaus",
+    "foerder.eh_stufe": "Effizienzhaus-Ziel (KfW 261)", "foerder.eh_nh": "Nachhaltigkeits-Klasse (NH)",
 }
+EH_MUSTER = re.compile(r"(?:\bEH|Effizienzhaus)\s*-?\s*(40|55|70|85|Denkmal)\b((?:\s*[-/+,]?\s*(?:EE|NH)\b)*)", re.IGNORECASE)
+
+
+def eh_ziel_lesen(texte: list[str]) -> tuple[dict | None, dict | None]:
+    """Angestrebtes Effizienzniveau aus Notizen/freien Zeilen. Nur mit EE-Klasse eindeutig (Stufen der Konditionen sind EE-Stufen);
+    ohne Klasse, nur NH oder mehrere verschiedene Angaben → unsicher (Rückfrage), nie geraten. → (eh_stufe-Ziel, eh_nh-Ziel)"""
+    treffer = []
+    for t in texte:
+        for m in EH_MUSTER.finditer(t or ""):
+            klassen = {k.upper() for k in re.findall(r"EE|NH", m.group(2) or "", re.IGNORECASE)}
+            stufe = "DenkmalEE" if m.group(1).lower() == "denkmal" else f"EH{m.group(1)}EE"
+            treffer.append((stufe, "EE" in klassen, "NH" in klassen, m.group(0).strip()))
+    if not treffer:
+        return None, None
+    roh = "; ".join(dict.fromkeys(x[3] for x in treffer))
+    eindeutig = {(s, ee, nh) for s, ee, nh, _ in treffer}
+    if len(eindeutig) == 1 and treffer[0][1]:
+        s, _, nh, _ = treffer[0]
+        return _ziel(True, s, [roh]), (_ziel(True, True, [roh]) if nh else None)
+    grund = "mehrere Angaben" if len(eindeutig) > 1 else "Klasse (EE) fehlt"
+    return _ziel(False, None, [roh, f"{grund} – bitte Stufe wählen"]), None
 EINFACH = {"termin_datum": "termin.datum", "anwesende": "termin.anwesende", "berater": "termin.berater",
            "gebaeudetyp": "objekt.gebaeudetyp", "baujahr": "objekt.baujahr", "wohnflaeche": "objekt.wohnflaeche",
            "geschosse": "objekt.geschosse", "energietraeger": "objekt.energietraeger", "pv_leistung": "pv.gesamtleistung",
@@ -480,6 +503,13 @@ def ziele(ir: dict, kond: dict | None = None) -> dict[str, dict]:
                                              [e["rohtext"] or ("" if gut else f"Stufe „{e['wert']}“ nicht in den Konditionen")])
     if (e := ir.get("auffaelligkeiten")) and WPB_OPTION in e["wert"]:
         z["foerder.eh_wpb"] = _ziel(e["sicher"], True, [e["rohtext"]])
+    quellen = [str((ir.get("eh_ziel") or {}).get("wert") or ""), str((ir.get("sonstige_notizen") or {}).get("wert") or ""),
+               *[x for x in ((ir.get("ziele") or {}).get("wert") or []) if x not in ZIELE]]
+    eh, nh = eh_ziel_lesen(quellen)
+    if eh:
+        z["foerder.eh_stufe"] = eh
+    if nh:
+        z["foerder.eh_nh"] = nh
     for schl in KOSTEN:   # Regel 4: nur abgeschrieben, immer „bitte prüfen“
         if e := ir.get(schl):
             n = _zahl(e["wert"]) if e["sicher"] else None

@@ -1,6 +1,8 @@
 import React from "react";
-import { describe, expect, it, vi } from "vitest";
-import { fireEvent, render, screen } from "@testing-library/react";
+import { afterEach, describe, expect, it, vi } from "vitest";
+import { cleanup, fireEvent, render, screen } from "@testing-library/react";
+
+afterEach(cleanup);
 import { artVonDatei, Bearbeiter, Ergebnis, Rueckfragen } from "./Schnellweg.jsx";
 
 const zustand = (s, extra = {}) => ({ revision: 7, darf_bearbeiten: true, darf_freigeben: true, abschnitte: [], schnellweg: s, ...extra });
@@ -47,5 +49,19 @@ describe("Schnellweg INIT", () => {
     expect(screen.getByDisplayValue("Abgleich")).toBeTruthy();
     fireEvent.click(screen.getAllByRole("button", { name: "+ Eintrag" })[1]);
     expect(onChange).toHaveBeenCalledWith({ massnahmen_stufe1: [{ titel: "Abgleich", beschreibung: "B" }], massnahmen_stufe2: [{ titel: "", beschreibung: "" }] });
+  });
+
+  it("Rückfrage Effizienzhaus-Ziel: Auswahl aus dem Backend, nicht weglassbar, nichts vorausgewählt", () => {
+    const s = { status: "rueckfrage", rueckfragen: [{ id: "eh_ziel", pfad: "foerder.eh_stufe", label: "Effizienzhaus-Ziel (KfW 261)",
+      typ: "eh_stufe", vorschlag: "", hinweis: "", weglassen_erlaubt: false,
+      optionen: [["EH55EE", "Effizienzhaus 55 EE"], ["EH55EE+NH", "Effizienzhaus 55 EE + NH-Klasse"], ["kein", "kein Effizienzhaus-Vergleich"]] }] };
+    render(<Rueckfragen z={zustand(s)} pfad="/x" onNeu={() => {}} />);
+    const feld = screen.getByLabelText("Effizienzhaus-Ziel (KfW 261)");
+    expect(feld.value).toBe("");
+    expect([...feld.options].map(o => o.textContent)).toContain("kein Effizienzhaus-Vergleich");
+    expect(screen.queryByRole("button", { name: "weglassen" })).toBe(null);
+    expect(screen.getByRole("button", { name: "Weiter" }).disabled).toBe(true);
+    fireEvent.change(feld, { target: { value: "EH55EE+NH" } });
+    expect(screen.getByRole("button", { name: "Weiter" }).disabled).toBe(false);
   });
 });

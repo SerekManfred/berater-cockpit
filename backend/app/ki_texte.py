@@ -299,7 +299,12 @@ def ki_eingabe(daten: dict, objekt: dict, kond: dict, fotos: list[dict]) -> str:
         "checkliste": daten.get("checkliste") or {},
         "photovoltaik": daten.get("pv") or {},
         "verbrauch": daten.get("verbrauch") or {},
-        "foerderwahl": {k: (daten.get("foerder") or {}).get(k) for k in ("klimabonus", "einkommensbonus", "eh_stufe", "eh_wpb", "eh_sersan")},
+        "foerderwahl": {**{k: (daten.get("foerder") or {}).get(k) for k in ("klimabonus", "einkommensbonus", "eh_stufe", "eh_nh",
+                                                                               "eh_wpb", "eh_sersan")},
+                        **({"effizienzhaus_vergleich": "nein – den Effizienzhaus-Weg (KfW 261) nicht als Option für dieses Objekt "
+                                                       "darstellen: in Fazit, 8.1 (effizienzhaus leer) und 8.2 nur Einzelmaßnahmen; "
+                                                       "7.3 nur allgemein beschreiben"}
+                           if (daten.get("foerder") or {}).get("eh_kein_vergleich") else {})},
         "notizen_des_beraters": daten.get("notizen") or "",
     }
     konditionen = konditionen_fuer_ki(kond)

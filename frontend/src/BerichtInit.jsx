@@ -365,10 +365,16 @@ function DatenSchritt({ d, e, kond, projekt, aendern, einlesen = null }) {
               {stufen.map(s => <option key={s} value={String(s)}>{proz(s)}</option>)}
             </select>{mk("foerder.einkommensbonus")}</label>
           <label htmlFor="f-eh">Effizienzhaus-Ziel (KfW 261)
-            <select id="f-eh" value={f.eh_stufe || ""} onChange={x => aendern("foerder.eh_stufe", x.target.value || null)}>
-              <option value="">kein Effizienzhaus-Ziel</option>
+            <select id="f-eh" value={f.eh_kein_vergleich ? "__kein__" : f.eh_stufe || ""} onChange={x => {
+              const w = x.target.value;
+              aendern("foerder.eh_kein_vergleich", w === "__kein__");
+              aendern("foerder.eh_stufe", w && w !== "__kein__" ? w : null);
+              if (!w || w === "__kein__") aendern("foerder.eh_nh", false);
+            }}>
+              <option value="">keine Angabe</option>
               {ehStufen.map(s => <option key={s} value={s}>{EH_TEXT[s] || s}</option>)}
-            </select></label>
+              <option value="__kein__">kein Effizienzhaus-Vergleich (Weg B entfällt)</option>
+            </select>{mk("foerder.eh_stufe")}</label>
           <div className="mit-marke"><ZahlFeld id="f-ke" label="Investitionskosten Einzelmaßnahmen (€)" wert={f.kosten_einzel} onChange={w => aendern("foerder.kosten_einzel", w)} />{mk("foerder.kosten_einzel")}</div>
           <div className="mit-marke"><ZahlFeld id="f-kh" label="Investitionskosten Effizienzhaus (€)" wert={f.kosten_effizienzhaus} onChange={w => aendern("foerder.kosten_effizienzhaus", w)} />{mk("foerder.kosten_effizienzhaus")}</div>
         </div>
@@ -376,6 +382,7 @@ function DatenSchritt({ d, e, kond, projekt, aendern, einlesen = null }) {
           <label><input type="checkbox" checked={!!f.klimabonus} onChange={x => aendern("foerder.klimabonus", x.target.checked)} /> Klimageschwindigkeitsbonus (KfW 458) {mk("foerder.klimabonus")}</label>
           <label><input type="checkbox" checked={!!f.eh_wpb} onChange={x => aendern("foerder.eh_wpb", x.target.checked)} /> Worst Performing Building (WPB) {mk("foerder.eh_wpb")}</label>
           <label><input type="checkbox" checked={!!f.eh_sersan} onChange={x => aendern("foerder.eh_sersan", x.target.checked)} /> Serielle Sanierung (Bonus KfW 261)</label>
+          <label><input type="checkbox" checked={!!f.eh_nh} disabled={!f.eh_stufe} onChange={x => aendern("foerder.eh_nh", x.target.checked)} /> Nachhaltigkeits-Klasse (NH) {mk("foerder.eh_nh")}</label>
         </div>
         <WeHinweise hinweise={e.wohneinheiten?.hinweise} onUebernehmen={w => aendern("foerder.we", w)} />
         <p className="klein">{klimabonusText(kond?.kfw_458?.klimabonus_hinweis)}</p>

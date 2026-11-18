@@ -417,7 +417,7 @@ Ausführliches Fachkonzept: `docs/Konzept_Berater-Cockpit.docx` (falls abgelegt)
   Kunden-/Objektanschrift werden **nie** in die Projektdaten geschrieben, Abweichungen nur als Hinweis.
 - Kosten wie Förderprüfung (`kosten_usd`) im letzten Lauf und im Protokoll `checkliste_eingelesen` (Art, Datei-IDs, Anzahlen,
   Kosten, Modell – keine Inhalte); `checkliste_einlesen_warnung`, `_fehlgeschlagen`, `checkliste_konflikt`, `checkliste_werte_bestaetigt`.
-  Grenze `KI_MAX_LAEUFE_TAG` je Entwurf und Tag (KI-Läufe). Testlauf 17.11.2026 (synthetisches Handschrift-Bild, Seite 1): 0,03–0,04 $.
+  Grenze: KI-Läufe je Benutzer und Tag (KI-Einstellungen, seit Phase 2h). Testlauf 17.11.2026 (synthetisches Handschrift-Bild, Seite 1): 0,03–0,04 $.
 - **Handschrift-Profil:** Admin-Seite „Handschrift-Profil“ (`/ki-referenzen/handschrift_profil`, Tabelle `ki_referenzen`, Protokoll
   `ki_referenz_geaendert` nur mit Zeichenzahl); ohne gespeicherte Fassung gilt `app/ki/referenz/handschrift_profil.md`.
 - **Datenschutz:** Ein Foto des Bogens enthält zwangsläufig Namen, Anschriften, Telefon und Anwesende – Platzhalter sind hier nicht
@@ -451,6 +451,16 @@ Ausführliches Fachkonzept: `docs/Konzept_Berater-Cockpit.docx` (falls abgelegt)
   KI, auch fehlgeschlagene). `KI_MAX_LAEUFE_TAG` gilt nicht mehr.
 - Protokoll: `schnellweg_gestartet`, `_rueckfrage`, `_texte`, `_vorschau`, `_korrektur`, `_fehlgeschlagen`,
   `_vorschau_heruntergeladen`, `bericht_freigegeben`, `einstellung_geaendert` (ohne Texte/Namen).
+- **Effizienzhaus-Ziel (Geschäftsführer 18.11.2026):** Auswahl auf der Unterlagen-Seite (Stufen der aktiven Konditionen, je mit
+  NH-Option, dazu „kein Effizienzhaus-Vergleich“; `eh_optionen()`), **keine Voreinstellung**. Steht das Niveau auf der Checkliste
+  (Notizen/freie Zeilen/KI-Feld `eh_ziel`), übernimmt `checkliste_import.eh_ziel_lesen()` es **nur mit EE-Klasse**; ohne Klasse, nur
+  NH oder widersprüchlich → unsicher → Rückfrage mit Auswahl (nie geraten). Rückfrage „Effizienzhaus-Ziel“ sonst nur, wenn
+  Effizienzhaus-Kosten eingetragen sind, aber keine Stufe. Entwurf: `foerder.eh_nh`, `foerder.eh_kein_vergleich` (Vorrang vor der
+  Checkliste; dann sind Effizienzhaus-Kosten keine Pflicht). **NH-Bonus nur aus `beg_wg.nh_bonus`** (optionales Konditionen-Feld,
+  leer = nicht hinterlegt → kein Bonus, Hinweis „NH-Bonus … nicht hinterlegt“; in Version 4/5 noch leer). Label
+  „Effizienzhaus 55 EE + NH-Klasse“. **„kein Vergleich“** → Generator bekommt `foerderung.eh_vergleich: false`, kein `eh_ziel`, keine
+  Effizienzhaus-Kosten, leere Variante 8.1; die KI stellt den Weg nicht dar. **Weg B entfällt erst ab Generator 0.4.5** (Datenvertrag
+  `docs/Datenvertrag_Generator_EH_Vergleich.md`); 0.4.4 zeigt Weg B noch mit „—“.
 - Messung 17.11.2026 (echte API, Kopie der DB, Testbogen Word + 6 Fotos): ohne Rückfrage, **94–112 s** bis Word + PDF, Texte Opus
   **0,26–0,30 $**, Korrektur 13–18 s, 0,03–0,08 $. Vergleich mit dem Original-Skill (gleiche Daten): Gliederung (31), Bilder,
   Förderbeträge identisch. Tests: `tests/test_init_schnellweg.py`, `frontend/src/Schnellweg.test.jsx`.
@@ -458,9 +468,10 @@ Ausführliches Fachkonzept: `docs/Konzept_Berater-Cockpit.docx` (falls abgelegt)
 ## KI-Textvorschläge (Stand 13.11.2026, Phase 2b)
 - `app/ki/` = austauschbare Schnittstelle (Regel 7; `anthropic` umgesetzt, `langdock` meldet „noch nicht angebunden“), offizielles SDK
   `anthropic`, strukturierte Ausgabe per JSON-Schema (`ki_texte.SCHEMA`). Fachlogik in `app/ki_texte.py`; Systemprompt versioniert als
-  Datei `app/ki/prompts/init_v1.md` (erste Zeile `PROMPT-VERSION: init-1`; bei Änderung neue Datei/Version, nicht still ändern).
-- `.env`: `KI_AKTIV` (Standard **aus**), `KI_MODELL` (Standard `claude-sonnet-5-5`), `KI_ANBIETER`, `KI_MAX_LAEUFE_TAG` (10 je Entwurf und
-  Tag), `ANTHROPIC_API_KEY`. Zeitlimit 180 s, höchstens 20 Fotos (1024 px) je Lauf. Fehler kommen als Meldung, nie als Absturz.
+  Datei `app/ki/prompts/init_v1.md` (erste Zeile `PROMPT-VERSION: init-1`, Detailbearbeitung) und `app/ki/prompts/init_v2.md`
+  (`PROMPT-VERSION: init-2`, Schnellweg: Kundentext ohne Prüfmarken, Hinweise der KI); bei Änderung neue Datei/Version, nicht still ändern.
+- `.env`: `KI_AKTIV` (Standard **aus**), `KI_MODELL` (Standard `claude-sonnet-5-5`), `KI_ANBIETER`, `ANTHROPIC_API_KEY`
+  (Tageslimit seit Phase 2h je Benutzer in den KI-Einstellungen). Zeitlimit 180 s, höchstens 20 Fotos (1024 px) je Lauf. Fehler kommen als Meldung, nie als Absturz.
 - **An die KI gehen nur:** Objekt-/Checklisten-/PV-/Verbrauchsangaben, Notizen, Förderwahl, die Programm-Abschnitte der aktiven
   (freigegebenen) Konditionen, verkleinerte Fotos. **Nie:** Telefon, E-Mail, Anschriften von Auftraggeber und Kunde, Anwesende. Namen und
   Anschriften von Auftraggeber, Kunde/Eigentümer und Objekt werden in allen Texten durch Platzhalter (`[KUNDE]`, `[AUFTRAGGEBER]`,
