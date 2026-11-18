@@ -87,14 +87,15 @@ function dokument(kinder, { kopfzeile, titel }) {
   const { Document } = require("docx");
   return new Document({
     creator: "Energieberatung Manfred Serek GmbH", title: titel,
-    styles: { default: { document: { run: { font: F, size: 19, color: C.anth } } } },
+    styles: { default: { document: { run: { font: F, size: 19, color: C.anth } } },
+      paragraphStyles: [{ id: "Fusszeile", name: "Fusszeile", basedOn: "Normal", run: { size: 14, color: C.grau, font: F } }] },
     numbering: { config: [{ reference: "punkte", levels: [{ level: 0, format: LevelFormat.BULLET, text: "▪", alignment: AlignmentType.LEFT,
       style: { paragraph: { indent: { left: 300, hanging: 220 } }, run: { color: C.gold } } }] }] },
     sections: [{
       properties: { page: { size: { width: 11906, height: 16838 }, margin: { top: 1021, bottom: 1021, left: 1021, right: 1021, header: 500, footer: 500 } } },
       headers: { default: new Header({ children: [new Paragraph({ alignment: AlignmentType.RIGHT,
         children: [new TextRun({ text: kopfzeile, size: 15, color: C.grau, font: F })] })] }) },
-      footers: { default: new Footer({ children: [new Paragraph({
+      footers: { default: new Footer({ children: [new Paragraph({ style: "Fusszeile",
         border: { top: { style: BorderStyle.SINGLE, size: 6, color: C.gold, space: 4 } },
         tabStops: [{ type: TabStopType.RIGHT, position: W }],
         children: [

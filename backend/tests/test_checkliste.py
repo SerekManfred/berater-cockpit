@@ -29,10 +29,12 @@ KUNDE = "Testkunde Muster"
 
 
 def mini_docx(marke="Testbogen") -> bytes:
+    """Kleines .docx mit festem Zeitstempel: zweimal erzeugt = dieselben Bytes (sonst wechselt der ZIP-Zeitstempel alle 2 s
+    und Vergleiche schlagen zufällig fehl – API-Build 18.11.2026)."""
     puffer = io.BytesIO()
     with zipfile.ZipFile(puffer, "w") as z:
-        z.writestr("[Content_Types].xml", "<Types/>")
-        z.writestr("word/document.xml", f"<w:document>{marke}</w:document>")
+        for name, inhalt in (("[Content_Types].xml", "<Types/>"), ("word/document.xml", f"<w:document>{marke}</w:document>")):
+            z.writestr(zipfile.ZipInfo(name, date_time=(2026, 1, 1, 0, 0, 0)), inhalt)
     return puffer.getvalue()
 
 

@@ -468,7 +468,9 @@ Ausführliches Fachkonzept: `docs/Konzept_Berater-Cockpit.docx` (falls abgelegt)
   (`tests/test_kfw261_boni.py`). **„kein Vergleich“** → Generator bekommt `foerderung.eh_vergleich: false`, kein `eh_ziel`, keine
   Effizienzhaus-Kosten, leere Variante 8.1; die KI stellt den Weg nicht dar. Ab **Generator 0.4.5** (eingespielt 18.11.2026, Datenvertrag
   `docs/Datenvertrag_Generator_EH_Vergleich.md`) entfallen Weg B, die KfW-261-Zeile in 7.5 und alle „—“ dazu; der Anhang zeigt
-  „Zusammenfassung Weg A – Einzelmaßnahmen“.
+  „Zusammenfassung Weg A – Einzelmaßnahmen“. **Generator 0.4.6** (18.11.2026): reine Zahlen bekommen im INIT-Bericht ihre Einheit
+  (m², kWp, kWh/a, ct/kWh, Jahre, l/kWh je Energieträger, €), Fußzeile mit eigenem Absatzformat (Seitenzahl auch in der PDF-Vorschau
+  klein), Herleitung ohne Boni ohne doppeltes „= x %“ („5 % (Effizienzhaus 55 EE) von 150.000 € = 7.500 €“).
 - Messung 17.11.2026 (echte API, Kopie der DB, Testbogen Word + 6 Fotos): ohne Rückfrage, **94–112 s** bis Word + PDF, Texte Opus
   **0,26–0,30 $**, Korrektur 13–18 s, 0,03–0,08 $. Vergleich mit dem Original-Skill (gleiche Daten): Gliederung (31), Bilder,
   Förderbeträge identisch. Tests: `tests/test_init_schnellweg.py`, `frontend/src/Schnellweg.test.jsx`.

@@ -125,3 +125,11 @@ Datenvertrag: `docs/Datenvertrag_Generator_EH_Vergleich.md` (Cockpit, 18.11.2026
 - Herleitung Tilgungszuschuss: optional `rechenkern.werte.eh_wpb_bonus` (sonst 10 %) und `eh_sersan_bonus`;
   ist `eh_tilgung` kleiner als die Summe, steht „begrenzt auf den Höchstsatz von x %“. Der Generator rechnet nichts.
 - Summenzeile Weg A: leere Zellen statt „—“ (einzige Textänderung gegenüber 0.4.4 bei unveränderten Eingaben).
+
+## Einheiten, Fußzeile, Herleitung (ab 0.4.6)
+- Bericht INIT: Reine Zahlen bekommen ihre Einheit (Wohnfläche m², PV kWp / kWh/a / ct/kWh / Jahre, Speicher kWh,
+  Verbräuche l bzw. kWh je nach Energieträger, Kosten €), mit deutschem Tausenderpunkt. Werte mit Text/Einheit bleiben
+  unverändert; „° Grad“ wird zu „°“. Pellets/Holz/Flüssiggas: keine automatische Einheit (nicht eindeutig).
+- Fußzeile (INIT und Fördervergleich): eigenes Absatzformat „Fusszeile“, damit die Seitenzahl-Felder auch in der
+  PDF-Vorschau (LibreOffice) 7,5 pt bzw. 7 pt groß sind statt 11 pt.
+- Herleitung Tilgungszuschuss ohne Boni: „5 % (Effizienzhaus 55 EE) von 150.000 € = 7.500 €“ (kein doppeltes „= 5 %“).

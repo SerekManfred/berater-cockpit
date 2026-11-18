@@ -86,6 +86,16 @@ function fmt(v) {
   return String(v);
 }
 
+// ab 0.4.6: Einheit ergänzen, wenn nur eine Zahl angegeben ist ("150" -> "150 m²", "10000" -> "10.000 kWh/a").
+// Steht schon Text/Einheit dabei, bleibt der Wert unverändert. Rechnet nichts, formatiert nur.
+function mitEinheit(v, einheit) {
+  if (!has(v)) return v;
+  const t = String(v).trim();
+  if (!/^\d[\d.,\s]*$/.test(t)) return t.replace(/°\s*Grad\b/gi, "°");
+  const n = parseNum(t);
+  if (n === null) return t;
+  return n.toLocaleString("de-DE", { maximumFractionDigits: 2 }) + (einheit ? " " + einheit : "");
+}
 // Zahl aus String/Number robust extrahieren (dt. Format: "4.500 kWh" -> 4500,
 // "5,5 kWp" -> 5.5). Liefert null, wenn keine Zahl erkennbar.
 function parseNum(v) {
@@ -440,7 +450,7 @@ children.push(kvTable([
   ["Objektadresse", obj.adresse],
   ["Gebäudetyp", obj.gebaeudetyp],
   ["Baujahr", obj.baujahr],
-  ["Wohnfläche", obj.wohnflaeche],
+  ["Wohnfläche", mitEinheit(obj.wohnflaeche, "m²")],
   ["Wohneinheiten (gesamt)", obj.wohneinheiten],
   ["davon selbstgenutzt", obj.we_eigennutz],
   ["davon vermietet", obj.we_vermietung],
@@ -502,15 +512,15 @@ if (pvAktiv) {
   children.push(h2("3.2.1 Photovoltaik-Anlage (" + (geplant ? "geplante Maßnahme" : "Bestand") + ")"));
   children.push(kvTable([
     has(pvVorhanden) ? ["Status", pvVorhanden] : null,
-    ["Gesamtleistung der Anlage", pv.gesamtleistung],
-    ["Ausrichtung", pv.ausrichtung],
-    ["Jährlicher Gesamtertrag", pv.jahresertrag],
-    ["Alter der Anlage", pv.alter],
-    ["Laufzeit aktueller Vertrag", pv.vertragslaufzeit],
-    ["Einspeisevergütung", pv.einspeiseverguetung],
+    ["Gesamtleistung der Anlage", mitEinheit(pv.gesamtleistung, "kWp")],
+    ["Ausrichtung", mitEinheit(pv.ausrichtung, "")],
+    ["Jährlicher Gesamtertrag", mitEinheit(pv.jahresertrag, "kWh/a")],
+    ["Alter der Anlage", mitEinheit(pv.alter, "Jahre")],
+    ["Laufzeit aktueller Vertrag", mitEinheit(pv.vertragslaufzeit, "Jahre")],
+    ["Einspeisevergütung", mitEinheit(pv.einspeiseverguetung, "ct/kWh")],
     ["Voll-/Teileinspeiser", pv.einspeiseart],
     ["Stromspeicher", pv.speicher],
-    isYes(pv.speicher) ? ["Speicherkapazität", pv.speicherkapazitaet] : null,
+    isYes(pv.speicher) ? ["Speicherkapazität", mitEinheit(pv.speicherkapazitaet, "kWh")] : null,
     ["E-Auto", pv.eauto],
     ["Einbindung Heizungssystem", pv.heizung_einbindung],
   ]));
@@ -550,7 +560,12 @@ children.push(dataTable([
   { label: "Energieträger",          key: "traeger", width: 3072 },
   { label: "Jahresverbrauch",        key: "menge",   width: 3000, align: AlignmentType.RIGHT },
   { label: "Energiekosten / Jahr",   key: "kosten",  width: 3000, align: AlignmentType.RIGHT },
-], vb.tabelle));
+], (vb.tabelle || []).map(r => {
+  // ab 0.4.6: Einheit nur ergänzen, wenn sie aus dem Energieträger eindeutig ist
+  const t = String(r.traeger || "");
+  const e = /flüssiggas|pellet|holz|kohle/i.test(t) ? null : (/strom|erdgas|^gas|fernwärme/i.test(t) ? "kWh" : (/heizöl|^öl|oel/i.test(t) ? "l" : null));
+  return { ...r, menge: e ? mitEinheit(r.menge, e) : r.menge, kosten: mitEinheit(r.kosten, "€") };
+})));
 children.push(spacer(60));
 children.push(new Paragraph({ children: [new TextRun({ text: has(vb.hinweis) ? vb.hinweis : "Verbrauchswerte nach Möglichkeit aus den letzten Energieabrechnungen übernehmen; geschätzte Werte sind als solche gekennzeichnet.", italics: true, size: 17, color: COL.grey, font: FONT })] }));
 
@@ -876,7 +891,7 @@ const anhang = D.anhang_fotos || [];
       const _gedeckelt = Math.abs(_summe - ehT) > 1e-9;
       children.push(noteBox("Herleitung Tilgungszuschuss: " + _pz(ehBaseT) + " % (" + ehLabel + ")"
         + (_wpbP ? " + " + _pz(_wpbP) + " % WPB-Bonus" : "") + (_serP ? " + " + _pz(_serP) + " % Bonus serielle Sanierung" : "")
-        + (_gedeckelt ? " = " + _pz(_summe) + " %, begrenzt auf den Höchstsatz von " + _pz(ehT) + " %" : " = " + _pz(ehT) + " %")
+        + (_gedeckelt ? " = " + _pz(_summe) + " %, begrenzt auf den Höchstsatz von " + _pz(ehT) + " %" : ((_wpbP || _serP) ? " = " + _pz(ehT) + " %" : ""))
         + " von " + eur(ehKredit) + " = "
         + eur(ehFoerder) + " (Tilgungszuschuss je WE, unabhängig von der Nutzung)."));
     }
@@ -965,7 +980,7 @@ const runningHeader = new Header({ children: [ new Paragraph({
   children: headerChildren,
 }) ] });
 
-const footer = new Footer({ children: [ new Paragraph({
+const footer = new Footer({ children: [ new Paragraph({ style: "Fusszeile",
   border: { top: { style: BorderStyle.SINGLE, size: 6, color: COL.line, space: 2 } },
   tabStops: [{ type: TabStopType.RIGHT, position: CONTENT_W }],
   children: [
@@ -979,7 +994,7 @@ const footer = new Footer({ children: [ new Paragraph({
 
 // Titelseite: kein laufender Header (das große Logo steht im Seiteninhalt)
 const firstHeader = new Header({ children: [ new Paragraph({ children: [] }) ] });
-const firstFooter = new Footer({ children: [ new Paragraph({
+const firstFooter = new Footer({ children: [ new Paragraph({ style: "Fusszeile",
   border: { top: { style: BorderStyle.SINGLE, size: 6, color: COL.line, space: 2 } },
   tabStops: [{ type: TabStopType.RIGHT, position: CONTENT_W }],
   children: [
@@ -999,6 +1014,8 @@ const doc = new Document({
   styles: {
     default: { document: { run: { font: FONT, size: 22, color: COL.anthracite } } },
     paragraphStyles: [
+      // ab 0.4.6: Fußzeilen-Absatzformat, damit auch die Seitenzahl-Felder 7,5 pt groß sind (LibreOffice/PDF)
+      { id: "Fusszeile", name: "Fusszeile", basedOn: "Normal", run: { size: 15, color: COL.grey, font: FONT } },
       { id: "Heading1", name: "Heading 1", basedOn: "Normal", next: "Normal", quickFormat: true,
         run: { size: 30, bold: true, font: FONT, color: COL.anthracite },
         paragraph: { spacing: { before: 120, after: 140 }, outlineLevel: 0,

@@ -118,6 +118,17 @@ async function text(daten) {
   assert(nt.includes("15 % (Effizienzhaus 40 NH) + 10 % WPB-Bonus + 15 % Bonus serielle Sanierung = 40 % von 150.000 € = 60.000 €"), "NH + WPB + SerSan Herleitung");
   Object.assign(nh.foerderung.rechenkern.werte, { eh_sersan_bonus: 0.15, eh_tilgung_basis: 0.20, eh_tilgung: 0.40 });
   assert((await alles(await erzeugeBericht("init", { daten: nh, bilder }))).includes("= 45 %, begrenzt auf den Höchstsatz von 40 %"), "Höchstsatz in der Herleitung");
+  // ab 0.4.6: Einheiten bei reinen Zahlen ergänzen (Fall Erika Mustermann, 18.11.2026)
+  const ez = JSON.parse(JSON.stringify(bd));
+  ez.objekt.wohnflaeche = "150";
+  Object.assign(ez.pv, { status: "vorhanden", gesamtleistung: "10", ausrichtung: "Süd 30° Grad", jahresertrag: "10000", alter: "10",
+    vertragslaufzeit: "10 Jahre", einspeiseverguetung: "18", speicher: "ja", speicherkapazitaet: "8,5" });
+  ez.verbrauch.tabelle = [{ traeger: "Heizöl", menge: "2500", kosten: "2800" }, { traeger: "Strom", menge: "3800", kosten: "1250" },
+    { traeger: "Pellets", menge: "5", kosten: "1.400 €" }];
+  const zt = await alles(await erzeugeBericht("init", { daten: ez, bilder }));
+  for (const z of ["150 m²", "10 kWp", "Süd 30°", "10.000 kWh/a", "10 Jahre", "18 ct/kWh", "8,5 kWh", "2.500 l", "2.800 €", "3.800 kWh", "1.250 €", "1.400 €"])
+    assert(zt.includes(z), "Einheiten: " + z);
+  assert(!zt.includes("° Grad"), "Einheiten: „° Grad“ doppelt");
   const mitEh = JSON.parse(JSON.stringify(bd)); mitEh.foerderung.eh_vergleich = true;
   assert.strictEqual(await alles(await erzeugeBericht("init", { daten: mitEh, bilder })), bt, "eh_vergleich: true = bisheriges Verhalten");
   // WPB-Bonus Einzelmaßnahmen „angekündigt, noch nicht in Kraft“ (ab 0.4.4, Fixtures aus dem Cockpit, Datenvertrag 16.11.2026)
