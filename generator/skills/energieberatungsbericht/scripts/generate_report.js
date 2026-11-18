@@ -315,12 +315,14 @@ function kvTable(rows) {
 }
 
 // Generische Tabelle mit Kopfzeile. cols=[{label,key,width,align}], rows=Array von Objekten
+// ab 0.4.5: bewusst leere Zelle (z. B. Summenzeile) statt „—“
+const LEER = Symbol("leer");
 function dataTable(cols, rows) {
   const widths = cols.map(c => c.width);
   const _n = (rows || []).length;
   const head = new TableRow({ tableHeader: true, cantSplit: true, children: cols.map(c => headCell(c.label, c.width, true)) });
   const body = (rows || []).map((r, i) => new TableRow({ cantSplit: true, children: cols.map(c =>
-    dataCell(fmt(r[c.key]), c.width, { align: c.align || AlignmentType.LEFT,
+    dataCell(r[c.key] === LEER ? "" : fmt(r[c.key]), c.width, { align: c.align || AlignmentType.LEFT,
       fill: i % 2 ? COL.greyLight : "FFFFFF", keepNext: i < _n - 1 })) }));
   if (body.length === 0) {
     body.push(new TableRow({ cantSplit: true, children: [ new TableCell({ borders: cellBorders,
@@ -683,6 +685,8 @@ const RK = (foe.rechenkern && foe.rechenkern.werte) ? foe.rechenkern.werte : nul
 const R = RK || rechneFoerderung(FS, { we: WE, we_eigen: weEigen, we_verm: weVerm,
   klima: isYes(kfw458.klimageschwindigkeit), einkommen: einkRate(kfw458.einkommensbonus), eh_ziel: foe.eh_ziel || {} });
 if (RK) { weEigen = R.we_eigen; weVerm = R.we_verm; }
+// ab 0.4.5: foerderung.eh_vergleich === false -> Effizienzhaus-Weg (KfW 261) entfällt in 7.5, 8.1 und Anhang
+const EHV = foe.eh_vergleich !== false;
 const emCapOhne = R.em_cap_ohne, emCapMit = R.em_cap_mit, emFoerderOhne = R.em_foerder_ohne;
 const emIsfpBonus = R.em_isfp_bonus, emFoerderMit = R.em_foerder_mit;
 const heizKosten = R.heiz_kosten, bKlima = R.heiz_klima, bEink = R.heiz_einkommen, bonusWE = R.heiz_bonus_we;
@@ -708,10 +712,10 @@ const uebersichtRows = (Array.isArray(foe.uebersicht) && foe.uebersicht.length)
     { weg: "KfW 458 \u2013 Heizungstausch (erneuerbare Wärme)",
       quote: heizQuote, kosten: eur(heizKosten),
       foerderung: eur(heizMax), form: "Zuschuss" },
-    { weg: "KfW 261 \u2013 Sanierung zum Effizienzhaus",
+    ...(EHV ? [{ weg: "KfW 261 \u2013 Sanierung zum Effizienzhaus",
       quote: FS.eh_tilgung_label, kosten: "bis " + eur(R.eh_kredit),
       foerderung: "bis " + eur(R.eh_max_uebersicht),
-      form: "Kredit + Tilgungszuschuss" },
+      form: "Kredit + Tilgungszuschuss" }] : []),
     { weg: "§ 35c EStG \u2013 Steuerermäßigung (selbstgenutzt)",
       quote: FS.steuer_quote, kosten: eur(FS.steuer_kosten_objekt) + " / Objekt",
       foerderung: eur(FS.steuer_max_objekt) + " / Objekt", form: "Steuerermäßigung" },
@@ -731,9 +735,10 @@ children.push(new Paragraph({ children: [new TextRun({ text:
   + Math.round(FS.heizung_klima * 100) + " %, ab 01.02.2027 sinkend) und Einkommensbonus (10/30/40 % je nach Einkommen) "
   + "nur für eine selbstgenutzte Wohneinheit, zusammen max. 70 % (80 % bei Einkommensbonus 40 %). Höchstgrenze "
   + "1. WE " + eur(FS.heizung_kosten_we1) + ", ab 01.02.2027 halbjährlich \u2212750 \u20ac. Diese Übersicht ist auf "
-  + weEigen + " selbstgenutzte und " + weVerm + " vermietete WE gerechnet. KfW 261 gilt je Wohneinheit unabhängig "
+  + weEigen + " selbstgenutzte und " + weVerm + " vermietete WE gerechnet. "
+  + (EHV ? "KfW 261 gilt je Wohneinheit unabhängig "
   + "von der Nutzung. KfW 458 (Heizung) wird nicht zusammen mit der Effizienzhaus-Förderung (KfW 261) für dieselbe "
-  + "Heizung gewährt; eine Doppelförderung (BAFA/KfW und § 35c EStG) derselben Maßnahme ist ausgeschlossen. "
+  + "Heizung gewährt; eine " : "Eine ") + "Doppelförderung (BAFA/KfW und § 35c EStG) derselben Maßnahme ist ausgeschlossen. "
   + "§ 35c gilt je Objekt. Konditionen: " + FS.konditionen_stand + ".",
   italics: true, size: 17, color: COL.grey, font: FONT })] }));
 if (!WEraw) {
@@ -762,11 +767,12 @@ bodyText(D.fazit).forEach(p => children.push(p));
 
 // 8.1 Empfohlene Vorgehensweise: Einzelmaßnahmen vs. Effizienzhaus
 const _ev = D.empfehlung_varianten;
-if (_ev && (_ev.einzel || _ev.effizienzhaus)) {
-  children.push(h2("8.1 Empfohlene Vorgehensweise – Einzelmaßnahmen oder Effizienzhaus"));
+const _vGefuellt = v => !!(v && (has(v.titel) || (Array.isArray(v.punkte) && v.punkte.length)));
+if (_ev && (_vGefuellt(_ev.einzel) || (EHV && _vGefuellt(_ev.effizienzhaus)))) {
+  children.push(h2(EHV && _vGefuellt(_ev.effizienzhaus) ? "8.1 Empfohlene Vorgehensweise – Einzelmaßnahmen oder Effizienzhaus" : "8.1 Empfohlene Vorgehensweise"));
   if (has(_ev.intro)) bodyText(_ev.intro, { keep: true }).forEach(p => children.push(p));
-  [_ev.einzel, _ev.effizienzhaus].forEach(v => {
-    if (!v) return;
+  [_ev.einzel, EHV ? _ev.effizienzhaus : null].forEach(v => {
+    if (!_vGefuellt(v)) return;
     children.push(new Paragraph({ spacing: { before: 120, after: 40 }, keepNext: true, keepLines: true,
       children: [new TextRun({ text: v.titel || "", bold: true, size: 22, color: COL.gold, font: FONT })] }));
     const pts = v.punkte || [];
@@ -794,7 +800,7 @@ if (_rf && Array.isArray(_rf.schritte) && _rf.schritte.length) {
 }
 
 // Fallback: einfache Empfehlungsliste, falls keine Varianten hinterlegt
-if (!(_ev && (_ev.einzel || _ev.effizienzhaus)) && Array.isArray(D.empfehlungen) && D.empfehlungen.length) {
+if (!(_ev && (_vGefuellt(_ev.einzel) || (EHV && _vGefuellt(_ev.effizienzhaus)))) && Array.isArray(D.empfehlungen) && D.empfehlungen.length) {
   children.push(spacer(40));
   children.push(new Paragraph({ keepNext: true, keepLines: true, children: [new TextRun({ text: "Empfohlene nächste Schritte:", bold: true, size: 22, color: COL.anthracite, font: FONT })] }));
   const _emp = D.empfehlungen;
@@ -811,8 +817,8 @@ const anhang = D.anhang_fotos || [];
   const bafaKosten = emCapMit;
   const bafaFoerder = emFoerderMit;
   const wegA = R.weg_a;
-  bodyText("Die folgende Aufschlüsselung stellt die beiden Förderwege gegenüber, damit die wirtschaftlichere "
-    + "Lösung gewählt werden kann. Angegeben sind die maximal möglichen Förderbeträge (unverbindlich, keine "
+  bodyText((EHV ? "Die folgende Aufschlüsselung stellt die beiden Förderwege gegenüber, damit die wirtschaftlichere "
+    + "Lösung gewählt werden kann. " : "Die folgende Aufschlüsselung schlüsselt die Förderung der Einzelmaßnahmen auf. ") + "Angegeben sind die maximal möglichen Förderbeträge (unverbindlich, keine "
     + "verbindliche Förderauskunft).", { keep: true }).forEach(p => children.push(p));
   // Herleitungen (transparent nachvollziehbar)
   const n26 = Math.min(Math.max(WE - 1, 0), 5), n7 = Math.max(WE - 6, 0);
@@ -838,14 +844,14 @@ const anhang = D.anhang_fotos || [];
     { k: "KfW 458 – Klimageschwindigkeitsbonus (" + Math.round(FS.heizung_klima * 100) + " %, eine selbstgenutzte WE)", v: bKlima > 0 ? "ja" : "nein" },
     { k: "KfW 458 – Einkommensbonus (10/30/40 %, eine selbstgenutzte WE)", v: bEink > 0 ? Math.round(bEink * 100) + " %" : "nein" },
     { k: "Förderquote KfW 458: vermietete / selbstgenutzte WE", v: Math.round(rateVerm * 100) + " % / " + Math.round(rateEigen * 100) + " %" },
-    { k: "Angestrebtes Effizienzniveau (KfW 261)", v: has(ez.label) ? (ez.label + (ez.wpb ? " + WPB" : "")) : EM },
+    ...(EHV ? [{ k: "Angestrebtes Effizienzniveau (KfW 261)", v: has(ez.label) ? (ez.label + (ez.wpb ? " + WPB" : "")) : EM }] : []),
   ]));
   children.push(spacer(60));
   children.push(h2("Weg A – Einzelmaßnahmen (direkte Zuschüsse, schrittweise umsetzbar)"));
   children.push(dataTable(colsAB, [
     { b: "BAFA BEG EM – Gebäudehülle (mit iSFP)", h: bafaHerl, q: "15 % + 5 %", f: eur(bafaFoerder) },
     { b: "KfW 458 – Heizungstausch", h: heizHerl, q: heizQuote, f: eur(heizMax) },
-    { b: "Summe Weg A (max. direkte Zuschüsse)", h: "", q: "", f: eur(wegA) },
+    { b: "Summe Weg A (max. direkte Zuschüsse)", h: LEER, q: LEER, f: eur(wegA) },
   ]));
   children.push(spacer(40));
   children.push(noteBox("Herleitung KfW-458-Zuschuss: " + qV + " % Grundförderung auf " + (WE - bonusWE) + " WE-Anteil(e) ("
@@ -854,36 +860,62 @@ const anhang = D.anhang_fotos || [];
       + eur(R.heiz_anteil_eigen) + ")" : "") + " = " + eur(heizMax) + ". BAFA BEG EM: 15 % von "
     + eur(bafaKosten) + " (" + eur(R.em_foerder_mit_basis) + ") + iSFP-Bonus 5 % auf den Anteil über "
     + eur(R.em_isfp_schwelle) + " (" + eur(emIsfpBonus) + ") = " + eur(bafaFoerder) + "."));
-  children.push(h2("Weg B – Effizienzhaus (KfW 261, Komplettsanierung)"));
-  children.push(dataTable(colsAB, [
-    { b: ehLabel + (ez.wpb ? " + WPB-Bonus" : ""), h: ehHerl,
-      q: (ehT === null ? EM : Math.round(ehT * 100) + " %"), f: (ehFoerder === null ? EM : eur(ehFoerder)) },
-  ]));
-  if (ehFoerder !== null) {
-    children.push(spacer(40));
-    children.push(noteBox("Herleitung Tilgungszuschuss: " + Math.round(ehBaseT * 100) + " % (" + ehLabel + ")"
-      + (ez.wpb ? " + 10 % WPB-Bonus" : "") + " = " + Math.round(ehT * 100) + " % von " + eur(ehKredit) + " = "
-      + eur(ehFoerder) + " (Tilgungszuschuss je WE, unabhängig von der Nutzung)."));
+  if (EHV) {
+    children.push(h2("Weg B – Effizienzhaus (KfW 261, Komplettsanierung)"));
+    children.push(dataTable(colsAB, [
+      { b: ehLabel + (ez.wpb ? " + WPB-Bonus" : "") + ((typeof R.eh_sersan_bonus === "number" ? R.eh_sersan_bonus : ez.sersan_bonus) ? " + SerSan-Bonus" : ""), h: ehHerl,
+        q: (ehT === null ? EM : Math.round(ehT * 100) + " %"), f: (ehFoerder === null ? EM : eur(ehFoerder)) },
+    ]));
+    if (ehFoerder !== null) {
+      children.push(spacer(40));
+      // ab 0.4.5: SerSan-Bonus und Höchstsatz in der Herleitung (Werte aus dem Rechenkern, keine eigene Rechnung)
+      const _pz = x => Math.round(x * 1000) / 10;
+      const _wpbP = ez.wpb ? (typeof R.eh_wpb_bonus === "number" ? R.eh_wpb_bonus : 0.10) : 0;
+      const _serP = typeof R.eh_sersan_bonus === "number" ? R.eh_sersan_bonus : (typeof ez.sersan_bonus === "number" ? ez.sersan_bonus : 0);
+      const _summe = ehBaseT + _wpbP + _serP;
+      const _gedeckelt = Math.abs(_summe - ehT) > 1e-9;
+      children.push(noteBox("Herleitung Tilgungszuschuss: " + _pz(ehBaseT) + " % (" + ehLabel + ")"
+        + (_wpbP ? " + " + _pz(_wpbP) + " % WPB-Bonus" : "") + (_serP ? " + " + _pz(_serP) + " % Bonus serielle Sanierung" : "")
+        + (_gedeckelt ? " = " + _pz(_summe) + " %, begrenzt auf den Höchstsatz von " + _pz(ehT) + " %" : " = " + _pz(ehT) + " %")
+        + " von " + eur(ehKredit) + " = "
+        + eur(ehFoerder) + " (Tilgungszuschuss je WE, unabhängig von der Nutzung)."));
+    }
+    children.push(h2("Gegenüberstellung der beiden Wege"));
+    const kA = foe.kosten_einzel, kB = foe.kosten_effizienzhaus;
+    const nA = parseNum(kA), nB = parseNum(kB);
+    children.push(dataTable([
+      { label: "Kriterium", key: "k", width: 3500 },
+      { label: "Weg A – Einzelmaßnahmen", key: "a", width: 2786, align: AlignmentType.RIGHT },
+      { label: "Weg B – Effizienzhaus", key: "b", width: 2786, align: AlignmentType.RIGHT },
+    ], [
+      { k: "Max. Förderung", a: eur(wegA), b: (ehFoerder === null ? EM : eur(ehFoerder)) },
+      { k: "Grobe Investitionskosten", a: (nA === null ? EM : eur(nA)), b: (nB === null ? EM : eur(nB)) },
+      { k: "Geschätzter Eigenanteil", a: (nA === null ? EM : eur(nA - wegA)), b: ((nB === null || ehFoerder === null) ? EM : eur(nB - ehFoerder)) },
+      { k: "Förderform", a: "direkte Zuschüsse", b: "Kredit + Tilgungszuschuss" },
+      { k: "Umsetzung", a: "schrittweise", b: "gebündelt (EH-Standard)" },
+    ]));
+    children.push(spacer(60));
+    children.push(noteBox("Investitionskosten und Eigenanteil sind vom Berater einzutragen (\u201e\u2014\u201c = noch offen). "
+      + "Die KfW-261-Förderung ist ein Tilgungszuschuss auf einen Förderkredit, die Einzelmaßnahmen-Zuschüsse werden "
+      + "direkt ausgezahlt. Welcher Weg wirtschaftlicher ist, hängt von den konkreten Kosten, der Finanzierung und – "
+      + "gerade bei vermieteten Einheiten – von der steuerlichen Situation ab."));
+  } else {
+    children.push(h2("Zusammenfassung Weg A – Einzelmaßnahmen"));
+    const nA = parseNum(foe.kosten_einzel);
+    children.push(dataTable([
+      { label: "Kriterium", key: "k", width: 5536 },
+      { label: "Weg A – Einzelmaßnahmen", key: "a", width: 3536, align: AlignmentType.RIGHT },
+    ], [
+      { k: "Max. Förderung", a: eur(wegA) },
+      { k: "Grobe Investitionskosten", a: (nA === null ? EM : eur(nA)) },
+      { k: "Geschätzter Eigenanteil", a: (nA === null ? EM : eur(nA - wegA)) },
+      { k: "Förderform", a: "direkte Zuschüsse" },
+      { k: "Umsetzung", a: "schrittweise" },
+    ]));
+    children.push(spacer(60));
+    children.push(noteBox("Investitionskosten und Eigenanteil sind vom Berater einzutragen. Die Zuschüsse für "
+      + "Einzelmaßnahmen werden direkt ausgezahlt; maßgeblich sind die konkreten Kosten und die Bewilligung der Förderstelle."));
   }
-  children.push(h2("Gegenüberstellung der beiden Wege"));
-  const kA = foe.kosten_einzel, kB = foe.kosten_effizienzhaus;
-  const nA = parseNum(kA), nB = parseNum(kB);
-  children.push(dataTable([
-    { label: "Kriterium", key: "k", width: 3500 },
-    { label: "Weg A – Einzelmaßnahmen", key: "a", width: 2786, align: AlignmentType.RIGHT },
-    { label: "Weg B – Effizienzhaus", key: "b", width: 2786, align: AlignmentType.RIGHT },
-  ], [
-    { k: "Max. Förderung", a: eur(wegA), b: (ehFoerder === null ? EM : eur(ehFoerder)) },
-    { k: "Grobe Investitionskosten", a: (nA === null ? EM : eur(nA)), b: (nB === null ? EM : eur(nB)) },
-    { k: "Geschätzter Eigenanteil", a: (nA === null ? EM : eur(nA - wegA)), b: ((nB === null || ehFoerder === null) ? EM : eur(nB - ehFoerder)) },
-    { k: "Förderform", a: "direkte Zuschüsse", b: "Kredit + Tilgungszuschuss" },
-    { k: "Umsetzung", a: "schrittweise", b: "gebündelt (EH-Standard)" },
-  ]));
-  children.push(spacer(60));
-  children.push(noteBox("Investitionskosten und Eigenanteil sind vom Berater einzutragen (\u201e\u2014\u201c = noch offen). "
-    + "Die KfW-261-Förderung ist ein Tilgungszuschuss auf einen Förderkredit, die Einzelmaßnahmen-Zuschüsse werden "
-    + "direkt ausgezahlt. Welcher Weg wirtschaftlicher ist, hängt von den konkreten Kosten, der Finanzierung und – "
-    + "gerade bei vermieteten Einheiten – von der steuerlichen Situation ab."));
   // Fotos direkt nach der Gegenüberstellung (kein Seitenumbruch, eine Zeile Abstand via photoGrid)
   if (Array.isArray(anhang) && anhang.length) {
     children.push(h2("Weitere Fotos vom Objekt (Istzustand)"));

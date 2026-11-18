@@ -561,12 +561,14 @@ def test_echter_generator_ohne_rechenkern_422():
     assert r.status_code == 422 and "rechenkern" in r.json()["fehler"]
 
 
-@pytest.mark.parametrize("stufe, wpb, sersan, label, tilgung, wpb_im_bericht, foerder_satz", [
-    ("EH70EE", True, True, "Effizienzhaus 70 EE + Bonus serielle Sanierung", 0.05, True, 0.15),
-    ("EH85EE", True, False, "Effizienzhaus 85 EE", 0.0, False, 0.0),     # kein WPB-Bonus für EH 85 (Merkblatt 261)
+@pytest.mark.parametrize("stufe, wpb, sersan, label, tilgung, wpb_im_bericht, foerder_satz, wpb_bonus, sersan_bonus", [
+    ("EH70EE", True, True, "Effizienzhaus 70 EE", 0.0, True, 0.15, 0.10, 0.05),
+    ("EH85EE", True, False, "Effizienzhaus 85 EE", 0.0, False, 0.0, 0.0, 0.0),     # kein WPB-Bonus für EH 85 (Merkblatt 261)
 ])
-def test_kfw261_boni_im_bericht(v3_aktiv, generator, stufe, wpb, sersan, label, tilgung, wpb_im_bericht, foerder_satz):
-    """Die Herleitung im Bericht („x % (Stufe) + 10 % WPB-Bonus = y %“) muss zu den Zahlen des Rechenkerns passen."""
+def test_kfw261_boni_im_bericht(v3_aktiv, generator, stufe, wpb, sersan, label, tilgung, wpb_im_bericht, foerder_satz,
+                                wpb_bonus, sersan_bonus):
+    """Datenvertrag Generator 0.4.5: Satz der Stufe + getrennte Boni; die Herleitung „x % (Stufe) + WPB + SerSan = y %“ setzt der
+    Generator aus diesen Werten zusammen und muss zu eh_tilgung passen."""
     berater = konto("berater")
     p = efh(berater)
     fertiger_entwurf(berater, p, eh_stufe=stufe, eh_wpb=wpb, eh_sersan=sersan)
@@ -577,3 +579,5 @@ def test_kfw261_boni_im_bericht(v3_aktiv, generator, stufe, wpb, sersan, label, 
     w = daten["foerderung"]["rechenkern"]["werte"]
     assert daten["foerderung"]["eh_ziel"] == {"label": label, "tilgung": pytest.approx(tilgung), "wpb": wpb_im_bericht}
     assert w["eh_tilgung"] == pytest.approx(foerder_satz) and w["eh_foerder"] == round(foerder_satz * w["eh_kredit"])
+    assert (w["eh_wpb_bonus"], w["eh_sersan_bonus"]) == (pytest.approx(wpb_bonus), pytest.approx(sersan_bonus))
+    assert w["eh_tilgung_basis"] + w["eh_wpb_bonus"] + w["eh_sersan_bonus"] == pytest.approx(w["eh_tilgung"])

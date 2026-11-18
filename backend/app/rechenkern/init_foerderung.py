@@ -135,7 +135,11 @@ def init_foerderung(e: InitEingaben, kond: dict) -> dict:
                 nh = wg["nh_bonus"]
         tilgung = None if nh_fehlt else stufe_satz + nh + sersan
     werte = rechne(fs, e.we, we_eigen, we_verm, e.klimabonus, e.einkommensbonus, tilgung, wpb)
-    werte.update({"eh_tilgung_stufe": None if tilgung is None else tilgung - sersan, "eh_sersan_bonus": sersan,
+    # Datenvertrag Generator 0.4.5: eh_tilgung_basis = Satz der Stufe (inkl. NH-Aufschlag), Boni getrennt (eh_wpb_bonus,
+    # eh_sersan_bonus); eh_tilgung bleibt der begrenzte Gesamtsatz aus rechne(). Der Generator rechnet nichts, er setzt nur zusammen.
+    stufe_inkl_nh = None if tilgung is None else tilgung - sersan
+    werte.update({"eh_tilgung_basis": stufe_inkl_nh, "eh_tilgung_stufe": stufe_inkl_nh, "eh_sersan_bonus": sersan,
+                  "eh_wpb_bonus": fs.get("eh_wpb_bonus", 0.10) if (wpb and tilgung is not None) else 0.0,
                   "eh_nh": bool(e.eh_nh), "eh_nh_bonus": nh,
                   "eh_wpb": wpb, "eh_hinweise": hinweise})
     return {"konditionen_version": kond["version"], "saetze": fs, "werte": werte}

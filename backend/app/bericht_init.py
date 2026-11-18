@@ -56,9 +56,9 @@ EH_LABEL = {"EH40EE": "Effizienzhaus 40 EE", "EH55EE": "Effizienzhaus 55 EE", "E
 
 
 def eh_label(f: dict, w: dict | None = None) -> str:
-    """„Effizienzhaus 55 NH + Bonus serielle Sanierung“ – Bezeichnung wie die Herleitung im Bericht. EE und NH sind Alternativen."""
-    w = w or {}
-    return eh_stufe_text(f["eh_stufe"], bool(f.get("eh_nh"))) + (" + Bonus serielle Sanierung" if w.get("eh_sersan_bonus") else "")
+    """„Effizienzhaus 55 NH“ – EE und NH sind Alternativen. Boni (WPB, serielle Sanierung) ergänzt der Generator ab 0.4.5 selbst
+    aus rechenkern.werte (eh_wpb_bonus, eh_sersan_bonus)."""
+    return eh_stufe_text(f["eh_stufe"], bool(f.get("eh_nh")))
 
 
 def eh_stufe_text(stufe: str, nh: bool = False) -> str:

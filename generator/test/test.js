@@ -97,6 +97,29 @@ async function text(daten) {
   await assert.rejects(erzeugeBericht("init", { daten: { ...bd, objekt: { ...bd.objekt, wohneinheiten: "3" } }, bilder }), /Wohneinheiten passen nicht/);
   await assert.rejects(erzeugeBericht("init", { daten: bd, bilder: { ...bilder, "../x.jpg": "AA==" } }), /Unzulässiger Bildname/);
   await assert.rejects(erzeugeBericht("meh", { daten: bd, bilder }), /Unbekanntes Modul/);
+  // ab 0.4.5: „kein Effizienzhaus-Vergleich“ (Datenvertrag 18.11.2026)
+  const ohneEh = JSON.parse(JSON.stringify(bd));
+  ohneEh.foerderung.eh_vergleich = false; delete ohneEh.foerderung.eh_ziel; delete ohneEh.foerderung.kosten_effizienzhaus;
+  ohneEh.foerderung.kosten_einzel = "90.000 €";
+  Object.assign(ohneEh.foerderung.rechenkern.werte, { eh_tilgung: null, eh_foerder: null });
+  ohneEh.empfehlung_varianten = { einzel: { titel: "Weg A – Einzelmaßnahmen", punkte: ["Schritt 1"] }, effizienzhaus: { titel: "", punkte: [] } };
+  const et = await alles(await erzeugeBericht("init", { daten: ohneEh, bilder }));
+  for (const z of ["KfW 261 – Sanierung zum Effizienzhaus", "Weg B", "Gegenüberstellung der beiden Wege", "Angestrebtes Effizienzniveau",
+    "stellt die beiden Förderwege", "Welcher Weg wirtschaftlicher", "Einzelmaßnahmen oder Effizienzhaus", "KfW 261 gilt je Wohneinheit"]) assert(!et.includes(z), "ohne EH-Vergleich noch enthalten: " + z);
+  for (const z of ["Zusammenfassung Weg A – Einzelmaßnahmen", "schlüsselt die Förderung der Einzelmaßnahmen auf", "7.3 KfW – Effizienzhaus-Sanierung",
+    "8.1 Empfohlene Vorgehensweise", "Eine Doppelförderung", "59.900 €", "30.100 €"]) assert(et.includes(z), "ohne EH-Vergleich fehlt: " + z);
+  const ab75 = et.slice(et.lastIndexOf("7.5"));
+  assert(!ab75.includes("—"), "ohne EH-Vergleich: „—“ ab 7.5");
+  assert(!/undefined|NaN|null/.test(et), "ohne EH-Vergleich: undefined/NaN/null");
+  const nh = JSON.parse(JSON.stringify(bd));
+  nh.foerderung.eh_ziel = { label: "Effizienzhaus 40 NH", tilgung: 0.15, wpb: true };
+  Object.assign(nh.foerderung.rechenkern.werte, { eh_tilgung_basis: 0.15, eh_wpb_bonus: 0.10, eh_sersan_bonus: 0.15, eh_nh_bonus: 0.05, eh_tilgung: 0.40, eh_foerder: 60000 });
+  const nt = await alles(await erzeugeBericht("init", { daten: nh, bilder }));
+  assert(nt.includes("15 % (Effizienzhaus 40 NH) + 10 % WPB-Bonus + 15 % Bonus serielle Sanierung = 40 % von 150.000 € = 60.000 €"), "NH + WPB + SerSan Herleitung");
+  Object.assign(nh.foerderung.rechenkern.werte, { eh_sersan_bonus: 0.15, eh_tilgung_basis: 0.20, eh_tilgung: 0.40 });
+  assert((await alles(await erzeugeBericht("init", { daten: nh, bilder }))).includes("= 45 %, begrenzt auf den Höchstsatz von 40 %"), "Höchstsatz in der Herleitung");
+  const mitEh = JSON.parse(JSON.stringify(bd)); mitEh.foerderung.eh_vergleich = true;
+  assert.strictEqual(await alles(await erzeugeBericht("init", { daten: mitEh, bilder })), bt, "eh_vergleich: true = bisheriges Verhalten");
   // WPB-Bonus Einzelmaßnahmen „angekündigt, noch nicht in Kraft“ (ab 0.4.4, Fixtures aus dem Cockpit, Datenvertrag 16.11.2026)
   const fx = n => JSON.parse(fs.readFileSync(path.join(__dirname, "fixtures_wpb", `foerdervergleich_wpb_${n}.json`), "utf8"));
   const w1 = await text(fx("fall1_angekuendigt"));
@@ -112,5 +135,5 @@ async function text(daten) {
   assert(!w4.includes("****") && w4.includes("ist angekündigt (voraussichtlich Q1 2027)"), "WPB Fall 4: kein „ab ****“");
   const ohneDatum = fx("fall3_in_kraft"); ohneDatum.konditionen.beg_em.wpb_bonus_ab = null;
   assert(!(await text(ohneDatum)).includes("****"), "WPB in Kraft ohne Datum: kein „ab ****“");
-  console.log(`OK – WPB angekündigt (4 Fälle) + Bericht INIT + ${n} Beispiele + Referenzzahlen + Schutzprüfungen + Fachwerte mit/ohne + ${MODULE.length} Checklisten`);
+  console.log(`OK – WPB angekündigt (4 Fälle) + Bericht INIT (mit/ohne EH-Vergleich) + ${n} Beispiele + Referenzzahlen + Schutzprüfungen + Fachwerte mit/ohne + ${MODULE.length} Checklisten`);
 })().catch(e => { console.error("FEHLER:", e.message); process.exit(1); });

@@ -92,7 +92,8 @@ def test_init_eh70_mit_serieller_sanierung_fuenf_prozent():
 
 def test_init_eh55_wpb_und_serielle_sanierung():
     w = init_foerderung(InitEingaben(we=1, eh_stufe="EH55EE", eh_wpb=True, eh_sersan=True), KOND_V3)["werte"]
-    assert w["eh_tilgung_basis"] == pytest.approx(0.20) and w["eh_tilgung"] == pytest.approx(0.30) and w["eh_wpb"] is True
+    assert w["eh_tilgung_basis"] == pytest.approx(0.05) and w["eh_tilgung"] == pytest.approx(0.30) and w["eh_wpb"] is True
+    assert (w["eh_wpb_bonus"], w["eh_sersan_bonus"]) == (pytest.approx(0.10), 0.15)        # Datenvertrag Generator 0.4.5
     assert w["eh_foerder"] == round(0.30 * w["eh_kredit"])
 
 
@@ -129,7 +130,7 @@ def test_init_nh_mit_wpb_und_sersan_wie_ee_und_hoechstsatz():
     k = copy.deepcopy(KOND_V3)
     k["beg_wg"]["nh_bonus"] = 0.05
     w = init_foerderung(InitEingaben(we=1, eh_stufe="EH70EE", eh_nh=True, eh_wpb=True, eh_sersan=True), k)["werte"]
-    assert w["eh_tilgung_basis"] == pytest.approx(0.05 + 0.05) and w["eh_wpb"] is True        # 70 NH + SerSan 5 %
+    assert w["eh_tilgung_basis"] == pytest.approx(0.05) and w["eh_sersan_bonus"] == 0.05 and w["eh_wpb"] is True   # 70 NH; SerSan getrennt
     assert w["eh_tilgung"] == pytest.approx(0.20)                                            # + WPB 10 %
     voll = init_foerderung(InitEingaben(we=1, eh_stufe="EH40EE", eh_nh=True, eh_wpb=True, eh_sersan=True), k)["werte"]
     assert voll["eh_tilgung"] == pytest.approx(k["beg_wg"]["tilgungszuschuss_max"])          # 15 + 15 + 10 = 40 = Höchstsatz

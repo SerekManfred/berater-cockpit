@@ -334,10 +334,11 @@ Ausführliches Fachkonzept: `docs/Konzept_Berater-Cockpit.docx` (falls abgelegt)
   NH-Klasse: im INIT-Bericht seit 18.11.2026 (siehe „Schnellweg INIT“, Effizienzhaus-Ziel); im Fördervergleich noch nicht.
 - Eingabe: Fördervergleich `serielle_sanierung`, INIT `foerder.eh_sersan` (Häkchen in der Oberfläche). Konditionen ohne
   `sersan_bonus` (Version 1/2) → kein Bonus, Hinweis „nicht hinterlegt“.
-- **Der Bonus zählt zum Tilgungszuschuss** (der Generator kennt keinen eigenen Posten und wird nicht geändert): Fördervergleich →
-  Posten `tilgungszuschuss` (Titel „… + serielle Sanierung“, Hinweis mit Satz); INIT → `eh_tilgung_basis` = Stufe + SerSan
-  (`eh_tilgung_stufe`, `eh_sersan_bonus` getrennt in den Werten), Bezeichnung „Effizienzhaus 70 EE + Bonus serielle Sanierung“,
-  damit die Herleitung im Bericht stimmt. Höchstsatz `tilgungszuschuss_max` (ab Version 3) begrenzt Stufe + SerSan + WPB in beiden Kernen.
+- **Der Bonus zählt zum Tilgungszuschuss:** Fördervergleich → Posten `tilgungszuschuss` (Titel „… + serielle Sanierung“, Hinweis
+  mit Satz). INIT ab Generator 0.4.5 (18.11.2026): `eh_tilgung_basis` = Satz der Stufe (inkl. NH-Aufschlag), Boni getrennt in
+  `eh_wpb_bonus`/`eh_sersan_bonus`, `eh_tilgung` = begrenzte Summe; Bezeichnung nur „Effizienzhaus 70 EE“ – „+ WPB-Bonus“, „+ SerSan-Bonus“
+  und die Herleitung (inkl. „begrenzt auf den Höchstsatz“) setzt der Generator aus diesen Werten zusammen (bis 0.4.4 stand SerSan in
+  der Basis und im Label). Höchstsatz `tilgungszuschuss_max` (ab Version 3) begrenzt Stufe + SerSan + WPB in beiden Kernen.
 - **INIT-Fehler behoben:** der WPB-Bonus galt bisher für jede Stufe; jetzt wie im Fördervergleich nur für `wpb_bonus_stufen`
   (`eh_wpb` in den Werten = Bonus greift; im Bericht `eh_ziel.wpb` entsprechend). Der Golden-Test (Skill-Formel `rechne`) bleibt unverändert.
 - Version 3 wurde am 16.11.2026 freigegeben, bevor die Korrektur eingetragen war (ohne `sersan_bonus` → serielle Sanierung
@@ -463,8 +464,9 @@ Ausführliches Fachkonzept: `docs/Konzept_Berater-Cockpit.docx` (falls abgelegt)
   Version 4/5 noch leer). WPB und serielle Sanierung wie bei EE. Entwurf: `eh_stufe` bleibt der Stufenschlüssel (…EE), `eh_nh` = NH
   statt EE; Label „Effizienzhaus 55 NH“. Regressionstest (nh_bonus 0,05): 40 NH 15 %, 55 NH 10 %, 70 NH 5 %, 85 NH 5 %, Denkmal NH 10 %
   (`tests/test_kfw261_boni.py`). **„kein Vergleich“** → Generator bekommt `foerderung.eh_vergleich: false`, kein `eh_ziel`, keine
-  Effizienzhaus-Kosten, leere Variante 8.1; die KI stellt den Weg nicht dar. **Weg B entfällt erst ab Generator 0.4.5** (Datenvertrag
-  `docs/Datenvertrag_Generator_EH_Vergleich.md`); 0.4.4 zeigt Weg B noch mit „—“.
+  Effizienzhaus-Kosten, leere Variante 8.1; die KI stellt den Weg nicht dar. Ab **Generator 0.4.5** (eingespielt 18.11.2026, Datenvertrag
+  `docs/Datenvertrag_Generator_EH_Vergleich.md`) entfallen Weg B, die KfW-261-Zeile in 7.5 und alle „—“ dazu; der Anhang zeigt
+  „Zusammenfassung Weg A – Einzelmaßnahmen“.
 - Messung 17.11.2026 (echte API, Kopie der DB, Testbogen Word + 6 Fotos): ohne Rückfrage, **94–112 s** bis Word + PDF, Texte Opus
   **0,26–0,30 $**, Korrektur 13–18 s, 0,03–0,08 $. Vergleich mit dem Original-Skill (gleiche Daten): Gliederung (31), Bilder,
   Förderbeträge identisch. Tests: `tests/test_init_schnellweg.py`, `frontend/src/Schnellweg.test.jsx`.

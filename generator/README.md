@@ -112,3 +112,16 @@ Die Empfehlung (grüner Rahmen) erscheint nur bei bekanntem `wpb_status` („ja�
 - `skills/` – eingebundene Claude-Skills (unverändert)
 - `test/test.js` – prüft, dass die Beträge aus dem Ergebnis unverändert im Dokument stehen, und die drei Checklisten
   (vorausgefüllt, Projekt-ID und Stand in der Fußzeile)
+
+## „Kein Effizienzhaus-Vergleich“, NH-Klasse und SerSan in der Herleitung (ab 0.4.5)
+Datenvertrag: `docs/Datenvertrag_Generator_EH_Vergleich.md` (Cockpit, 18.11.2026).
+- `foerderung.eh_vergleich === false` → im Bericht INIT entfallen: Zeile KfW 261 in 7.5, der KfW-261-Teil der Fußnote,
+  die Variante Effizienzhaus in 8.1 (Überschrift dann „8.1 Empfohlene Vorgehensweise“), im Anhang die Zeile
+  „Angestrebtes Effizienzniveau“, der Abschnitt „Weg B“ und die Gegenüberstellung. Stattdessen
+  „Zusammenfassung Weg A – Einzelmaßnahmen“ und eine Einleitung ohne Wegvergleich. 7.3 (Programmtext KfW 261) bleibt.
+  Fehlt das Feld oder ist es `true`, gilt das bisherige Verhalten.
+- 8.1: Eine Variante mit leerem Titel und ohne Punkte wird nie ausgegeben.
+- NH-Klasse: `eh_ziel.label` z. B. „Effizienzhaus 55 NH“ (EE und NH sind Alternativen); `eh_tilgung_basis` enthält den NH-Aufschlag.
+- Herleitung Tilgungszuschuss: optional `rechenkern.werte.eh_wpb_bonus` (sonst 10 %) und `eh_sersan_bonus`;
+  ist `eh_tilgung` kleiner als die Summe, steht „begrenzt auf den Höchstsatz von x %“. Der Generator rechnet nichts.
+- Summenzeile Weg A: leere Zellen statt „—“ (einzige Textänderung gegenüber 0.4.4 bei unveränderten Eingaben).

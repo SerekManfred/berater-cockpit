@@ -1,6 +1,6 @@
-# Datenvertrag Generator INIT – „kein Effizienzhaus-Vergleich“ und NH-Klasse (Vorschlag für Generator 0.4.5)
+# Datenvertrag Generator INIT – „kein Effizienzhaus-Vergleich“ und NH-Klasse (umgesetzt in Generator 0.4.5)
 
-Stand 18.11.2026 · Cockpit sendet die Felder bereits (Generator 0.4.4 ignoriert unbekannte Felder).
+Stand 18.11.2026 · Generator 0.4.5 eingespielt am 18.11.2026.
 Der Generator wird im Cockpit nicht geändert – die neue Fassung kommt als Paket.
 
 ## 1. `foerderung.eh_vergleich: false`
@@ -22,11 +22,16 @@ Erwartet bei `eh_vergleich === false` (sauber, ohne „—“):
 
 7.3 (Programmbeschreibung KfW 261) bleibt als allgemeine Information stehen (Text kommt aus `foerderung.kfw261`).
 
-## 2. NH-Klasse
-`foerderung.eh_ziel.label` kann „+ NH-Klasse“ enthalten, z. B. „Effizienzhaus 55 EE + NH-Klasse“. `eh_ziel.tilgung`
-(= `rechenkern.werte.eh_tilgung_basis`) enthält den NH-Bonus bereits (nur wenn `beg_wg.nh_bonus` in den Konditionen steht);
-getrennt in `rechenkern.werte.eh_nh_bonus`. Die Herleitung „x % (Bezeichnung) + 10 % WPB-Bonus = y %“ stimmt damit ohne Änderung.
-Keine Änderung nötig, nur zur Kenntnis.
+## 2. NH-Klasse und Herleitung des Tilgungszuschusses (korrigiert 18.11.2026)
+EE und NH sind **Alternativen** (Merkblatt 261, Stand 09/2026) – es gibt kein „EE + NH“. `foerderung.eh_ziel.label` lautet z. B.
+„Effizienzhaus 55 EE“ oder „Effizienzhaus 55 NH“ (ohne Bonus-Zusätze; „+ WPB-Bonus“/„+ SerSan-Bonus“ ergänzt der Generator).
+`rechenkern.werte`:
+- `eh_tilgung_basis` = Satz der Stufe; bei NH Satz der EE-Stufe derselben Stufe + `beg_wg.nh_bonus` (getrennt in `eh_nh_bonus`).
+  Ohne hinterlegten `nh_bonus` ist er bei NH `null` (kein Tilgungszuschuss, kein Ersatzwert).
+- `eh_wpb_bonus`, `eh_sersan_bonus` = tatsächlich angesetzte Boni als Anteil (0 = keiner).
+- `eh_tilgung` = Summe, begrenzt auf `tilgungszuschuss_max`; `eh_foerder` = `eh_tilgung` × Kredit.
+Beispiel (Konditionen V6, nh_bonus 0,05): „10 % (Effizienzhaus 55 NH) = 10 % von 150.000 € = 15.000 €“.
+Umgesetzt in Generator 0.4.5.
 
 ## Testfälle
 - `eh_vergleich: false`, `kosten_einzel` gesetzt → Bericht ohne jedes „—“ in 7.5 und Anhang 9; Gliederung sonst unverändert.
