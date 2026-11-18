@@ -64,4 +64,22 @@ describe("Schnellweg INIT", () => {
     fireEvent.change(feld, { target: { value: "EH55NH" } });
     expect(screen.getByRole("button", { name: "Weiter" }).disabled).toBe(false);
   });
+
+  it("Veraltete Vorschau: kein altes PDF, stattdessen „mit aktuellen Daten neu erzeugen“ (Fehler 2026-0005)", async () => {
+    const s = { status: "fertig", hinweise: [], vorschau: { revision: 23, version: 2, pdf: true, aktuell: false } };
+    const onNeu = vi.fn();
+    const alt = globalThis.fetch;
+    globalThis.fetch = vi.fn(async () => new Response(JSON.stringify({ schnellweg: { status: "fertig" } }), { status: 200, headers: { "Content-Type": "application/json" } }));
+    try {
+      render(<Ergebnis z={zustand(s, { revision: 24 })} pfad="/projekte/5/bericht-init/schnellweg" projekt={{ projektnummer: "2026-0005" }} onNeu={onNeu} onNochmal={() => {}} />);
+      expect(screen.queryByTitle("Vorschau des Berichts (PDF)")).toBe(null);
+      expect(screen.queryByRole("button", { name: "Word herunterladen (Entwurf)" })).toBe(null);
+      expect(screen.getByRole("button", { name: "Bericht freigeben" }).disabled).toBe(true);
+      fireEvent.click(screen.getByRole("button", { name: "Vorschau mit aktuellen Daten neu erzeugen" }));
+      await vi.waitFor(() => expect(onNeu).toHaveBeenCalled());
+      const [url, opt] = globalThis.fetch.mock.calls[0];
+      expect(url).toBe("/api/projekte/5/bericht-init/schnellweg/neu-erzeugen");
+      expect(JSON.parse(opt.body)).toEqual({ revision: 24 });
+    } finally { globalThis.fetch = alt; }
+  });
 });

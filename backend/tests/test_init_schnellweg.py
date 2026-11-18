@@ -457,6 +457,77 @@ def test_eh_ziel_lesen_nie_raten():
     assert lesen(["Denkmalschutz beachten", "Heizung tauschen"]) == (None, None)
 
 
+# ---------- Neuerzeugung mit aktuellen Daten (Fehler 2026-0005, 18.11.2026) ----------
+
+def _entwurf_aendern(c, pid, aendern):
+    e = c.get(f"/projekte/{pid}/bericht-init/entwurf").json()
+    aendern(e["daten"])
+    r = c.put(f"/projekte/{pid}/bericht-init/entwurf", json={"revision": e["revision"], "daten": e["daten"],
+                                                              "foto_zuordnung": e["foto_zuordnung"]})
+    assert r.status_code == 200, r.text
+    return r.json()
+
+
+def test_wert_aendern_neu_erzeugen_neuer_wert_im_word(ki_an, v3_aktiv, generator, pdf, ohne_abgleich):
+    """Regel: jede Neuerzeugung nutzt die aktuell gespeicherten Daten; KI-Texte bleiben, Datentabellen nicht."""
+    berater = konto("berater")
+    p = efh(berater)
+    cid, ids = unterlagen(berater, p, ki_an, fotos=2)
+    starten(berater, p, cid, ids)
+    alt = generator[-1]["daten"]["pv"]
+    assert alt["vertragslaufzeit"] == "14 Jahre" and alt["gesamtleistung"] == "9,8"
+    texte_vorher = berater.get(f"/projekte/{p['id']}/bericht-init/entwurf").json()["daten"]["texte"]
+
+    def neu(d):   # Detailbearbeitung
+        d["pv"].update(vertragslaufzeit="10 Jahre", einspeiseverguetung="18", gesamtleistung="10")
+    _entwurf_aendern(berater, p["id"], neu)
+    z = berater.get(PFAD.format(p["id"])).json()
+    assert z["schnellweg"]["vorschau"]["aktuell"] is False
+    assert berater.post(PFAD.format(p["id"]) + "/freigeben", json={"revision": z["revision"]}).status_code == 409
+    assert "14 Jahre" in text_aus(berater.get(PFAD.format(p["id"]) + "/vorschau.docx").content)   # alte Fassung liegt noch
+    ki_vorher = len(ki_an.anfragen)
+
+    r = berater.post(PFAD.format(p["id"]) + "/neu-erzeugen", json={"revision": z["revision"]})
+    assert r.status_code == 200, r.text
+    s = r.json()["schnellweg"]
+    assert s["status"] == "fertig" and s["vorschau"]["aktuell"] is True and s["vorschau"]["revision"] == r.json()["revision"]
+    gesendet = generator[-1]["daten"]["pv"]
+    assert (gesendet["vertragslaufzeit"], gesendet["einspeiseverguetung"], gesendet["gesamtleistung"]) == ("10 Jahre", "18", "10")
+    word = text_aus(berater.get(PFAD.format(p["id"]) + "/vorschau.docx").content)
+    assert "10 Jahre" in word and "14 Jahre" not in word
+    assert len(ki_an.anfragen) == ki_vorher                                          # kein KI-Lauf, keine Kosten
+    assert berater.get(f"/projekte/{p['id']}/bericht-init/entwurf").json()["daten"]["texte"] == texte_vorher
+    assert aktionen("schnellweg_neu_erzeugt")
+    f = berater.post(PFAD.format(p["id"]) + "/freigeben", json={"revision": r.json()["revision"]})
+    assert f.status_code == 201, f.text
+    assert generator[-1]["daten"]["pv"]["vertragslaufzeit"] == "10 Jahre"            # freigegebenes Word: neuer Wert
+
+
+def test_neu_erzeugen_mit_geleertem_pflichtwert_fragt_erst_nach(ki_an, v3_aktiv, generator, pdf, ohne_abgleich):
+    berater = konto("berater")
+    p = efh(berater)
+    cid, ids = unterlagen(berater, p, ki_an, fotos=1)
+    starten(berater, p, cid, ids)
+    e = _entwurf_aendern(berater, p["id"], lambda d: d["objekt"].update(baujahr=""))
+    r = berater.post(PFAD.format(p["id"]) + "/neu-erzeugen", json={"revision": e["revision"]})
+    s = r.json()["schnellweg"]
+    assert s["status"] == "rueckfrage" and [z["pfad"] for z in s["rueckfragen"]] == ["objekt.baujahr"]
+    ki_vorher = len(ki_an.anfragen)
+    r = berater.post(PFAD.format(p["id"]) + "/antworten", json={"revision": r.json()["revision"],
+                                                                "antworten": [{"id": "pflicht:objekt.baujahr", "wert": "1966"}]})
+    s = r.json()["schnellweg"]
+    assert s["status"] == "fertig" and s["vorschau"]["aktuell"] is True and len(ki_an.anfragen) == ki_vorher
+    assert "1966" in json.dumps(generator[-1]["daten"]["objekt"], ensure_ascii=False)
+
+
+def test_neu_erzeugen_erst_nach_bericht_erstellen():
+    berater = konto("berater")
+    p = efh(berater)
+    e = berater.get(f"/projekte/{p['id']}/bericht-init/entwurf").json()
+    r = berater.post(PFAD.format(p["id"]) + "/neu-erzeugen", json={"revision": e["revision"]})
+    assert r.status_code == 409 and "Bericht erstellen" in r.json()["detail"]
+
+
 # ---------- echter Generator (nur mit GENERATOR_TEST_URL) ----------
 
 @pytest.mark.skipif(not os.environ.get("GENERATOR_TEST_URL"), reason="kein Generator-Container (läuft mit scripts/test-postgres.sh)")

@@ -279,3 +279,5 @@ td.angekuendigt { background: var(--gold-l); }
 .sw-abschnitt p.klein { margin: 4px 0 0; }
 .korrektur { margin-top: 8px; }
 .sw-eintrag { border-left: 3px solid var(--rand); padding-left: 10px; margin-bottom: 10px; }
+.veraltet { background: var(--gold-l); border-radius: 8px; padding: 14px 16px; margin: 12px 0; }
+.veraltet p { margin: 0 0 10px; }

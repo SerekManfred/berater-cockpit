@@ -321,6 +321,12 @@ export function Ergebnis({ z, pfad, projekt, onNeu, onNochmal }) {
       document.body.appendChild(a); a.click(); a.remove(); setTimeout(() => URL.revokeObjectURL(url), 2000);
     } catch (f) { setFehler(f.message); } finally { setLaeuft(""); }
   }
+  const veraltet = v.aktuell === false;
+  async function neuErzeugen() {
+    setFehler(""); setLaeuft("neu");
+    try { onNeu(await api(pfad + "/neu-erzeugen", { method: "POST", body: { revision: z.revision }, zeitlimit: ZEITLIMIT_LANG_MS })); }
+    catch (f) { setFehler(f.message); } finally { setLaeuft(""); }
+  }
   async function freigeben() {
     if (!window.confirm("Bericht freigeben? Er wird als neue Version gespeichert (ohne Wasserzeichen).")) return;
     setFehler(""); setLaeuft("frei");
@@ -331,15 +337,21 @@ export function Ergebnis({ z, pfad, projekt, onNeu, onNochmal }) {
     <>
       <section className="karte">
         <div className="titelzeile"><h2>Vorschau</h2>
-          <div className="aktionen">
+          {!veraltet && <div className="aktionen">
             <button className="btn2" onClick={word} disabled={!!laeuft}>{laeuft === "word" ? "Lade …" : "Word herunterladen (Entwurf)"}</button>
             {v.pdf && <a className="btn2" href={`/api${pfad}/vorschau.pdf?r=${v.revision}`} target="_blank" rel="noreferrer">PDF in neuem Tab</a>}
-          </div></div>
+          </div>}</div>
         <p className="vorschau-hinweis" role="note">Vorschau – maßgeblich ist die Word-Datei.</p>
-        {v.aktuell === false && <div className="fehler" role="alert">Der Entwurf wurde nach dieser Vorschau geändert (Detailbearbeitung).
-          Bitte einen Abschnitt korrigieren oder den Bericht neu erstellen.</div>}
-        {v.pdf ? <iframe className="pdf-vorschau" title="Vorschau des Berichts (PDF)" src={`/api${pfad}/vorschau.pdf?r=${v.revision}`} />
-          : <p className="fehler">{v.pdf_fehler || "Keine PDF-Vorschau."}</p>}
+        {/* Veraltete Vorschau nie als Ergebnis zeigen: die Daten wurden danach geändert (Fehler 2026-0005, 18.11.2026) */}
+        {veraltet ? <div className="veraltet" role="alert">
+          <p><strong>Die Daten wurden nach dieser Vorschau geändert</strong> (z. B. in der Detailbearbeitung). Die Vorschau zeigt noch den
+            alten Stand und wird deshalb nicht angezeigt.</p>
+          <button className="btn" onClick={neuErzeugen} disabled={!!laeuft}>
+            {laeuft === "neu" ? "Erzeuge Word und PDF …" : "Vorschau mit aktuellen Daten neu erzeugen"}</button>
+          <p className="klein">Datentabellen, Fotos und Förderzahlen kommen neu aus dem Entwurf; die Texte bleiben wie gespeichert (kein KI-Lauf).</p>
+        </div>
+          : v.pdf ? <iframe className="pdf-vorschau" title="Vorschau des Berichts (PDF)" src={`/api${pfad}/vorschau.pdf?r=${v.revision}`} />
+            : <p className="fehler">{v.pdf_fehler || "Keine PDF-Vorschau."}</p>}
         <p className="klein">Dauer bis zum Word: {sek(s.dauer_s)} · Kosten dieses Berichts (KI, Schätzung nach Listenpreis): {usd(s.kosten_usd)}
           {v.konditionen_version ? ` · Konditionen-Version ${v.konditionen_version}` : ""}</p>
       </section>

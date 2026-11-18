@@ -536,7 +536,16 @@ def ausfuehren(entwurf_id: int, benutzer_id: int, lauf: int, phase: str) -> None
                     st["rueckfragen"], st["status"] = zeilen, "rueckfrage"
                     _speichern(db, e, st)
                     return
-                phase = "texte"
+                phase = "vorschau" if st.pop("nach_rueckfrage", None) == "vorschau" else "texte"
+            if phase == "vorschau":   # Neuerzeugung mit aktuellen Daten: Texte bleiben, kein KI-Lauf
+                schritt = "word"
+                vorschau_bauen(db, e, p, st)
+                st["hinweise"] = _hinweise_sammeln(e, st, db, p)
+                st["status"], st["fehler"] = "fertig", None
+                protokollieren(db, None, "schnellweg_neu_erzeugt", ich.id, projekt_id=p.id, projektnummer=p.projektnummer,
+                               revision=e.revision, status="fertig")
+                _speichern(db, e, st)
+                return
             if phase == "texte":
                 schritt = "texte"
                 beginn = time.monotonic()
@@ -857,6 +866,44 @@ def schnellweg_korrektur(projekt_id: int, k: Korrektur, request: Request, ich: B
     st["hinweise"] = _hinweise_sammeln(e, st, db, p)
     st["letzte_korrektur_s"] = round(time.monotonic() - beginn, 1)
     e.schnellweg = st
+    db.commit()
+    return antwort_aus(db, e, p, ich)
+
+
+class NeuErzeugen(BaseModel):
+    revision: int
+
+
+@router.post(PFAD + "/neu-erzeugen")
+def schnellweg_neu_erzeugen(projekt_id: int, n: NeuErzeugen, request: Request, ich: Benutzer = Depends(bearbeiten),
+                            db: Session = Depends(get_db)):
+    """Vorschau (Word + PDF) mit den **aktuell gespeicherten** Entwurfsdaten neu erzeugen – z. B. nach Änderungen in der
+    Detailbearbeitung. Die Texte bleiben, wie sie im Entwurf stehen (kein KI-Lauf, keine Kosten); Datentabellen, Fotos und
+    Förderzahlen kommen neu aus Entwurf und Rechenkern."""
+    p = bi._projekt(db, projekt_id)
+    e = bi._entwurf(db, p, sperren=True)
+    st = zustand(e)
+    if e is None or st.get("status") not in ("fertig", "fehler") or not st.get("texte_lauf"):
+        raise HTTPException(409, "Es gibt noch keinen erstellten Bericht. Bitte zuerst „Bericht erstellen“.")
+    if n.revision != e.revision:
+        raise HTTPException(409, "Der Entwurf wurde inzwischen geändert. Bitte die Seite neu laden.")
+    zeilen = rueckfragen(db, e, p, st)
+    if zeilen:   # z. B. Pflichtwert in der Detailbearbeitung geleert → erst klären, dann ohne neuen KI-Lauf weiter
+        st.update(status="rueckfrage", rueckfragen=zeilen, nach_rueckfrage="vorschau")
+        e.schnellweg = st
+        db.commit()
+        return antwort_aus(db, e, p, ich)
+    beginn = time.monotonic()
+    try:
+        vorschau_bauen(db, e, p, st)
+        st["status"], st["fehler"] = "fertig", None
+    except HTTPException as fehler:
+        st["status"], st["fehler"] = "fehler", fehler.detail if isinstance(fehler.detail, str) else str(fehler.detail)
+    st["hinweise"] = _hinweise_sammeln(e, st, db, p)
+    st["letzte_neuerzeugung_s"] = round(time.monotonic() - beginn, 1)
+    e.schnellweg = st
+    protokollieren(db, request, "schnellweg_neu_erzeugt", ich.id, projekt_id=p.id, projektnummer=p.projektnummer,
+                   revision=e.revision, status=st["status"])
     db.commit()
     return antwort_aus(db, e, p, ich)
 

@@ -446,6 +446,11 @@ Ausführliches Fachkonzept: `docs/Konzept_Berater-Cockpit.docx` (falls abgelegt)
   die Revision, aus der sie entstand (`vorschau.aktuell`). `web/Caddyfile` erlaubt Einbetten (SAMEORIGIN) nur für `…/vorschau.pdf`.
 - **Korrektur** `POST …/schnellweg/korrektur` (Text von Hand oder `anweisung` an die KI, Schema nur dieses Abschnitts) → Word + PDF neu.
   Cache-Punkt nur bei Korrekturen (Hauptlauf ist ein einziger Aufruf; Schema-Wechsel trifft den Cache nicht).
+- **Neu erzeugen mit aktuellen Daten** `POST …/schnellweg/neu-erzeugen` {revision} (berater, verwaltung, admin; Fehler 2026-0005,
+  18.11.2026): baut Word + PDF aus den **aktuell gespeicherten** Entwurfsdaten neu (Datentabellen, Fotos, Rechenkern), Texte bleiben,
+  kein KI-Lauf. Fehlt danach ein Pflichtwert → Rückfrage, danach weiter ohne KI (`nach_rueckfrage: "vorschau"`). Eine veraltete
+  Vorschau (`vorschau.aktuell == false`, z. B. nach Änderung in der Detailbearbeitung) zeigt die Oberfläche **nie** als Ergebnis –
+  statt PDF/Word-Download der Knopf „Vorschau mit aktuellen Daten neu erzeugen“. Protokoll `schnellweg_neu_erzeugt`.
 - **Freigabe** `POST …/schnellweg/freigeben`: **nur Rolle berater**, nur für die Revision der Vorschau; Gesamtfreigabe aller Abschnitte,
   dann `bi.bericht_speichern(status="freigegeben")` – der Generator erzeugt das Word **neu, ohne Wasserzeichen, nicht nachbearbeitet**.
   `eingaben.freigabe` {von, am, weg, konditionen_version, kosten_usd, dauer_s}; Protokoll `bericht_freigegeben`.
