@@ -588,7 +588,8 @@ _m1.forEach((m, idx) => {
   if (typeof m === "string") { children.push(new Paragraph({ numbering: { reference: "bullets", level: 0 }, spacing: { after: 40 }, keepLines: true, keepNext: !last, children: [new TextRun({ text: m, size: 22, font: FONT })] })); return; }
   const hasB = has(m.beschreibung);
   children.push(new Paragraph({ spacing: { before: 80, after: 20 }, keepLines: true, keepNext: hasB ? true : !last,
-    children: [new TextRun({ text: "• " + (m.titel || ""), bold: true, size: 22, color: COL.anthracite, font: FONT })] }));
+    indent: { left: 280, hanging: 280 }, tabStops: [{ type: TabStopType.LEFT, position: 280 }],
+    children: [new TextRun({ text: "•\t" + (m.titel || ""), bold: true, size: 22, color: COL.anthracite, font: FONT })] }));
   if (hasB)
     children.push(new Paragraph({ spacing: { after: 80 }, indent: { left: 280 }, alignment: AlignmentType.JUSTIFIED, keepLines: true, keepNext: !last,
       children: [new TextRun({ text: m.beschreibung, size: 21, font: FONT })] }));
@@ -602,7 +603,8 @@ _m2.forEach((m, idx) => {
   if (typeof m === "string") { children.push(new Paragraph({ numbering: { reference: "bullets", level: 0 }, spacing: { after: 40 }, keepLines: true, keepNext: !last, children: [new TextRun({ text: m, size: 22, font: FONT })] })); return; }
   const hasB = has(m.beschreibung);
   children.push(new Paragraph({ spacing: { before: 80, after: 20 }, keepLines: true, keepNext: hasB ? true : !last,
-    children: [new TextRun({ text: "• " + (m.titel || ""), bold: true, size: 22, color: COL.anthracite, font: FONT })] }));
+    indent: { left: 280, hanging: 280 }, tabStops: [{ type: TabStopType.LEFT, position: 280 }],
+    children: [new TextRun({ text: "•\t" + (m.titel || ""), bold: true, size: 22, color: COL.anthracite, font: FONT })] }));
   if (hasB)
     children.push(new Paragraph({ spacing: { after: 80 }, indent: { left: 280 }, alignment: AlignmentType.JUSTIFIED, keepLines: true, keepNext: !last,
       children: [new TextRun({ text: m.beschreibung, size: 21, font: FONT })] }));
@@ -808,9 +810,11 @@ const _rf = D.reihenfolge;
 if (_rf && Array.isArray(_rf.schritte) && _rf.schritte.length) {
   children.push(h2("8.2 Optimale Sanierungsreihenfolge"));
   if (has(_rf.intro)) bodyText(_rf.intro, { keep: true }).forEach(p => children.push(p));
-  _rf.schritte.forEach((st, i) => children.push(new Paragraph({ spacing: { after: 30 }, indent: { left: 280 },
+  // ab 0.4.7: hängender Einzug – Folgezeilen beginnen bündig unter dem Text, nicht unter der Nummer
+  _rf.schritte.forEach((st, i) => children.push(new Paragraph({ spacing: { after: 30 }, indent: { left: 680, hanging: 400 },
+    tabStops: [{ type: TabStopType.LEFT, position: 680 }],
     keepLines: true, keepNext: i < _rf.schritte.length - 1,
-    children: [ new TextRun({ text: (i + 1) + ".  ", bold: true, size: 22, color: COL.gold, font: FONT }),
+    children: [ new TextRun({ text: (i + 1) + ".\t", bold: true, size: 22, color: COL.gold, font: FONT }),
       new TextRun({ text: st, size: 22, font: FONT }) ] })));
 }
 

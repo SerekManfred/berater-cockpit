@@ -451,6 +451,51 @@ def _zusammen(ir: dict, teile: list[tuple[str, str]], format_liste=None) -> dict
     return _ziel(sicher, "\n".join(zeilen), roh)
 
 
+# ---------- Energieverbräuche: je Energieträger eine Zeile (Fehler 2026-0005, 18.11.2026) ----------
+
+# Bekannte Energieträger (Reihenfolge: Spezielles vor Allgemeinem – „Flüssiggas“ vor „Gas“, „Scheitholz“ vor „Holz“)
+TRAEGER = (("Flüssiggas", r"fl(ü|ue)ssiggas|propan|\blpg\b"), ("Erdgas", r"erdgas|\bgas\b"), ("Heizöl", r"heiz(ö|oe)l|\b(ö|oe)l\b"),
+           ("Pellets", r"pellet"), ("Hackschnitzel", r"hackschnitzel"), ("Scheitholz", r"scheitholz|st(ü|ue)ckholz|\bholz\b"),
+           ("Fernwärme", r"fernw(ä|ae)rme"), ("Nahwärme", r"nahw(ä|ae)rme"), ("Kohle", r"kohle|koks|brikett"),
+           ("Strom", r"\bstrom\b|nachtspeicher|w(ä|ae)rmepumpe"))
+
+
+def energietraeger_eindeutig(text: str) -> str | None:
+    """„Energieträger Bestand“ → genau ein bekannter Energieträger, sonst None (mehrere, unbekannt, leer)."""
+    rest, gefunden = str(text or "").lower(), []
+    for name, muster in TRAEGER:
+        if re.search(muster, rest):
+            gefunden.append(name)
+            rest = re.sub(muster, " ", rest)        # „Flüssiggas“ zählt nicht zusätzlich als „Gas“
+    return gefunden[0] if len(gefunden) == 1 else None
+
+
+_TEIL = re.compile(r"\s*(?P<t>[^\d;:]+?)\s*:?\s+(?P<m>\d[\d.,]*\s*(?:l|liter|kwh|mwh|kg|t|m³|m3|rm|srm|ster)\.?(?=\s|$))?"
+                   r"\s*(?P<k>\d[\d.,]*\s*(?:€|eur|euro)\.?)?\s*", re.IGNORECASE)
+
+
+def verbrauch_zeilen_teilen(tabelle: list[dict] | None) -> list[dict]:
+    """Freitextzeile „Heizöl 2500 l 2800 €; Strom 3800 kWh 1250 €“ (Menge/Kosten leer) → eine Zeile je Energieträger.
+    Nur wenn jeder Teil eindeutig Träger + Menge und/oder Kosten ist; sonst bleibt die Zeile unverändert."""
+    aus = []
+    for r in tabelle or []:
+        t = str((r or {}).get("traeger") or "")
+        if (r or {}).get("menge") or (r or {}).get("kosten") or not re.search(r"\d", t):
+            aus.append(r)
+            continue
+        teile = [x for x in re.split(r"\s*[;|\n]\s*", t) if x.strip()]
+        neu = []
+        for teil in teile:
+            m = _TEIL.fullmatch(teil)
+            if not m or not (m.group("m") or m.group("k")):
+                neu = None
+                break
+            neu.append({"traeger": m.group("t").strip(" ,-"), "menge": (m.group("m") or "").strip(),
+                        "kosten": (m.group("k") or "").strip()})
+        aus.extend(neu if neu else [r])
+    return aus
+
+
 VERGUETUNG = re.compile(r"(\d+(?:[.,]\d+)?)\s*(ct|cent)?\.?", re.IGNORECASE)
 
 
@@ -527,7 +572,15 @@ def ziele(ir: dict, kond: dict | None = None) -> dict[str, dict]:
             if e and not e["sicher"]:
                 sicher = False
                 roh.append(e["rohtext"])
-        name = traeger or (ir.get("energietraeger") or {}).get("wert") or "Brennstoff"
+        if traeger:
+            name = traeger
+        else:   # Brennstoffzeile: Energieträger aus „Energieträger Bestand“, nur eindeutig übernehmen
+            et = ir.get("energietraeger") or {}
+            name = energietraeger_eindeutig(et.get("wert"))
+            if name is None or not et.get("sicher", True):
+                sicher = False
+                roh.append(f"Energieträger Bestand „{et.get('wert') or '–'}“ nicht eindeutig – bitte Energieträger der Brennstoffzeile prüfen")
+                name = str(et.get("wert") or "Brennstoff")
         zeile = {"traeger": name, "menge": (m or {}).get("wert") or "", "kosten": (k or {}).get("wert") or ""}
         if zeile["menge"] or zeile["kosten"]:
             zeilen.append(zeile)

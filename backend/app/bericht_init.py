@@ -392,6 +392,8 @@ def entwurf_aus(db: Session, e: BerichtEntwurf | None, p: Projekt, ich: Benutzer
         "letzter_bericht_id": e.letzter_bericht_id if e else None,
         "foerder_vorschau": _foerder_vorschau(db, daten),
         "checkliste_import": _import_aus(e, db, ich),
+        # Bericht wird im Schnellweg erstellt (Gesamtfreigabe auf der Ergebnisseite statt Einzelfreigaben)
+        "schnellweg_aktiv": bool(e and (e.schnellweg or {}).get("status") not in (None, "leer")),
     }
 
 
@@ -432,6 +434,7 @@ def entwurf_speichern(projekt_id: int, aenderung: EntwurfAenderung, request: Req
         raise HTTPException(409, f"Der Entwurf wurde inzwischen von {von} geändert. Bitte neu laden – "
                                  "Ihre Eingaben bitte vorher sichern.")
     d = aenderung.daten.model_dump()
+    d["verbrauch"]["tabelle"] = checkliste_import.verbrauch_zeilen_teilen(d["verbrauch"]["tabelle"])   # Zeilen statt Freitext
     d["texte"] = _texte_normalisieren(d["texte"])
     fotos_ids = {str(f.id) for f in _fotos_des_projekts(db, p.id)}
     z = aenderung.foto_zuordnung.model_dump()
@@ -671,7 +674,8 @@ def generator_daten(p: Projekt, d: dict, z: dict, rk: dict, kond: dict, version:
         raise HTTPException(422, f"Höchstens {MAX_BERICHT_FOTOS} Fotos im Bericht (derzeit {len(benutzt)}). Bitte Fotos abwählen.")
     w = rk["werte"]
     pv = {k: v for k, v in (d.get("pv") or {}).items() if v}
-    zeilen = [r for r in ((d.get("verbrauch") or {}).get("tabelle") or []) if any(str(v).strip() for v in r.values())]
+    zeilen = [r for r in checkliste_import.verbrauch_zeilen_teilen((d.get("verbrauch") or {}).get("tabelle"))
+              if any(str(v).strip() for v in r.values())]   # Freitextzeile → je Energieträger eine Zeile (Entwurf bleibt)
     daten = {
         "titel": "Energieberatungsbericht",
         "berichtsnummer": f"{p.projektnummer}-V{version}",

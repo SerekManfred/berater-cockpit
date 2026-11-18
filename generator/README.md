@@ -133,3 +133,7 @@ Datenvertrag: `docs/Datenvertrag_Generator_EH_Vergleich.md` (Cockpit, 18.11.2026
 - Fußzeile (INIT und Fördervergleich): eigenes Absatzformat „Fusszeile“, damit die Seitenzahl-Felder auch in der
   PDF-Vorschau (LibreOffice) 7,5 pt bzw. 7 pt groß sind statt 11 pt.
 - Herleitung Tilgungszuschuss ohne Boni: „5 % (Effizienzhaus 55 EE) von 150.000 € = 7.500 €“ (kein doppeltes „= 5 %“).
+
+## Hängende Einzüge (ab 0.4.7)
+- 8.2 Sanierungsreihenfolge: Nummer mit Tabulator und hängendem Einzug – Folgezeilen stehen bündig unter dem Text.
+- 5.1/5.2 Maßnahmentitel („• Titel“): ebenso hängender Einzug; Beschreibung bündig darunter.

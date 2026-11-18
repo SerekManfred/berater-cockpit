@@ -336,3 +336,50 @@ def test_pv_vertrag_unsicher_gelesen_bleibt_unsicher():
     """KI unsicher („sicher“: false) → nichts übernehmen, auch wenn die Aufteilung klappen würde (Regel 4)."""
     z = checkliste_import.ziele({"pv_vertrag": checkliste_import.eintrag("10 Jahre / 18 ct", sicher=False, rohtext="10 Jahre / 1? ct")})
     assert z["pv.vertragslaufzeit"]["wert"] is None and z["pv.einspeiseverguetung"]["sicher"] is False
+
+
+# ---------- Energieverbräuche je Energieträger (Fehler 2026-0005, 18.11.2026) ----------
+
+@pytest.mark.parametrize("text, name", [("Heizöl", "Heizöl"), ("Öl", "Heizöl"), ("Erdgas", "Erdgas"), ("Flüssiggas", "Flüssiggas"),
+                                        ("Pellets", "Pellets"), ("Fernwärme", "Fernwärme"), ("Gas-Brennwert", "Erdgas")])
+def test_energietraeger_eindeutig(text, name):
+    assert checkliste_import.energietraeger_eindeutig(text) == name
+
+
+@pytest.mark.parametrize("text", ["Gas + Holz", "Heizöl, Kaminofen Holz", "", "Hybrid", None])
+def test_energietraeger_nicht_eindeutig(text):
+    assert checkliste_import.energietraeger_eindeutig(text) is None
+
+
+def test_verbrauch_je_energietraeger_eine_zeile():
+    e = checkliste_import.eintrag
+    z = checkliste_import.ziele({"energietraeger": e("Heizöl"), "brennstoff_verbrauch": e("2500 l"), "brennstoff_kosten": e("2800 €"),
+                                 "strom_verbrauch": e("3800 kWh"), "strom_kosten": e("1250 €")})
+    assert z["verbrauch.tabelle"] == {"wert": [{"traeger": "Heizöl", "menge": "2500 l", "kosten": "2800 €"},
+                                               {"traeger": "Strom", "menge": "3800 kWh", "kosten": "1250 €"}],
+                                      "sicher": True, "rohtext": ""}
+
+
+def test_verbrauch_energietraeger_nicht_eindeutig_wird_unsicher():
+    e = checkliste_import.eintrag
+    z = checkliste_import.ziele({"energietraeger": e("Gas + Holz"), "brennstoff_verbrauch": e("1800 m³"), "strom_verbrauch": e("4000 kWh")})
+    v = z["verbrauch.tabelle"]
+    assert v["sicher"] is False and "nicht eindeutig" in v["rohtext"]
+    assert [r["traeger"] for r in v["wert"]] == ["Gas + Holz", "Strom"]          # nichts geraten, Rohtext bleibt sichtbar
+
+
+@pytest.mark.parametrize("zeilen, erwartet", [
+    ([{"traeger": "Heizöl 2500 l 2800 €; Strom 3800 kWh 1250 €", "menge": "", "kosten": ""}],
+     [{"traeger": "Heizöl", "menge": "2500 l", "kosten": "2800 €"}, {"traeger": "Strom", "menge": "3800 kWh", "kosten": "1250 €"}]),
+    ([{"traeger": "Erdgas: 18.000 kWh", "menge": "", "kosten": ""}], [{"traeger": "Erdgas", "menge": "18.000 kWh", "kosten": ""}]),
+    ([{"traeger": "Strom 1.250 €", "menge": "", "kosten": ""}], [{"traeger": "Strom", "menge": "", "kosten": "1.250 €"}]),
+])
+def test_freitextzeile_wird_zerlegt(zeilen, erwartet):
+    assert checkliste_import.verbrauch_zeilen_teilen(zeilen) == erwartet
+
+
+@pytest.mark.parametrize("zeile", [{"traeger": "Heizöl ca. 2500 l, Kosten unbekannt", "menge": "", "kosten": ""},
+                                   {"traeger": "Heizöl", "menge": "2500 l", "kosten": ""},
+                                   {"traeger": "laut Abrechnung 2025", "menge": "", "kosten": ""}])
+def test_nicht_eindeutige_oder_richtige_zeilen_bleiben(zeile):
+    assert checkliste_import.verbrauch_zeilen_teilen([zeile]) == [zeile]

@@ -227,6 +227,8 @@ export function BerichtInit({ ich, projekt, onZurueck, onSchnellweg }) {
           uebernehmen(await api(pfad + "/ki-vorschlag", { method: "POST", body: { abschnitte: auswahl }, zeitlimit: ZEITLIMIT_LANG_MS }));
           setMeldung("KI-Vorschläge eingetragen. Bitte jeden Abschnitt unter „4. Prüfen und freigeben“ prüfen.");
         })} />}
+      {schritt === "pruefen" && e.schnellweg_aktiv && <div className="info" role="note">Dieser Bericht wird im Schnellweg erstellt –
+        Einzelfreigaben sind nicht nötig, die Freigabe erfolgt auf der Ergebnisseite.</div>}
       {schritt === "pruefen" && <PruefSchritt e={e} d={d} z={z} ab={ab} aendern={aendern} geaendert={geaendert} laeuft={laeuft}
         onFotos={() => wechseln("fotos")}
         onFreigabe={(a, leer) => aktion("frei-" + a, async () => {

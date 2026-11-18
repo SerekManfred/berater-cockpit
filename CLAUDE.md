@@ -410,7 +410,9 @@ Ausführliches Fachkonzept: `docs/Konzept_Berater-Cockpit.docx` (falls abgelegt)
 - Gemeinsames Zwischenformat → `ziele()` (Entwurfspfade, zusammengesetzte Stichpunkt-Texte, Verbrauchstabelle, KfW-458-Klimabonus,
   WPB aus „Gebäude entspricht WPB“; Bogenfeld „Laufzeit akt. Vertrag / Einspeisevergütung (ct/kWh)“ aufgeteilt per `pv_vertrag_teilen()`
   in `pv.vertragslaufzeit` („10 Jahre“) und `pv.einspeiseverguetung` („18 ct/kWh“, Einheit aus der Feldbeschriftung); nicht eindeutig →
-  beide unsicher mit Rohtext, Fehler aus Test „Erika Mustermann“ 18.11.2026) → `anwenden()`: **nur leere Felder füllen**, abweichende vorhandene Werte = Konflikte
+  beide unsicher mit Rohtext, Fehler aus Test „Erika Mustermann“ 18.11.2026; Verbräuche je Energieträger eine Zeile
+  {traeger, menge, kosten}, Brennstoff-Träger aus „Energieträger Bestand“ über `energietraeger_eindeutig()` – nicht eindeutig →
+  Tabelle unsicher) → `anwenden()`: **nur leere Felder füllen**, abweichende vorhandene Werte = Konflikte
   (`…/checkliste-konflikt` übernehmen/behalten; Abkürzungen wie „M. Serek“ zählen nicht). Markierungen je Feld in
   `bericht_entwuerfe.checkliste_import` (Migration 0012): „aus Checkliste“, unsicher = gelb „bitte prüfen“ mit Rohtext. Von Hand
   geänderte Felder verlieren die Markierung beim Speichern; unsichere bestätigen per `…/checkliste-bestaetigen`. **Erzeugen
@@ -451,6 +453,11 @@ Ausführliches Fachkonzept: `docs/Konzept_Berater-Cockpit.docx` (falls abgelegt)
   kein KI-Lauf. Fehlt danach ein Pflichtwert → Rückfrage, danach weiter ohne KI (`nach_rueckfrage: "vorschau"`). Eine veraltete
   Vorschau (`vorschau.aktuell == false`, z. B. nach Änderung in der Detailbearbeitung) zeigt die Oberfläche **nie** als Ergebnis –
   statt PDF/Word-Download der Knopf „Vorschau mit aktuellen Daten neu erzeugen“. Protokoll `schnellweg_neu_erzeugt`.
+- **Energieverbräuche immer als Zeilen** (Fehler 2026-0005, 18.11.2026): Rückfrage-Typ `verbrauch` (Tabelle in der Oberfläche,
+  Antwort = JSON der Zeilen, Freitext → 422); `checkliste_import.verbrauch_zeilen_teilen()` zerlegt eine Freitextzeile („Heizöl 2500 l
+  2800 €; Strom 3800 kWh 1250 €“, Menge/Kosten leer) nur wenn eindeutig – beim Speichern in der Detailbearbeitung und beim Aufbau der
+  Generator-Daten; gespeicherte Entwürfe werden nicht umgeschrieben. Detailbearbeitung Reiter 4 zeigt bei `schnellweg_aktiv` den
+  Hinweis „Dieser Bericht wird im Schnellweg erstellt – Einzelfreigaben sind nicht nötig …“.
 - **Freigabe** `POST …/schnellweg/freigeben`: **nur Rolle berater**, nur für die Revision der Vorschau; Gesamtfreigabe aller Abschnitte,
   dann `bi.bericht_speichern(status="freigegeben")` – der Generator erzeugt das Word **neu, ohne Wasserzeichen, nicht nachbearbeitet**.
   `eingaben.freigabe` {von, am, weg, konditionen_version, kosten_usd, dauer_s}; Protokoll `bericht_freigegeben`.
@@ -475,7 +482,8 @@ Ausführliches Fachkonzept: `docs/Konzept_Berater-Cockpit.docx` (falls abgelegt)
   `docs/Datenvertrag_Generator_EH_Vergleich.md`) entfallen Weg B, die KfW-261-Zeile in 7.5 und alle „—“ dazu; der Anhang zeigt
   „Zusammenfassung Weg A – Einzelmaßnahmen“. **Generator 0.4.6** (18.11.2026): reine Zahlen bekommen im INIT-Bericht ihre Einheit
   (m², kWp, kWh/a, ct/kWh, Jahre, l/kWh je Energieträger, €), Fußzeile mit eigenem Absatzformat (Seitenzahl auch in der PDF-Vorschau
-  klein), Herleitung ohne Boni ohne doppeltes „= x %“ („5 % (Effizienzhaus 55 EE) von 150.000 € = 7.500 €“).
+  klein), Herleitung ohne Boni ohne doppeltes „= x %“ („5 % (Effizienzhaus 55 EE) von 150.000 € = 7.500 €“). **Generator 0.4.7**
+  (18.11.2026): hängende Einzüge in 8.2 (Sanierungsreihenfolge) und 5.1/5.2 (Maßnahmentitel).
 - Messung 17.11.2026 (echte API, Kopie der DB, Testbogen Word + 6 Fotos): ohne Rückfrage, **94–112 s** bis Word + PDF, Texte Opus
   **0,26–0,30 $**, Korrektur 13–18 s, 0,03–0,08 $. Vergleich mit dem Original-Skill (gleiche Daten): Gliederung (31), Bilder,
   Förderbeträge identisch. Tests: `tests/test_init_schnellweg.py`, `frontend/src/Schnellweg.test.jsx`.

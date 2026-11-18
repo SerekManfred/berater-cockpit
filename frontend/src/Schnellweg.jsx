@@ -174,8 +174,32 @@ function Fortschritt({ s }) {
 
 // ---------- 3. Rückfrage-Liste ----------
 
+const SPALTEN = [["traeger", "Energieträger"], ["menge", "Menge/Jahr"], ["kosten", "Kosten/Jahr"]];
+const leereZeile = () => ({ traeger: "", menge: "", kosten: "" });
+export const zeilenAusText = t => { try { const z = JSON.parse(t || "[]"); return Array.isArray(z) ? z : []; } catch { return []; } };
+export const zeilenGefuellt = t => zeilenAusText(t).some(r => SPALTEN.some(([k]) => String(r[k] || "").trim()));
+
+/** Energieverbräuche: je Energieträger eine Zeile (nie Freitext). Wert = JSON der Zeilen. */
+function VerbrauchZeilen({ zeile, wert, onChange, aus }) {
+  const zeilen = zeilenAusText(wert);
+  const liste = zeilen.length ? zeilen : [leereZeile()];
+  const setze = neu => onChange(JSON.stringify(neu));
+  return (
+    <div className="verbrauch-rf" role="group" aria-label={zeile.label}>
+      <table><thead><tr>{SPALTEN.map(([k, t]) => <th key={k} scope="col">{t}</th>)}<th><span className="sr-only">Aktion</span></th></tr></thead>
+        <tbody>{liste.map((r, i) => <tr key={i}>
+          {SPALTEN.map(([k, t]) => <td key={k}><input aria-label={`Zeile ${i + 1} ${t}`} value={r[k] || ""} disabled={aus}
+            onChange={e => setze(liste.map((x, j) => j === i ? { ...x, [k]: e.target.value } : x))} /></td>)}
+          <td>{liste.length > 1 && <button className="btn2" disabled={aus} onClick={() => setze(liste.filter((_, j) => j !== i))}
+            aria-label={`Zeile ${i + 1} entfernen`}>Entfernen</button>}</td></tr>)}</tbody></table>
+      <button className="btn2" disabled={aus} onClick={() => setze([...liste, leereZeile()])}>Zeile hinzufügen</button>
+    </div>
+  );
+}
+
 function Eingabe({ zeile, wert, onChange, aus }) {
   const id = "rf-" + zeile.id;
+  if (zeile.typ === "verbrauch") return <VerbrauchZeilen zeile={zeile} wert={wert} onChange={onChange} aus={aus} />;
   if (zeile.typ === "janein") return <select id={id} value={wert} disabled={aus} onChange={e => onChange(e.target.value)}>
     <option value="">– bitte wählen –</option><option value="ja">ja</option><option value="nein">nein</option></select>;
   if (zeile.typ === "eh_stufe") return <select id={id} value={wert} disabled={aus} onChange={e => onChange(e.target.value)}>
@@ -193,7 +217,7 @@ export function Rueckfragen({ z, pfad, onNeu }) {
   const [weg, setWeg] = useState({});
   const [laeuft, setLaeuft] = useState(false);
   const [fehler, setFehler] = useState("");
-  const offen = zeilen.filter(x => !weg[x.id] && !String(werte[x.id] || "").trim());
+  const offen = zeilen.filter(x => !weg[x.id] && (x.typ === "verbrauch" ? !zeilenGefuellt(werte[x.id]) : !String(werte[x.id] || "").trim()));
   async function weiter() {
     setFehler(""); setLaeuft(true);
     try {
@@ -208,7 +232,7 @@ export function Rueckfragen({ z, pfad, onNeu }) {
       <div className="rueckfragen">
         {zeilen.map(x => (
           <div key={x.id} className={"rueckfrage" + (weg[x.id] ? " rueckfrage-weg" : "")}>
-            <label htmlFor={"rf-" + x.id}>{x.label}</label>
+            {x.typ === "verbrauch" ? <p className="rf-label"><strong>{x.label}</strong></p> : <label htmlFor={"rf-" + x.id}>{x.label}</label>}
             {x.hinweis && <p className="klein">{x.hinweis}</p>}
             <div className="rueckfrage-zeile">
               <Eingabe zeile={x} wert={werte[x.id] || ""} aus={!!weg[x.id]} onChange={w => setWerte(v => ({ ...v, [x.id]: w }))} />

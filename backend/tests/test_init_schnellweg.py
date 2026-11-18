@@ -528,6 +528,63 @@ def test_neu_erzeugen_erst_nach_bericht_erstellen():
     assert r.status_code == 409 and "Bericht erstellen" in r.json()["detail"]
 
 
+# ---------- Energieverbräuche als Zeilen (Fehler 2026-0005, 18.11.2026) ----------
+
+def test_rueckfrage_verbrauch_als_zeilen_nie_freitext(ki_an, v3_aktiv, generator, pdf, ohne_abgleich):
+    berater = konto("berater")
+    p = efh(berater)
+    alt = [{"traeger": "Heizöl", "menge": "2.000 l", "kosten": ""}]
+    _entwurf_aendern(berater, p["id"], lambda d: d["verbrauch"].update(tabelle=alt))   # abweichender Wert → Konflikt
+    cid, ids = unterlagen(berater, p, ki_an, fotos=1)
+    r = starten(berater, p, cid, ids)
+    z = next(x for x in r["schnellweg"]["rueckfragen"] if x["pfad"] == "verbrauch.tabelle")
+    assert z["typ"] == "verbrauch" and z["art"] == "konflikt"
+    vorschlag = json.loads(z["vorschlag"])
+    assert [x["traeger"] for x in vorschlag] == ["Heizöl", "Strom"] and vorschlag[0]["menge"] == "2.400 l Heizöl"
+    andere = [{"id": x["id"], "weglassen": True} for x in r["schnellweg"]["rueckfragen"] if x["id"] != z["id"] and x["weglassen_erlaubt"]]
+    falsch = berater.post(PFAD.format(p["id"]) + "/antworten", json={"revision": r["revision"], "antworten": [
+        *andere, {"id": z["id"], "wert": "Heizöl 2500 l 2800 €; Strom 3800 kWh 1250 €"}]})
+    assert falsch.status_code == 422 and "je Energieträger eine Zeile" in falsch.json()["detail"]
+    zeilen = [{"traeger": "Heizöl", "menge": "2500 l", "kosten": "2800 €"}, {"traeger": "Strom", "menge": "3800 kWh", "kosten": "1250 €"}]
+    r = berater.post(PFAD.format(p["id"]) + "/antworten", json={"revision": r["revision"], "antworten": [
+        *andere, {"id": z["id"], "wert": json.dumps(zeilen)}]})
+    assert r.status_code == 202, r.text
+    assert berater.get(f"/projekte/{p['id']}/bericht-init/entwurf").json()["daten"]["verbrauch"]["tabelle"] == zeilen
+    assert generator[-1]["daten"]["verbrauch"]["tabelle"] == zeilen
+
+
+def test_detailbearbeitung_speichert_zeilen_alter_entwurf_bleibt(ki_an, v3_aktiv, generator, pdf, ohne_abgleich):
+    from app.modelle import BerichtEntwurf
+    berater = konto("berater")
+    p = efh(berater)
+    frei = [{"traeger": "Heizöl 2500 l 2800 €; Strom 3800 kWh 1250 €", "menge": "", "kosten": ""}]
+    zeilen = [{"traeger": "Heizöl", "menge": "2500 l", "kosten": "2800 €"}, {"traeger": "Strom", "menge": "3800 kWh", "kosten": "1250 €"}]
+    cid, ids = unterlagen(berater, p, ki_an, fotos=1)
+    starten(berater, p, cid, ids)
+    e = _entwurf_aendern(berater, p["id"], lambda d: d["verbrauch"].update(tabelle=frei))   # Eingabe in der Detailbearbeitung
+    assert e["daten"]["verbrauch"]["tabelle"] == zeilen
+    with SessionLocal() as db:   # Bestand wie 2026-0005: Freitextzeile in der Datenbank – wird nicht umgeschrieben …
+        be = db.scalars(select(BerichtEntwurf).where(BerichtEntwurf.projekt_id == p["id"])).one()
+        be.daten = {**be.daten, "verbrauch": {"hinweis": "", "tabelle": frei}}
+        db.commit()
+    z = berater.get(PFAD.format(p["id"])).json()
+    r = berater.post(PFAD.format(p["id"]) + "/neu-erzeugen", json={"revision": z["revision"]})
+    assert r.status_code == 200, r.text
+    assert generator[-1]["daten"]["verbrauch"]["tabelle"] == zeilen                   # … aber das Word bekommt Zeilen
+    with SessionLocal() as db:
+        be = db.scalars(select(BerichtEntwurf).where(BerichtEntwurf.projekt_id == p["id"])).one()
+        assert be.daten["verbrauch"]["tabelle"] == frei
+
+
+def test_detailbearbeitung_hinweis_schnellweg(ki_an, v3_aktiv, generator, pdf, ohne_abgleich):
+    berater = konto("berater")
+    p = efh(berater)
+    assert berater.get(f"/projekte/{p['id']}/bericht-init/entwurf").json()["schnellweg_aktiv"] is False
+    cid, ids = unterlagen(berater, p, ki_an, fotos=1)
+    starten(berater, p, cid, ids)
+    assert berater.get(f"/projekte/{p['id']}/bericht-init/entwurf").json()["schnellweg_aktiv"] is True
+
+
 # ---------- echter Generator (nur mit GENERATOR_TEST_URL) ----------
 
 @pytest.mark.skipif(not os.environ.get("GENERATOR_TEST_URL"), reason="kein Generator-Container (läuft mit scripts/test-postgres.sh)")

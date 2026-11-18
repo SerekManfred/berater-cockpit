@@ -281,3 +281,9 @@ td.angekuendigt { background: var(--gold-l); }
 .sw-eintrag { border-left: 3px solid var(--rand); padding-left: 10px; margin-bottom: 10px; }
 .veraltet { background: var(--gold-l); border-radius: 8px; padding: 14px 16px; margin: 12px 0; }
 .veraltet p { margin: 0 0 10px; }
+.verbrauch-rf { flex: 1 1 100%; }
+.verbrauch-rf table { width: 100%; border-collapse: collapse; }
+.verbrauch-rf td { padding: 2px 4px 2px 0; }
+.verbrauch-rf input { width: 100%; min-height: 44px; }
+.rf-label { margin: 0; }
+.sr-only { position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0 0 0 0); white-space: nowrap; }

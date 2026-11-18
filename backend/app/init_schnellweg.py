@@ -12,6 +12,7 @@ Es gelten dieselben Regeln wie in der Detailbearbeitung (gleiche Daten): Zahlen 
 Namen an die KI, Werte der KI bleiben Vorschlag bis zur Freigabe durch einen Berater (Regel 4).
 """
 import copy
+import json
 import threading
 import time
 import traceback
@@ -110,6 +111,8 @@ def _typ(pfad: str) -> str:
         return "eh_stufe"
     if pfad == "foerder.eh_nh":
         return "janein"
+    if pfad == "verbrauch.tabelle":
+        return "verbrauch"   # Zeilen Energieträger / Menge / Kosten – nie Freitext (Fehler 2026-0005)
     if pfad.startswith("checkliste.") or pfad in ("notizen",):
         return "text_lang"
     return "text"
@@ -167,12 +170,13 @@ def rueckfragen(db: Session, e: BerichtEntwurf, p: Projekt, st: dict) -> list[di
             zeilen.append({"typ": _typ(z["pfad"]), "weglassen_erlaubt": True, "hinweis": "", "vorschlag": "", **z})
 
     for k in imp.get("konflikte") or []:   # Checkliste ≠ vorhandener Wert
-        dazu({"id": "konflikt:" + k["pfad"], "pfad": k["pfad"], "art": "konflikt", "label": k["label"],
+        dazu({"id": "konflikt:" + k["pfad"], "pfad": k["pfad"], "art": "konflikt", "label": k["label"], "_wert": k["neu"],
               "vorschlag": _anzeige(k["neu"]), "hinweis": f"Bisher eingetragen: {_anzeige(k['alt'])}. "
               "„Weglassen“ behält den bisherigen Wert."})
     for pfad in checkliste_import.offene_unsichere(marken):   # unsicher gelesen (Regel 4)
         m = marken[pfad]
-        dazu({"id": "unsicher:" + pfad, "pfad": pfad, "art": "unsicher", "label": m["label"], "vorschlag": _anzeige(m.get("wert")),
+        dazu({"id": "unsicher:" + pfad, "pfad": pfad, "art": "unsicher", "label": m["label"], "_wert": m.get("wert"),
+              "vorschlag": _anzeige(m.get("wert")),
               "hinweis": "Aus der Checkliste, nicht sicher lesbar" + (f": „{m['rohtext']}“" if m.get("rohtext") else "") + "."})
     for f in bi._fehlende_pflicht(d):
         dazu({"id": "pflicht:" + f["pfad"], "pfad": f["pfad"], "art": "pflicht", "label": f["label"],
@@ -196,6 +200,10 @@ def rueckfragen(db: Session, e: BerichtEntwurf, p: Projekt, st: dict) -> list[di
               "vorschlag": _anzeige((d.get("foerder") or {}).get("we")), "hinweis": w["text"] + " Bitte bestätigen oder korrigieren.",
               "weglassen_erlaubt": False})
     for z in zeilen:
+        wert = z.pop("_wert", None)
+        if z["typ"] == "verbrauch":   # Vorschlag als Zeilen (JSON), die Oberfläche zeigt eine Tabelle
+            z["vorschlag"] = json.dumps(checkliste_import.verbrauch_zeilen_teilen(wert if isinstance(wert, list) else []),
+                                        ensure_ascii=False)
         if z["typ"] == "eh_stufe":
             z["optionen"] = eh_optionen(db)
             z["weglassen_erlaubt"] = False
@@ -219,6 +227,26 @@ def _wert_umwandeln(typ: str, text: str, label: str):
             raise HTTPException(422, f"{label}: 0, 10, 30 oder 40 (%).")
         return n / 100
     return t
+
+
+def _verbrauch_zeilen(text: str, label: str) -> list[dict]:
+    """Antwort der Rückfrage „Energieverbräuche“: Zeilen [{traeger, menge, kosten}] (JSON aus der Tabelle der Oberfläche)."""
+    try:
+        roh = json.loads(text or "[]")
+    except ValueError:
+        raise HTTPException(422, f"{label}: bitte je Energieträger eine Zeile (Energieträger, Menge, Kosten) angeben.") from None
+    if not isinstance(roh, list):
+        raise HTTPException(422, f"{label}: Zeilen erwartet.")
+    zeilen = []
+    for r in roh[:12]:
+        if not isinstance(r, dict):
+            raise HTTPException(422, f"{label}: Zeilen erwartet.")
+        z = {k: str(r.get(k) or "").strip()[:200 if k == "traeger" else 100] for k in ("traeger", "menge", "kosten")}
+        if any(z.values()):
+            zeilen.append(z)
+    if not zeilen:
+        raise HTTPException(422, f"{label}: mindestens eine Zeile ausfüllen oder „weglassen“ wählen.")
+    return checkliste_import.verbrauch_zeilen_teilen(zeilen)
 
 
 class Antwort(BaseModel):
@@ -263,7 +291,7 @@ def antworten_anwenden(db: Session, e: BerichtEntwurf, p: Projekt, st: dict, ant
         elif z["typ"] == "eh_stufe":
             eh_setzen(daten, a.wert.strip(), [o[0] for o in z.get("optionen") or []])
         elif pfad == "verbrauch.tabelle":
-            daten.setdefault("verbrauch", {})["tabelle"] = [{"traeger": a.wert.strip()[:200], "menge": "", "kosten": ""}]
+            daten.setdefault("verbrauch", {})["tabelle"] = _verbrauch_zeilen(a.wert, z["label"])
         else:
             checkliste_import.setzen_pfad(daten, pfad, _wert_umwandeln(z["typ"], a.wert, z["label"]))
         if pfad in marken:   # vom Berater gesehen und beantwortet = bestätigt

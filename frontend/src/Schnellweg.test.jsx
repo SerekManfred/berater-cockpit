@@ -82,4 +82,24 @@ describe("Schnellweg INIT", () => {
       expect(JSON.parse(opt.body)).toEqual({ revision: 24 });
     } finally { globalThis.fetch = alt; }
   });
+
+  it("Rückfrage Energieverbräuche: je Energieträger eine Zeile, kein Freitext (Fehler 2026-0005)", async () => {
+    const vorschlag = JSON.stringify([{ traeger: "Heizöl", menge: "2500 l", kosten: "2800 €" }, { traeger: "Strom", menge: "3800 kWh", kosten: "1250 €" }]);
+    const s = { status: "rueckfrage", rueckfragen: [{ id: "konflikt:verbrauch.tabelle", pfad: "verbrauch.tabelle", label: "Energieverbräuche",
+      typ: "verbrauch", vorschlag, hinweis: "Bisher eingetragen: …", weglassen_erlaubt: true }] };
+    const onNeu = vi.fn();
+    const alt = globalThis.fetch;
+    globalThis.fetch = vi.fn(async () => new Response("{}", { status: 200, headers: { "Content-Type": "application/json" } }));
+    try {
+      render(<Rueckfragen z={zustand(s)} pfad="/x" onNeu={onNeu} />);
+      expect(screen.getByLabelText("Zeile 1 Energieträger").value).toBe("Heizöl");
+      expect(screen.getByLabelText("Zeile 2 Menge/Jahr").value).toBe("3800 kWh");
+      fireEvent.change(screen.getByLabelText("Zeile 2 Kosten/Jahr"), { target: { value: "1300 €" } });
+      fireEvent.click(screen.getByRole("button", { name: "Weiter" }));
+      await vi.waitFor(() => expect(onNeu).toHaveBeenCalled());
+      const body = JSON.parse(globalThis.fetch.mock.calls[0][1].body);
+      expect(JSON.parse(body.antworten[0].wert)).toEqual([{ traeger: "Heizöl", menge: "2500 l", kosten: "2800 €" },
+        { traeger: "Strom", menge: "3800 kWh", kosten: "1300 €" }]);
+    } finally { globalThis.fetch = alt; }
+  });
 });
