@@ -107,9 +107,9 @@ Ausführliches Fachkonzept: `docs/Konzept_Berater-Cockpit.docx` (falls abgelegt)
   unverändert. INIT übernimmt die Bestätigung beim Erzeugen auch in `eingaben.wohneinheiten_geprueft`. Protokoll
   `bericht_wohneinheiten_geprueft` (nur Codes).
 - **Angebotsvorlagen** (Tabelle `angebotsvorlagen`, `app/angebotsvorlagen_api.py`, Seite „Angebotsvorlagen“): je A–D Titel (≤ 80),
-  Leistungen (≤ 300), optionaler Standardbetrag (Start leer). Lesen alle Angemeldeten, ändern nur Admin; Protokoll
-  `angebotsvorlage_geaendert` mit alt/neu (keine Personendaten). Neue Fördervergleiche übernehmen Titel und Leistungen; den
-  Standardbetrag nur per Knopf (ein Betrag würde die Angebote samt Pflicht A/C/D aktivieren). Gespeicherte Berichte behalten ihren
+  Leistungen (≤ 300), optionaler Standardbetrag (**brutto inkl. 19 % MwSt.**). Lesen alle Angemeldeten, ändern nur Admin; Protokoll
+  `angebotsvorlage_geaendert` mit alt/neu (keine Personendaten). Neue Fördervergleiche übernehmen Titel, Leistungen **und seit
+  19.11.2026 den Standardbetrag als Vorschlag** (änderbar; Angebote sind ohnehin Pflicht, siehe „Pflicht Angebote“). Gespeicherte Berichte behalten ihren
   Text (steht in den Eingaben). Startwerte aus der Angebotsmail des Geschäftsführers stehen in Migration 0008 (`STARTWERTE`).
 
 ## Unterlagen, Papierkorb, Datensicherung (Stand 12.11.2026, Teilauftrag 3)
@@ -233,7 +233,8 @@ Ausführliches Fachkonzept: `docs/Konzept_Berater-Cockpit.docx` (falls abgelegt)
   Berichte mit Angeboten gab es zum Wechsel keine (geprüft 14.11.2026), daher keine Umschlüsselung.
 - Optionale Eingabe `angebote` (`AngeboteIn` in `app/rechnen.py`): `a`, `c`, `d` Pflicht, `b` optional, je `betrag` (≥ 0),
   `titel` (≤ 80), `leistungen` (≤ 300); `anrechnung_a_in_d` (Standard `true`, dann muss D ≥ A sein). Titel/Leistungen sind
-  Anzeigetexte, der Rechenkern bekommt nur die Beträge. Angebote **und** `kosten_baubegleitung > 0` zusammen → 422.
+  Anzeigetexte, der Rechenkern bekommt nur die Beträge. Beträge sind **brutto inkl. 19 % MwSt.** (Kosten gegenüber dem Kunden).
+  Angebote **und** `kosten_baubegleitung > 0`: Rechnen liefert `fachplanung_hinweis` (Angebote gelten), **Speichern → 422** (seit 19.11.2026).
 - Rechenkern (`Angebote` in `app/rechenkern/foerdervergleich.py`): Kosten Fachplanung/Baubegleitung je Weg – EM = A + C,
   EH = A + (D − A bei Anrechnung). Jedes Szenario liefert `angebotsweg` (Posten in Ablauf-Reihenfolge A, B nur bei `kfw266`
   (nicht gefördert), dann C bzw. D; Zuschuss anteilig nach Betrag; `eigenanteil`, `anrechnung_a`, `hoechstgrenze_greift`). Ohne
@@ -245,6 +246,25 @@ Ausführliches Fachkonzept: `docs/Konzept_Berater-Cockpit.docx` (falls abgelegt)
   sobald ein Betrag (A, C, D bzw. B bei KfW 266) eingetragen ist – dann ist „Kosten Fachplanung/Baubegleitung“ gesperrt (0).
   Ergebnis: Zeile „Eigenanteil Planung/Begleitung“ je Szenario aus `angebotsweg.eigenanteil`, Hinweis bei `hoechstgrenze_greift`.
 
+## Pflicht Angebote, externe Fachplanung, Beispieldaten (Stand 19.11.2026, Befund 2026-0004 V3)
+- **Ursache Befund:** V3 war der Knopf „Referenzfall laden“ (Beispiel mit 20.000 € Fachplanung, Angebote leer) statt „neue Version“
+  aus V2 – ohne `angebotsweg` ließ der Generator Kapitel 9 still weg. V3 (Bericht 7) ist mit „Beispieldaten – nicht verwenden“
+  gekennzeichnet (nicht gelöscht); V4 = neue Version aus V2 mit den Vorlagen-Standardbeträgen und Konditionen V6.
+- **Speichern in der Projektakte** (`angebote_entscheidung()` in `app/rechnen.py`, auch „neue Version“): Angebote A, C, D (B bei
+  KfW 266 optional) **oder** `ohne_angebote: {grund}` (3–300 Zeichen, erscheint nicht im Bericht); weder noch / beides → 422.
+  Schnellrechnung und „Berechnen“ bleiben frei. Gespeicherte Berichte ohne Angebote: Warnung in der Berichtsansicht.
+- **`kosten_baubegleitung` = nur externe Fachplanung** („Kosten externe Fachplanung/Baubegleitung“); mit Angeboten ergibt sich die
+  Fachplanung aus A + C bzw. A + D. Das Feld schaltet die Angebote nie ab; Widerspruch → Hinweis im Formular/Ergebnis, Speichern 422.
+- **Word:** bei Angeboten `angebote_hinweis` = `ANGEBOTE_BRUTTO_TEXT` („Alle Beträge inkl. 19 % MwSt.“) an den Generator (Kapitel 9).
+- **Referenzfall-Knopf:** nie in der Projektakte, nur Schnellrechnung, nur mit `BEISPIELDATEN_AKTIV` (Standard true, **Produktion
+  false**; `/systeminfo` → `beispieldaten`). Rückfrage vor dem Ersetzen; füllt Angebote mit Vorlage + Standardbeträgen (Fachplanung 0).
+- **Kennzeichnung** gespeicherter Berichte (Migration 0014, `berichte.kennzeichnung`): nur per CLI
+  `python -m app.cli bericht-kennzeichnen ID [--text …] [--aufheben]`, Protokoll `bericht_gekennzeichnet`; Eingaben/Ergebnis bleiben.
+- **Generator 0.5.0:** Kapitel 8 mit 8.1–8.4 (vorher A–D), „Beide Varianten:“ in Kapitel 2, KfW 261 „EE-Klasse ist Pflicht.
+  Kombination mit BEG EM: …“. **„EE- oder NH-Klasse“ offen:** das Merkblatt 261 liegt nicht auf dem Server; V6 nennt es nur als
+  Quelle und führt `ee_klasse_pflicht: true` – erst mit Beleg (z. B. eigenes Feld in den Konditionen) ändern.
+  Tests: `tests/test_angebote_pflicht.py`, `Foerdervergleich.test.js`.
+
 ## Zahlenfelder in der Oberfläche (Stand 14.11.2026)
 - **Alle Zahlenfelder** über `ZahlFeld`/`ZahlEingabe` (`frontend/src/ZahlFeld.jsx`) und `frontend/src/zahl.js` – kein `type="number"`,
   keine Einzellösungen. Das Feld hält den getippten Text (leer bleibt leer, „0“ lässt sich löschen) und meldet Zahl, `null` (leer)
@@ -254,7 +274,7 @@ Ausführliches Fachkonzept: `docs/Konzept_Berater-Cockpit.docx` (falls abgelegt)
   Rechnen bzw. Speichern (Fördervergleich, Projektformular, Bericht INIT, Konditionen-Zentrale).
 - **Pflicht im Fördervergleich** (`eingabenPruefen`, Vorgabe 14.11.2026): Wohneinheiten nach Sanierung, **Kosten jeder Maßnahme**
   (0 ist ein Wert, leer blockiert) und – sobald ein Angebot einen Betrag hat – **A, C und D**; B bleibt optional und nur bei KfW 266.
-  Leer → 0 nur bei Kosten Fachplanung/Baubegleitung, Honorar iSFP, neuen WE und Umbaukosten.
+  Leer → 0 nur bei Kosten externe Fachplanung/Baubegleitung, Honorar iSFP, neuen WE und Umbaukosten.
 - Frontend-Tests mit vitest (`npm test`, laufen beim Bauen von `cockpit-web`): `zahl.test.js`, `ZahlFeld.test.jsx`, `Foerdervergleich.test.js`.
 
 ## Förderprüfung, Meldungen, E-Mail (Stand 16.11.2026, Phase 2f)
@@ -551,6 +571,7 @@ Fachregeln, Rechenkern, Generator. Die Oberfläche soll Masken aus dieser Beschr
 - **Phase 2f (umgesetzt 16.11.2026, Abnahme 1–4 bestanden 16.11.2026; Kostensenkung zweistufig/Sonnet, alle 14 Tage):** Förderprüfung mit Meldungen und E-Mail an Empfänger, Stand-Angabe
   „Förderbedingungen Stand … (interne Version N)“, Generator 0.4.3; Generator 0.4.4 (17.11.2026): WPB-Bonus EM „angekündigt“ im Word.
 - **Phase 2g (umgesetzt 17.11.2026, Abnahme offen):** Vor-Ort-Checkliste einlesen (Word ohne KI, Foto/PDF per KI), Handschrift-Profil.
+- **19.11.2026:** Pflicht Angebote / externe Fachplanung / Beispieldaten-Schalter, Generator 0.5.0 (siehe Abschnitt oben).
 - **Phase 2h (umgesetzt 17.11.2026, Abnahme offen):** Schnellweg INIT (ein Klick zum Bericht, Rückfrage-Liste, PDF-Vorschau,
   Korrektur je Abschnitt, Gesamtfreigabe), Container `cockpit-pdf`, KI-Einstellungen.
 - **Offen (notiert 18.11.2026, nicht umgesetzt):** NH-Stufen auch im Fördervergleich (`foerderung-em-eh`, Rechenkern
@@ -580,7 +601,11 @@ vollständig erhalten und getestet. Bevor echte Nutzer oder Kundendaten ins Syst
 4. **Erst danach Basic Auth entfernen** (`web/Caddyfile`, `COCKPIT_USER`/`COCKPIT_PASS_HASH`).
 5. **KI nur mit AVV:** `KI_AKTIV=true` erst, wenn API-Bedingungen + AVV mit Anthropic vorliegen und der Geschäftsführer freigibt.
 6. **Kopie der Datensicherung außer Haus einrichten** (Ziel noch offen, siehe „Unterlagen, Papierkorb, Datensicherung“).
-7. **Erst danach echte Kundendaten zulassen.** Bis dahin nur neutrale Test- und Referenzfälle.
+7. **`BEISPIELDATEN_AKTIV=false`** in der `.env` der Produktion (Referenzfall-Knopf aus).
+8. **API-Logs dauerhaft speichern** (Befund 19.11.2026: Logs von `cockpit-api` gingen beim Neustart verloren, Herkunft der Eingaben
+   von 2026-0004 V3 nicht mehr nachweisbar): eigenes Volume, Rotation, ohne Geheimnisse und Personendaten, Teil der Datensicherung.
+   Noch nicht umgesetzt.
+9. **Erst danach echte Kundendaten zulassen.** Bis dahin nur neutrale Test- und Referenzfälle.
 
 ## Arbeitsweise
 - **Jeder neue Auftrag wird zuerst unter `docs/auftraege/` abgelegt und eingecheckt** (Dateiname wie geliefert,
