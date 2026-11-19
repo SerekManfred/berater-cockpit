@@ -55,6 +55,56 @@ Ausführliches Fachkonzept: `docs/Konzept_Berater-Cockpit.docx` (falls abgelegt)
 7. **KI-Anbindung austauschbar** über eine eigene Schnittstelle (`app/ki/`), Anbieter per `KI_ANBIETER` (anthropic | langdock).
    Kundennamen und Anschriften vor dem KI-Aufruf durch Platzhalter ersetzen.
 
+## Geltende Festlegungen (Kurzfassung, Stand 19.11.2026)
+Verbindlich zusätzlich zu den unverhandelbaren Regeln; Einzelheiten in den Abschnitten darunter.
+- **Push nur nach Freigabe der vorgelegten Liste:** vor jedem Push `git log --oneline origin/main..HEAD` im Chat vorlegen;
+  freigegeben ist genau diese Liste. Kommt danach ein Commit hinzu, Liste neu vorlegen. Commits sonst nur lokal.
+- **Keine Geheimnisse** in Repository, Commits, Logs oder Chat; Werte aus der `.env` nie ausgeben (Regel 6).
+- **Sicherung vor jeder Migration im Betrieb:** `scripts/sicherung.sh` direkt aufrufen, erst bei „Sicherung fertig“ weiter.
+- **Der Generator rechnet nie:** Zahlen nur aus Rechenkern/Berater, Sätze und Kriterien nur aus den Konditionen; jede Änderung mit
+  Versionssprung, README, Tests, Textvergleich gegen die Vorversion, bei Layout PDF-Sichtprüfung; inhaltliche Änderungen vorher
+  im Chat ankündigen. Gespeicherte Fördervergleiche sind eingefroren (Word mit sha256), Generator-Änderungen wirken nur auf neue
+  Berichte bzw. neue Versionen.
+- **Vier-Augen-Prinzip Konditionen:** Entwürfe legt admin (oder die Kommandozeile) an; freigeben oder zurückweisen darf nur
+  Rolle `pruefer`/admin, nie Ersteller, Bearbeiter oder Einreicher. Prüfer im Testbetrieb: **bmayer** (Rollen berater, pruefer,
+  verwaltung; hat Version 4–7 freigegeben). Nie automatisch aktivieren (auch nicht aus der Förderprüfung).
+- **Fundstellen-Pflicht ab Version 7** (`FUNDSTELLEN_PFLICHT_AB = 7`): jedes gegenüber der Kopiervorlage geänderte Feld braucht
+  eine Fundstelle (Quelldokument + Seite/Abschnitt), sonst sind Einreichen und Freigabe gesperrt; bis Version 6 nur Hinweis.
+- **Technischer Benutzer „Claude Code (technisch)“:** erzeugt Berichte im Auftrag (Kommandozeile, Protokoll `quelle: claude_code`),
+  darf **Konditionen weder bearbeiten, einreichen noch freigeben** und keine Quelldokumente verwalten (im Code erzwungen); kein
+  direktes Schreiben in die Datenbank an den Routen vorbei – Konditionen-Arbeiten nur per Kommandozeile mit Ersteller
+  „Kommandozeile“. „Wohneinheiten geprüft“ setzt nur ein Berater.
+- **Honorare brutto:** Angebotsbeträge A–D und Standardbeträge der Angebotsvorlagen sind Bruttobeträge inkl. 19 % MwSt.
+  (Kosten gegenüber dem Kunden); im Bericht „Alle Beträge inkl. 19 % MwSt.“.
+- **Kostenkennwerte ohne Vier-Augen-Prinzip, mit Protokoll** (Festlegung für den geplanten Maßnahmenkatalog): interne
+  Erfahrungswerte pflegt der Admin direkt (wie die Angebotsvorlagen), jede Änderung wird mit alt/neu protokolliert; sie sind keine
+  Förderkonditionen und stehen nicht in `konditionen_versionen`. Kosten im Fördervergleich bleiben Vorschlag, bis der Berater bestätigt.
+- **Aufträge unter `docs/auftraege/`:** jeder neue Auftrag wird zuerst dort abgelegt und eingecheckt; Patches/Zips nicht einchecken.
+- **Nur Testdaten**, bis die Produktiv-Checkliste („Vor Produktivstart“) abgearbeitet ist; KI mit echten Kundendaten erst mit AVV
+  und Freigabe des Geschäftsführers.
+
+## Aktueller Stand (19.11.2026)
+- **Datenbank:** Migrationsstand **0017** (Head; zuletzt 0014 Berichts-Kennzeichnung, 0015 technischer Benutzer, 0016
+  Quelldokumente/Fundstellen, 0017 Word eingefroren).
+- **Generator:** **0.5.1** (Fördervergleich: WPB-Fall nach Grundlage, Kriterien nur aus den Konditionen; INIT unverändert seit 0.4.9).
+  Prompts: Schnellweg `init-4`, Detailbearbeitung `init-1`.
+- **Konditionen:** Version **6 aktiv** (Stand 17.11.2026), Version **7 geplant** ab 01.02.2027, Version **8 Entwurf** (Kopie von V7 +
+  WPB-Kriterien nach Infoblatt 11.1 mit Fundstellen) – **nicht eingereicht**. Quelldokumente 1–5: Richtlinie BEG EM 17.07.2026,
+  BAFA-Infoblatt 10.0, BEG-FAQ 14.08.2026, Merkblatt 261 (09/2026), Infoblatt 11.1 (11/2026).
+- **Testprojekt 2026-0004:** aktuelle Fassung V6 (technischer Benutzer, Grundlage WPB), V7 vom Geschäftsführer (19.11.2026);
+  V3 „Beispieldaten – nicht verwenden“, V4/V5 „Ersetzt durch …“. Alle 8 Fördervergleiche eingefroren (Bestand, Generator 0.5.1).
+- **Offene Aufträge / Entscheidungen:**
+  - Vor Freigabe V8: **Generator 0.5.2** (Kriterientext aus den neuen WPB-Feldern) und **„Grundlage WPB“** an Infoblatt 11.1 anpassen
+    (kein Verbrauchsausweis, Baujahr-Regel mit Gebäudehülle/ab 6 WE/zentraler TWW, Alterswarnung > 1 Jahr) – angekündigt, offen.
+  - Vorschlag Konditionen-Feld **`beg_wg.klassen` (EE/NH)** mit Fundstelle Merkblatt 261 S. 3 → dann „EE- oder NH-Klasse“ im
+    Generator; **NH-Stufen im Fördervergleich** (seit 18.11.2026 offen).
+  - **Förderprüfung der WPB-Kriterien** nach Freigabe von V8 (Vorschlag, keine automatische Aktivierung).
+  - **Maßnahmenkatalog** (Bauteil, Standardtext, Kostenkennwert) – Vorschlag gemacht; festgelegt: Kostenkennwerte ohne Vier-Augen
+    mit Protokoll; offen: Startbestand, Standardtext im Word, INIT.
+  - Abnahmen offen: Phasen 2b, 2d, 2e, 2g, 2h.
+  - Produktiv-Checkliste („Vor Produktivstart“), u. a. Geheimnisse neu, 2FA, Basic Auth, AVV, Kopie außer Haus, API-Logs dauerhaft,
+    `BEISPIELDATEN_AKTIV=false`, Word einfrieren ab dem ersten Bericht.
+
 ## Projektakte (Stand 12.11.2026)
 - Projektnummer automatisch `JJJJ-NNNN` je Kalenderjahr (Europe/Berlin), fortlaufend, nie neu vergeben (auch nicht nach Löschen).
 - Lesen: alle Angemeldeten. Projekte anlegen/bearbeiten: berater, verwaltung, admin. Löschen nur weich (`geloescht_am`), nur admin.
@@ -282,8 +332,9 @@ Ausführliches Fachkonzept: `docs/Konzept_Berater-Cockpit.docx` (falls abgelegt)
   (API, Speichern, Generator, Abnahmefall 4 WE / Gegenprobe 1 WE mit echtem Generator, Reihenfolge in Kapitel 9).
 - Generator 0.4.1 (seit 0.4.2 nur README angepasst: `kunde.*` = Partei laut `app/parteien.py`): Kapitel 9 „Unsere Leistungen auf Ihrem Weg“ (A → B → „Welcher Sanierungsweg?“ → C | D) nur mit `angebotsweg`,
   „Empfohlenes Vorgehen“ wird dann 10.
-- Oberfläche: aufklappbarer Abschnitt „Unsere Angebote (optional)“ in der Reihenfolge A, B, C, D (B nur mit KfW 266); Angebote gelten,
-  sobald ein Betrag (A, C, D bzw. B bei KfW 266) eingetragen ist – dann ist „Kosten Fachplanung/Baubegleitung“ gesperrt (0).
+- Oberfläche: Abschnitt „Unsere Angebote“ in der Reihenfolge A, B, C, D (B nur mit KfW 266) – in der Projektakte Pflicht (oder
+  „bewusst ohne Angebote“), in der Schnellrechnung optional; seit 19.11.2026 sperrt er „Kosten externe Fachplanung/Baubegleitung“
+  nicht mehr (Widerspruch → Hinweis, Speichern 422, siehe „Pflicht Angebote“).
   Ergebnis: Zeile „Eigenanteil Planung/Begleitung“ je Szenario aus `angebotsweg.eigenanteil`, Hinweis bei `hoechstgrenze_greift`.
 
 ## Pflicht Angebote, externe Fachplanung, Beispieldaten (Stand 19.11.2026, Befund 2026-0004 V3)
