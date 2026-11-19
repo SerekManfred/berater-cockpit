@@ -48,11 +48,13 @@ def generator(monkeypatch):
     anfragen = []
 
     def antwort(request: httpx.Request):
+        if request.method == "GET":   # /health (Systeminfo): wie Generator < 0.4.9 ohne Version
+            return httpx.Response(200, json={"status": "ok"})
         daten = json.loads(request.content)
         anfragen.append(daten)
         return httpx.Response(200, content=docx_mit_kopf(json.dumps(daten["daten"], ensure_ascii=False)
                                                          .replace("<", " ").replace("&", " ")),
-                              headers={"content-type": DOCX})
+                              headers={"content-type": DOCX, "X-Generator-Version": "9.9.9-test"})
 
     monkeypatch.setattr(word, "TRANSPORT", httpx.MockTransport(antwort))
     return anfragen
@@ -634,6 +636,53 @@ def test_prompt_init3_ee_oder_nh_und_zahlen():
     assert version == "init-3" and text.startswith("Sie schreiben die Texte")
     assert "Alternativen" in text and "nh_bonus" in text and "nie „nur mit EE-Klasse“" in text
     assert "2.500 l Heizöl" in text and "Ein früher Heizungstausch lohnt sich daher besonders." in text
+
+
+# ---------- Versionsanzeige (19.11.2026) ----------
+
+def test_erzeugt_mit_gespeichert_vorschau_bericht_und_liste(ki_an, v3_aktiv, generator, pdf, ohne_abgleich, monkeypatch):
+    monkeypatch.setattr(config, "COCKPIT_VERSION", "abc1234")
+    berater = konto("berater")
+    p = efh(berater)
+    cid, ids = unterlagen(berater, p, ki_an, fotos=1)
+    s = starten(berater, p, cid, ids)
+    m = s["schnellweg"]["vorschau"]["erzeugt_mit"]
+    assert (m["generator"], m["prompt"], m["konditionen_version"], m["cockpit"]) == ("9.9.9-test", "init-3", v3_aktiv, "abc1234")
+    eig = generator[-1]["daten"]["dokument_eigenschaften"]          # für die Word-Eigenschaften, nicht für den Text
+    assert eig == {"Cockpit": "abc1234", "KI-Prompt": "init-3", "Konditionen-Version": str(v3_aktiv)}
+    f = berater.post(PFAD.format(p["id"]) + "/freigeben", json={"revision": s["revision"]}).json()
+    akte = berater.get(f"/projekte/{p['id']}").json()
+    b = next(x for x in akte["berichte"] if x["id"] == f["bericht_id"])
+    assert b["erzeugt_mit"]["generator"] == "9.9.9-test" and b["erzeugt_mit"]["prompt"] == "init-3"
+    monkeypatch.setattr(config, "COCKPIT_VERSION", "neu9999")         # später: gespeicherte Angaben bleiben
+    akte = berater.get(f"/projekte/{p['id']}").json()
+    assert next(x for x in akte["berichte"] if x["id"] == f["bericht_id"])["erzeugt_mit"]["cockpit"] == "abc1234"
+
+
+def _health(monkeypatch, antwort):
+    monkeypatch.setattr(word, "TRANSPORT", httpx.MockTransport(antwort))
+
+
+def test_systeminfo_generator_live(monkeypatch, v3_aktiv):
+    c = konto("verwaltung")                                            # alle Angemeldeten
+    _health(monkeypatch, lambda r: httpx.Response(200, json={"status": "ok", "version": "0.4.9"}))
+    s = c.get("/systeminfo").json()
+    assert s["generator"] == {"erreichbar": True, "version": "0.4.9"}
+    assert s["prompts"] == {"schnellweg": "init-3", "detail": "init-1"} and s["konditionen"]["aktiv"] == v3_aktiv
+    _health(monkeypatch, lambda r: httpx.Response(200, json={"status": "ok"}, headers={"X-Generator-Version": "0.4.9"}))
+    assert c.get("/systeminfo").json()["generator"]["version"] == "0.4.9"
+    _health(monkeypatch, lambda r: httpx.Response(200, json={"status": "ok"}))   # vor 0.4.9: keine Version, nie geraten
+    assert c.get("/systeminfo").json()["generator"] == {"erreichbar": True, "version": None}
+
+    def weg(r):
+        raise httpx.ConnectError("nicht erreichbar")
+    _health(monkeypatch, weg)
+    assert c.get("/systeminfo").json()["generator"] == {"erreichbar": False, "version": None}
+
+
+def test_systeminfo_nur_angemeldet():
+    from tests.test_anmeldung import client
+    assert client().get("/systeminfo").status_code == 401
 
 
 # ---------- echter Generator (nur mit GENERATOR_TEST_URL) ----------

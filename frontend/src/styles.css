@@ -287,3 +287,6 @@ td.angekuendigt { background: var(--gold-l); }
 .verbrauch-rf input { width: 100%; min-height: 44px; }
 .rf-label { margin: 0; }
 .sr-only { position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0 0 0 0); white-space: nowrap; }
+.versionsleiste { display: flex; flex-wrap: wrap; gap: 6px 18px; padding: 10px 20px; border-top: 1px solid var(--rand); font-size: 12px; color: var(--grau); background: #fff; }
+.fehlertext { color: var(--rot); font-weight: bold; }
+.erzeugt-mit { margin-top: 4px; }

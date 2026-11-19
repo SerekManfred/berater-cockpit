@@ -494,6 +494,19 @@ Ausführliches Fachkonzept: `docs/Konzept_Berater-Cockpit.docx` (falls abgelegt)
   **0,26–0,30 $**, Korrektur 13–18 s, 0,03–0,08 $. Vergleich mit dem Original-Skill (gleiche Daten): Gliederung (31), Bilder,
   Förderbeträge identisch. Tests: `tests/test_init_schnellweg.py`, `frontend/src/Schnellweg.test.jsx`.
 
+## Versionsanzeige (Stand 19.11.2026)
+- **Fußzeile** (`frontend/src/Versionen.jsx`, alle Angemeldeten, `GET /systeminfo`, alle 5 Min. neu): laufende Generator-Version
+  **live** (`app/systeminfo.py: generator_info()` – `GET /health` `version` oder Kopfzeile `X-Generator-Version`; meldet der Generator
+  nichts → „Version nicht gemeldet“, nicht erreichbar → rot „Generator nicht erreichbar“; nie eine Konstante), KI-Prompt Schnellweg /
+  Detailbearbeitung, aktive (und geplante) Konditionen-Version, Cockpit-Version (`COCKPIT_COMMIT` beim Bauen, `scripts/bauen.sh`).
+- **„Erzeugt mit“ je Vorschau/Bericht**, gespeichert beim Erzeugen (`systeminfo.erzeugt_mit()`: generator, prompt, konditionen_version,
+  cockpit, zeit): Schnellweg `schnellweg.vorschau.erzeugt_mit`, INIT-Bericht `eingaben.erzeugt_mit`; angezeigt auf der Ergebnisseite
+  und in der Berichtsliste der Projektakte. Fördervergleich: Word entsteht beim Herunterladen – Generator-Version im Protokoll
+  `bericht_word_erzeugt` (`generator_version`, `cockpit`).
+- **Dokumenteigenschaften im Word:** das Cockpit sendet `dokument_eigenschaften` {Cockpit, KI-Prompt, Konditionen-Version}; schreiben
+  muss sie der Generator (freigegebene Fassung wird nie nachbearbeitet) – Datenvertrag `docs/Datenvertrag_Generator_Versionen.md`
+  (Generator 0.4.9). Bis dahin melden Generator ≤ 0.4.8 keine Version und schreiben keine Eigenschaften.
+
 ## KI-Textvorschläge (Stand 13.11.2026, Phase 2b)
 - `app/ki/` = austauschbare Schnittstelle (Regel 7; `anthropic` umgesetzt, `langdock` meldet „noch nicht angebunden“), offizielles SDK
   `anthropic`, strukturierte Ausgabe per JSON-Schema (`ki_texte.SCHEMA`). Fachlogik in `app/ki_texte.py`; Systemprompt versioniert als
@@ -575,7 +588,8 @@ vollständig erhalten und getestet. Bevor echte Nutzer oder Kundendaten ins Syst
   (ohne Generator) wird dieser Test übersprungen. Vorher bauen, damit die Images aktuell sind.
   Nie Tests gegen `cockpit-db`/die Datenbank `cockpit` laufen lassen – die Tests leeren ihre Datenbank. `conftest.py` bricht ab,
   wenn der Name der Testdatenbank kein „test“ enthält.
-- Bauen ohne Cache, damit die Tests im Build wirklich laufen: `docker compose build --no-cache cockpit-api cockpit-generator`.
+- Bauen ohne Cache, damit die Tests im Build wirklich laufen: `scripts/bauen.sh --no-cache cockpit-api cockpit-generator` (wie
+  `docker compose build`, setzt zusätzlich `COCKPIT_COMMIT` für die Versionsanzeige; im Betrieb erst committen, dann bauen).
 - **Vor jeder Migration im Betrieb sichern** – `scripts/sicherung.sh` direkt aufrufen (nicht durch eine Pipe, die den Exit-Code verdeckt)
   und erst bei „Sicherung fertig“ weitermachen. Neue Tabellen in `scripts/kennzahlen.sh` ergänzen; es überspringt Tabellen, die ein
   älterer Migrationsstand noch nicht hat, damit alte Sicherungen prüfbar bleiben.

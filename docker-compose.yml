@@ -12,7 +12,7 @@ services:
     depends_on: [cockpit-api]
 
   cockpit-api:
-    build: { context: ./backend }
+    build: { context: ./backend, args: { COCKPIT_COMMIT: "${COCKPIT_COMMIT:-unbekannt}" } }   # Versionsanzeige; scripts/bauen.sh setzt den Commit
     restart: unless-stopped
     environment:
       DATABASE_URL: postgresql://cockpit:${DB_PASSWORD}@cockpit-db:5432/cockpit

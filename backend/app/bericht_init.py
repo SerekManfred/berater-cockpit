@@ -22,7 +22,7 @@ from sqlalchemy import func, select
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session
 
-from app import checkliste_import, config, dateien, einstellungen, ki, ki_texte, wohneinheiten
+from app import checkliste_import, config, dateien, einstellungen, ki, ki_texte, systeminfo, wohneinheiten
 from app.auth import aktueller_benutzer, rolle
 from app.dateien_api import _namen, datei_aus
 from app.db import get_db
@@ -793,12 +793,25 @@ def word_bauen(db: Session, p: Projekt, e: BerichtEntwurf, version: int) -> dict
             raise HTTPException(422, f"Foto „{f.dateiname_original}“ lässt sich nicht lesen. Bitte abwählen.") from None
         bilder[_foto_name(fid)] = base64.b64encode(jpeg).decode("ascii")
         foto_nachweis.append({"datei_id": fid, "sha256": f.sha256, "name": _foto_name(fid)})
+    # Versionen, mit denen dieses Word entsteht (19.11.2026): Prompt der Texte, Konditionen, Cockpit – als Dokumenteigenschaften
+    # an den Generator (schreibt sie ab 0.4.9 ins Word, nie in den Text); seine eigene Version meldet der Generator selbst.
+    prompt = texte_prompt(e)
+    vorlaeufig = systeminfo.erzeugt_mit(None, prompt, kond["version"])
+    daten["dokument_eigenschaften"] = systeminfo.dokument_eigenschaften(vorlaeufig)
     antwort = generator_anfrage("/bericht/init", {"daten": daten, "bilder": bilder}, "Der Beratungsbericht",
                                 timeout=config.GENERATOR_TIMEOUT_BERICHT)
     inhalt = antwort.content
     if inhalt[:2] != b"PK":
         raise HTTPException(502, "Der Word-Generator hat keine gültige Word-Datei geliefert. Bitte einen Admin informieren.")
-    return {"docx": inhalt, "rk": rk, "kond": kond, "foerder": foerder, "daten": daten, "foto_nachweis": foto_nachweis}
+    gen = systeminfo.generator_version_aus(antwort) or systeminfo.generator_info()["version"]
+    return {"docx": inhalt, "rk": rk, "kond": kond, "foerder": foerder, "daten": daten, "foto_nachweis": foto_nachweis,
+            "erzeugt_mit": {**vorlaeufig, "generator": gen}}
+
+
+def texte_prompt(e: BerichtEntwurf) -> str | None:
+    """Prompt-Version der Texte im Entwurf: letzter erfolgreicher KI-Lauf (Schnellweg oder Detailbearbeitung); ohne KI None."""
+    ok = [l for l in e.ki_laeufe or [] if l.get("ok") and l.get("prompt_version")]
+    return ok[-1]["prompt_version"] if ok else None
 
 
 def bericht_speichern(db: Session, request: Request, p: Projekt, e: BerichtEntwurf, ich: Benutzer, we_geprueft: list[dict],
@@ -836,7 +849,7 @@ def bericht_speichern(db: Session, request: Request, p: Projekt, e: BerichtEntwu
         "foerder": w["foerder"].model_dump(), "bericht_daten": w["daten"], "fotos": w["foto_nachweis"], "freigaben": freigaben,
         "ki": {"laeufe": len(e.ki_laeufe or []), "letzter_lauf": ({k: letzte_ki[-1].get(k) for k in ("nr", "modell", "prompt_version", "zeit")}
                                                                if letzte_ki else None)},
-        "entwurf_id": e.id, "entwurf_revision": e.revision, "word_datei_id": d.id,
+        "entwurf_id": e.id, "entwurf_revision": e.revision, "word_datei_id": d.id, "erzeugt_mit": w["erzeugt_mit"],
         **({"wohneinheiten_geprueft": we_geprueft} if we_geprueft else {}),
         **({"freigabe": {**freigabe, "konditionen_version": kond["version"]}} if freigabe else {}),
     }

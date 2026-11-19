@@ -451,7 +451,7 @@ def vorschau_bauen(db: Session, e: BerichtEntwurf, p: Projekt, st: dict) -> None
     st["rk_hinweise"] = [f"7.5/Anhang: {h}." for h in (w["rk"].get("werte") or {}).get("eh_hinweise") or []]
     st["vorschau"] = {"revision": e.revision, "version": version, "konditionen_version": w["kond"]["version"],
                       "konditionen_stand": (w["rk"].get("saetze") or {}).get("konditionen_stand"),
-                      "erzeugt_am": jetzt().isoformat(), "pdf": False, "pdf_fehler": None}
+                      "erzeugt_am": jetzt().isoformat(), "pdf": False, "pdf_fehler": None, "erzeugt_mit": w["erzeugt_mit"]}
     beginn = time.monotonic()
     _schritt(st, "vorschau", "laeuft")
     try:

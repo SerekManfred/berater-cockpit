@@ -1,6 +1,7 @@
 import React, { useEffect, useRef, useState } from "react";
 import { api, dateiHochladen, groesseText, holen, wordHerunterladen, ZEITLIMIT_LANG_MS } from "./api.js";
 import { ZahlFeld } from "./ZahlFeld.jsx";
+import { erzeugtMitText } from "./Versionen.jsx";
 import { zahlUngueltig } from "./zahl.js";
 
 /**
@@ -378,6 +379,7 @@ export function Ergebnis({ z, pfad, projekt, onNeu, onNochmal }) {
             : <p className="fehler">{v.pdf_fehler || "Keine PDF-Vorschau."}</p>}
         <p className="klein">Dauer bis zum Word: {sek(s.dauer_s)} · Kosten dieses Berichts (KI, Schätzung nach Listenpreis): {usd(s.kosten_usd)}
           {v.konditionen_version ? ` · Konditionen-Version ${v.konditionen_version}` : ""}</p>
+        {v.erzeugt_mit && <p className="klein erzeugt-mit">Diese Vorschau erzeugt mit: {erzeugtMitText(v.erzeugt_mit)}</p>}
       </section>
       <section className="karte">
         <h2>Hinweise der KI</h2>

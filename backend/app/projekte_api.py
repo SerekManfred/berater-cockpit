@@ -201,6 +201,8 @@ def _bericht_kurz(b: Bericht, namen: dict[int, str]) -> dict:
     return {
         "id": b.id, "projekt_id": b.projekt_id, "modul": b.modul, "versionsnummer": b.versionsnummer,
         "konditionen_version": b.konditionen_version, "status": b.status,
+        # Versionen beim Erzeugen (INIT: gespeichertes Word); Fördervergleich: Word entsteht beim Herunterladen
+        "erzeugt_mit": (b.eingaben or {}).get("erzeugt_mit"),
         "erstellt_von_id": b.erstellt_von_id, "erstellt_von": namen.get(b.erstellt_von_id), "erstellt_am": b.erstellt_am,
     }
 

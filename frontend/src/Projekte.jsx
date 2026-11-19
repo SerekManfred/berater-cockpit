@@ -4,6 +4,7 @@ import { ANGEBOTE, eur, Ergebnis, Foerdervergleich, KATEGORIEN } from "./Foerder
 import { Unterlagen, VorOrtCheckliste } from "./Unterlagen.jsx";
 import { BerichtInit } from "./BerichtInit.jsx";
 import { Schnellweg } from "./Schnellweg.jsx";
+import { erzeugtMitText } from "./Versionen.jsx";
 import { ZahlFeld } from "./ZahlFeld.jsx";
 import { Angebotsweg } from "./Angebotsweg.jsx";
 import { WeBestaetigung } from "./Wohneinheiten.jsx";
@@ -408,12 +409,14 @@ function ProjektAkte({ ich, id, onZurueck, onGehe }) {
         {p.berichte.length === 0 ? <p className="hinweis">Noch keine Berichte gespeichert.</p> : (
           <div className="tabelle">
             <table>
-              <thead><tr><th>Bericht</th><th>Version</th><th>Datum</th><th>Ersteller</th><th>Konditionen</th><th>Status</th><th><span className="sr">Aktion</span></th></tr></thead>
+              <thead><tr><th>Bericht</th><th>Version</th><th>Datum</th><th>Ersteller</th><th>Konditionen / erzeugt mit</th><th>Status</th><th><span className="sr">Aktion</span></th></tr></thead>
               <tbody>
                 {p.berichte.map(b => (
                   <tr key={b.id}>
                     <td>{MODULE[b.modul] || b.modul}</td><td>V{b.versionsnummer}</td><td>{zeit(b.erstellt_am)}</td>
-                    <td>{b.erstellt_von || "–"}</td><td>Version {b.konditionen_version}</td><td>{BERICHT_STATUS[b.status] || b.status}</td>
+                    <td>{b.erstellt_von || "–"}</td><td>Version {b.konditionen_version}
+                      <div className="klein erzeugt-mit">{b.erzeugt_mit ? erzeugtMitText(b.erzeugt_mit)
+                        : "Word wird beim Herunterladen mit dem laufenden Generator erzeugt"}</div></td><td>{BERICHT_STATUS[b.status] || b.status}</td>
                     <td><div className="zeilen-aktionen">
                       {!NUR_ASSISTENT.includes(b.modul) && <button className="btn2" aria-label={`${MODULE[b.modul] || b.modul} Version ${b.versionsnummer} öffnen`}
                         onClick={() => onGehe({ art: "bericht", id: b.id, projektId: p.id })}>Öffnen</button>}

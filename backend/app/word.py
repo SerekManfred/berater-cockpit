@@ -98,8 +98,12 @@ def bericht_word(bericht_id: int, request: Request, ich: Benutzer = Depends(aktu
                                              "(„Wohneinheiten geprüft“): " + " ".join(x["text"] for x in offen),
                                   "wohneinheiten": offen})
     ersteller = _namen(db, [b.erstellt_von_id]).get(b.erstellt_von_id)
+    from app import systeminfo
+    daten = generator_daten(b, p, ersteller)
+    daten["dokument_eigenschaften"] = systeminfo.dokument_eigenschaften(systeminfo.erzeugt_mit(None, None, b.konditionen_version))
     try:
-        inhalt = generator_senden(GENERATOR_PFAD[b.modul], generator_daten(b, p, ersteller))
+        antwort = generator_anfrage(GENERATOR_PFAD[b.modul], daten)
+        inhalt = antwort.content
     except HTTPException as fehler:
         protokollieren(db, request, "bericht_word_fehlgeschlagen", ich.id, projekt_id=p.id, bericht_id=b.id,
                        status=fehler.status_code)
@@ -108,7 +112,8 @@ def bericht_word(bericht_id: int, request: Request, ich: Benutzer = Depends(aktu
     dateiname = f"{DATEINAME[b.modul]}_{p.projektnummer}_V{b.versionsnummer}.docx"
     protokollieren(db, request, "bericht_word_erzeugt", ich.id, projekt_id=p.id, projektnummer=p.projektnummer,
                    bericht_id=b.id, versionsnummer=b.versionsnummer, konditionen_version=b.konditionen_version,
-                   groesse=len(inhalt))
+                   groesse=len(inhalt), generator_version=systeminfo.generator_version_aus(antwort),
+                   cockpit=config.COCKPIT_VERSION)
     db.commit()
     return Response(inhalt, media_type=DOCX, headers={
         "Content-Disposition": f'attachment; filename="{dateiname}"',

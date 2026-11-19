@@ -9,6 +9,7 @@ import { OffeneMeldungen } from "./Foerderpruefung.jsx";
 import { FristHinweise, GeplantHinweis, Konditionen } from "./Konditionen.jsx";
 import { KiEinstellungen, KiReferenz } from "./KiReferenz.jsx";
 import { Papierkorb } from "./Papierkorb.jsx";
+import { Versionsleiste } from "./Versionen.jsx";
 import { MeineProjekte, Projekte } from "./Projekte.jsx";
 
 export default function App() {
@@ -110,6 +111,7 @@ function Cockpit({ ich, onAbmelden }) {
           </Fehlergrenze>
         </main>
       </div>
+      <Versionsleiste />
     </>
   );
 }
