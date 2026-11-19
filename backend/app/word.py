@@ -13,7 +13,7 @@ from app.modelle import Benutzer, Bericht, Projekt
 from app.parteien import berichtskunde
 from app.projekte_api import _bericht_laden, _namen, we_pruefung
 from app.protokoll import protokollieren
-from app.rechnen import kennzeichnung_nachtragen
+from app.rechnen import ANGEBOTE_BRUTTO_TEXT, kennzeichnung_nachtragen
 
 router = APIRouter(tags=["Word-Berichte"])
 
@@ -42,6 +42,8 @@ def generator_daten(b: Bericht, p: Projekt, ersteller: str | None) -> dict:
         "ergebnis": kennzeichnung_nachtragen(b.ergebnis, b.konditionen_snapshot),   # ältere Berichte: „angekündigt“ ableiten
         "konditionen": b.konditionen_snapshot,
         "kosten_hinweis": (b.eingaben or {}).get("kosten_hinweis") or None,
+        # Angebotsbeträge sind brutto (Formular seit 14.11.2026 „Betrag brutto“); Ausweis ab Generator 0.5.0 in Kapitel 9
+        **({"angebote_hinweis": ANGEBOTE_BRUTTO_TEXT} if (b.eingaben or {}).get("angebote") else {}),
     }
 
 

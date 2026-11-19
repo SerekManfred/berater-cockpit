@@ -152,6 +152,9 @@ class Bericht(Base):
     # „Wohneinheiten geprüft“ (Phase 2e): Liste der Bestätigungen {von_id, von, am, codes, texte} – wird nur ergänzt,
     # Eingaben und Ergebnis bleiben unverändert. Leer = noch keine Bestätigung.
     we_pruefungen: Mapped[list | None] = mapped_column(DETAILS_TYP)
+    # Kennzeichnung (Migration 0014), z. B. {"text": "Beispieldaten – nicht verwenden", "von_id", "von", "am"}.
+    # Reine Markierung – Eingaben, Ergebnis und Snapshot bleiben unverändert.
+    kennzeichnung: Mapped[dict | None] = mapped_column(DETAILS_TYP)
 
 
 DATEI_KATEGORIEN = ("kostenschaetzung", "energieausweis", "plaene", "fotos", "checkliste", "angebote", "bericht", "sonstiges")

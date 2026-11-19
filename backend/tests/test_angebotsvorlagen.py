@@ -72,7 +72,7 @@ def test_vorlage_aendern_wirkt_nicht_auf_gespeicherte_berichte():
     angebote = {k: {"betrag": b, "titel": STARTWERTE[k][0], "leistungen": STARTWERTE[k][1]}
                 for k, b in (("a", 2975), ("c", 2975), ("d", 15000))}
     b = berater.post(f"/projekte/{projekt(berater)['id']}/berichte",
-                     json={"modul": MODUL, "eingaben": {**REFERENZFALL, "kosten_baubegleitung": 0, "angebote": angebote}}).json()
+                     json={"modul": MODUL, "eingaben": {**{k: v for k, v in REFERENZFALL.items() if k != "ohne_angebote"}, "kosten_baubegleitung": 0, "angebote": angebote}}).json()
     assert admin.put("/angebotsvorlagen/c", json={"titel": "BAFA EM neu", "leistungen": "neu"}).status_code == 200
     gelesen = berater.get(f"/berichte/{b['id']}").json()
     assert gelesen["eingaben"]["angebote"]["c"] == {"betrag": 2975, **dict(zip(("titel", "leistungen"), STARTWERTE["c"]))}

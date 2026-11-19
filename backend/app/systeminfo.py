@@ -61,4 +61,4 @@ def systeminfo(_: Benutzer = Depends(aktueller_benutzer), db: Session = Depends(
     aktiv = db.scalar(select(KonditionenVersion.version).where(KonditionenVersion.status == "aktiv"))
     geplant = db.scalar(select(KonditionenVersion.version).where(KonditionenVersion.status == "geplant"))
     return {"generator": generator_info(), "prompts": prompts(), "konditionen": {"aktiv": aktiv, "geplant": geplant},
-            "cockpit": config.COCKPIT_VERSION}
+            "cockpit": config.COCKPIT_VERSION, "beispieldaten": config.BEISPIELDATEN_AKTIV}

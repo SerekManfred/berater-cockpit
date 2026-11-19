@@ -2,7 +2,7 @@
 from typing import Literal
 
 from fastapi import HTTPException
-from pydantic import BaseModel, Field, model_validator
+from pydantic import BaseModel, Field, ValidationError, model_validator
 from sqlalchemy import select
 from sqlalchemy.orm import Session
 
@@ -168,10 +168,16 @@ class AngeboteIn(BaseModel):
                         anrechnung_a_in_d=self.anrechnung_a_in_d)
 
 
+class OhneAngeboteIn(BaseModel):
+    """Ausdrückliche Entscheidung „bewusst ohne Angebote“ (Pflichtregel ab 19.11.2026), z. B. „Fachplanung extern beauftragt“."""
+    grund: str = Field(min_length=3, max_length=300)
+
+
 class FoerdervergleichEingaben(BaseModel):
     """Eingaben des Fördervergleichs – so werden sie auch im Bericht gespeichert."""
     we_nach_sanierung: int = Field(ge=1)
     massnahmen: list[MassnahmeIn]
+    # Nur noch externe Fachplanung/Baubegleitung (nicht durch uns). Mit Angeboten ergibt sie sich aus A + C bzw. A + D.
     kosten_baubegleitung: float = Field(0, ge=0)
     kosten_isfp: float = Field(0, ge=0)
     isfp: bool = True
@@ -183,6 +189,8 @@ class FoerdervergleichEingaben(BaseModel):
     umbaukosten_neue_we: float = Field(0, ge=0)
     # Optional: unsere Angebote A–D. Ersetzen kosten_baubegleitung und liefern den Ablauf im Bericht.
     angebote: AngeboteIn | None = None
+    # Pflicht beim Speichern in der Projektakte: Angebote ODER „bewusst ohne Angebote“ mit Grund (angebote_entscheidung)
+    ohne_angebote: OhneAngeboteIn | None = None
     # Anzeigefelder für den Word-Bericht (optional). Der Rechenkern bekommt sie nicht.
     # Auswahlwerte wie in modules/foerderung-em-eh/module.yaml.
     we_vor_sanierung: int | None = Field(None, ge=0)
@@ -193,6 +201,38 @@ class FoerdervergleichEingaben(BaseModel):
 
 
 ANZEIGEFELDER = {"we_vor_sanierung", "bestandsheizung", "nutzung", "wpb_status", "kosten_hinweis"}
+
+# Angebotsbeträge sind Bruttobeträge gegenüber dem Kunden (Geschäftsführer 19.11.2026); Ausweis im Word-Bericht
+ANGEBOTE_BRUTTO_TEXT = "Alle Beträge inkl. 19 % MwSt."
+
+
+def fachplanung_widerspruch(daten: "FoerdervergleichEingaben") -> str | None:
+    """Angebote A–D und zusätzlich externe Fachplanung: Die Kosten Fachplanung/Baubegleitung ergeben sich aus den
+    Angeboten, der externe Betrag würde nicht gerechnet. Text für den Hinweis (Rechnen) bzw. die 422 (Speichern)."""
+    if daten.angebote and daten.kosten_baubegleitung:
+        betrag = f"{daten.kosten_baubegleitung:,.0f}".replace(",", ".")
+        return (f"Widerspruch: Unsere Angebote A–D sind erfasst, zusätzlich stehen {betrag} € "
+                "„Kosten externe Fachplanung/Baubegleitung“. Mit Angeboten ergibt sich die Fachplanung aus A + C bzw. A + D – "
+                "der externe Betrag wird nicht gerechnet. Bitte das Feld auf 0 setzen oder bewusst ohne Angebote speichern.")
+    return None
+
+
+def angebote_entscheidung(eingaben: dict) -> None:
+    """Pflichtregel beim Speichern in der Projektakte (19.11.2026): Angebote ODER „bewusst ohne Angebote“ mit Grund,
+    und kein Widerspruch zur externen Fachplanung. Fehler → 422 mit verständlicher Meldung."""
+    try:
+        daten = FoerdervergleichEingaben.model_validate(eingaben)
+    except ValidationError:
+        return  # Schemafehler meldet das Rechnen selbst
+    if daten.angebote and daten.ohne_angebote:
+        raise HTTPException(422, "Bitte entweder Angebote A–D erfassen oder „bewusst ohne Angebote“ wählen, nicht beides.")
+    if not daten.angebote and not daten.ohne_angebote:
+        raise HTTPException(422, "Angebote fehlen: Bitte die Beträge unserer Angebote A, C und D eintragen (bei KfW 266 auch B) "
+                                 "oder „bewusst ohne Angebote“ mit Grund wählen. Ohne Angebote fehlt im Word-Bericht das "
+                                 "Kapitel „Unsere Leistungen auf Ihrem Weg“.")
+    widerspruch = fachplanung_widerspruch(daten)
+    if widerspruch:
+        raise HTTPException(422, widerspruch)
 
 
 class FoerdervergleichIn(FoerdervergleichEingaben):
@@ -212,12 +252,14 @@ def foerdervergleich_rechnen(daten: FoerdervergleichEingaben, kond: dict, projek
         if getattr(daten, schalter, False):
             raise HTTPException(422, f"Antragsfrist abgelaufen ({frist[8:10]}.{frist[5:7]}.{frist[:4]}): "
                                      f"{schalter.replace('kfw', 'KfW ')} kann nicht mehr gewählt werden.")
-    if daten.angebote and daten.kosten_baubegleitung:
-        raise HTTPException(422, "Bitte entweder Angebote A–D oder pauschale Kosten Baubegleitung angeben, nicht beides.")
-    werte = daten.model_dump(exclude={"massnahmen", "konditionen_version", "angebote"} | ANZEIGEFELDER)
+    werte = daten.model_dump(exclude={"massnahmen", "konditionen_version", "angebote", "ohne_angebote"} | ANZEIGEFELDER)
     e = Eingaben(**werte, massnahmen=[Massnahme(**m.model_dump()) for m in daten.massnahmen],
                  angebote=daten.angebote.fuer_rechenkern() if daten.angebote else None)
-    return {**vergleich(e, kond), "hinweise": hinweise, "konditionen_stand": konditionen_stand(kond)}
+    erg = {**vergleich(e, kond), "hinweise": hinweise, "konditionen_stand": konditionen_stand(kond)}
+    widerspruch = fachplanung_widerspruch(daten)
+    if widerspruch:
+        erg["fachplanung_hinweis"] = widerspruch  # sichtbar in der Oberfläche; Speichern lehnt ab (angebote_entscheidung)
+    return erg
 
 
 # ---------- Beratungsbericht INIT: Förder-Übersicht (Kap. 7.5 und Förder-Anhang) ----------

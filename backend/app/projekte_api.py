@@ -25,7 +25,7 @@ from app.modelle import Benutzer, Bericht, Projekt, ProjektnummerZaehler, jetzt
 from app.parteien import berichtskunde
 from app.protokoll import protokollieren
 from app import wohneinheiten
-from app.rechnen import MIT_PROJEKT_WE, NUR_UEBER_ENTWURF, RECHNER, kennzeichnung_nachtragen, konditionen_stand, lade_konditionen
+from app.rechnen import MIT_PROJEKT_WE, NUR_UEBER_ENTWURF, RECHNER, angebote_entscheidung, kennzeichnung_nachtragen, konditionen_stand, lade_konditionen
 
 router = APIRouter(tags=["Projektakte"])
 
@@ -203,6 +203,7 @@ def _bericht_kurz(b: Bericht, namen: dict[int, str]) -> dict:
         "konditionen_version": b.konditionen_version, "status": b.status,
         # Versionen beim Erzeugen (INIT: gespeichertes Word); Fördervergleich: Word entsteht beim Herunterladen
         "erzeugt_mit": (b.eingaben or {}).get("erzeugt_mit"),
+        "kennzeichnung": b.kennzeichnung,  # z. B. „Beispieldaten – nicht verwenden“ (Migration 0014)
         "erstellt_von_id": b.erstellt_von_id, "erstellt_von": namen.get(b.erstellt_von_id), "erstellt_am": b.erstellt_am,
     }
 
@@ -258,6 +259,8 @@ def _rechnen(modul: str, eingaben: dict, kond: dict, projekt: Projekt | None = N
 def _bericht_speichern(db: Session, request: Request, p: Projekt, modul: str, eingaben: dict, kond: dict,
                        benutzer: Benutzer, we_geprueft: bool = False, **protokoll_details) -> Bericht:
     eingaben, ergebnis = _rechnen(modul, eingaben, kond, p)
+    if modul == "foerderung-em-eh":
+        angebote_entscheidung(eingaben)  # Pflicht: Angebote oder „bewusst ohne“, kein Widerspruch zur externen Fachplanung
     version = (db.scalar(select(func.max(Bericht.versionsnummer))
                          .where(Bericht.projekt_id == p.id, Bericht.modul == modul)) or 0) + 1
     # „Wohneinheiten geprüft“ schon beim Speichern (Haken im Formular) – nur für die Warnungen, die es gerade gibt

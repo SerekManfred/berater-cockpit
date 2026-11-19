@@ -58,7 +58,6 @@ def test_ohne_b_titel_und_leistungen_optional():
 
 
 @pytest.mark.parametrize("aenderung, text", [
-    ({"kosten_baubegleitung": 5000}, "nicht beides"),
     ({"angebote": {**ANGEBOTE, "d": {"betrag": 2000}}}, "mindestens so hoch sein wie A"),
     ({"angebote": {**ANGEBOTE, "c": {"betrag": -1}}}, ""),
     ({"angebote": {k: v for k, v in ANGEBOTE.items() if k != "c"}}, ""),
@@ -142,6 +141,7 @@ def test_echter_generator_ohne_angebote_kein_kapitel_9(monkeypatch):
     monkeypatch.setattr(config, "GENERATOR_URL", os.environ["GENERATOR_TEST_URL"].rstrip("/"))
     monkeypatch.setattr(word, "TRANSPORT", None)
     c = nutzer("berater")
-    _, b = bericht_anlegen(c, eingaben={k: v for k, v in ABNAHME.items() if k != "angebote"})
+    ohne = {k: v for k, v in ABNAHME.items() if k != "angebote"}
+    _, b = bericht_anlegen(c, eingaben={**ohne, "ohne_angebote": {"grund": "Fachplanung extern"}})   # Pflicht seit 19.11.2026
     t = _word_text(c, b["id"])
     assert "Unsere Leistungen auf Ihrem Weg" not in t and "9  Empfohlenes Vorgehen" in t

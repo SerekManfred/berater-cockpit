@@ -21,6 +21,8 @@ REFERENZFALL = {
         {"name": "Infrarotheizung", "kosten": 28500, "em_kategorie": "nicht_foerderfaehig"},
         {"name": "Brauchwasser-WP", "kosten": 27000, "em_kategorie": "nicht_foerderfaehig"},
     ],
+    # Pflichtregel Angebote (19.11.2026): der Referenzfall rechnet mit pauschaler externer Fachplanung (20.000 €)
+    "ohne_angebote": {"grund": "Referenzfall: Fachplanung extern"},
 }
 
 

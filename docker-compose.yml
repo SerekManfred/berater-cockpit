@@ -23,6 +23,7 @@ services:
       # KI-Textvorschläge (Phase 2b): Standard AUS. Erst einschalten, wenn API-Bedingungen und AVV vorliegen und der
       # Geschäftsführer freigegeben hat (CLAUDE.md). Schlüssel nur in der .env, nie im Repository.
       KI_AKTIV: ${KI_AKTIV:-false}
+      BEISPIELDATEN_AKTIV: ${BEISPIELDATEN_AKTIV:-true}
       KI_ANBIETER: ${KI_ANBIETER:-anthropic}
       KI_MODELL: ${KI_MODELL:-claude-sonnet-5-5}
       CHECKLISTE_MODELL: ${CHECKLISTE_MODELL:-claude-sonnet-5-5}   # Checkliste einlesen (Phase 2g, Foto/PDF)

@@ -136,6 +136,30 @@ def konditionen_aktivieren() -> int:
     return 0
 
 
+def bericht_kennzeichnen(bericht_id: int, text: str, aufheben: bool = False) -> int:
+    """Gespeicherten Bericht kennzeichnen (z. B. „Beispieldaten – nicht verwenden“) oder die Kennzeichnung aufheben.
+    Ändert nur berichte.kennzeichnung – Eingaben, Ergebnis und Snapshot bleiben unverändert."""
+    from app.modelle import Bericht, jetzt
+    with SessionLocal() as db:
+        b = db.get(Bericht, bericht_id)
+        if b is None:
+            print(f"Bericht {bericht_id} nicht gefunden.", file=sys.stderr)
+            return 1
+        if aufheben:
+            b.kennzeichnung = None
+        else:
+            text = (text or "").strip()
+            if not 3 <= len(text) <= 120:
+                print("Text bitte mit 3 bis 120 Zeichen angeben.", file=sys.stderr)
+                return 1
+            b.kennzeichnung = {"text": text, "von_id": None, "von": "Kommandozeile", "am": jetzt().isoformat()}
+        protokollieren(db, None, "bericht_gekennzeichnet", None, bericht_id=b.id, projekt_id=b.projekt_id,
+                       versionsnummer=b.versionsnummer, aufgehoben=aufheben)
+        db.commit()
+    print(f"Bericht {bericht_id}: " + ("Kennzeichnung aufgehoben." if aufheben else f"gekennzeichnet „{text}“."))
+    return 0
+
+
 def main(argv=None) -> int:
     parser = argparse.ArgumentParser(prog="python -m app.cli", description="Berater-Cockpit – Verwaltung")
     befehle = parser.add_subparsers(dest="befehl", required=True)
@@ -150,6 +174,10 @@ def main(argv=None) -> int:
     g.add_argument("datei", nargs="+", help="JSON-Datei(en), z. B. app/konditionen/korrektur_kfw261_v3.json")
     g.add_argument("--notiz", required=True, help="wird an die Änderungsnotiz angehängt")
     befehle.add_parser("konditionen-aktivieren", help="Geplante Konditionen-Version am Stichtag aktiv schalten (Zeitplan)")
+    m = befehle.add_parser("bericht-kennzeichnen", help="Gespeicherten Bericht kennzeichnen, z. B. als Beispieldaten")
+    m.add_argument("bericht_id", type=int)
+    m.add_argument("--text", default="Beispieldaten – nicht verwenden")
+    m.add_argument("--aufheben", action="store_true")
     args = parser.parse_args(argv)
     if args.befehl == "admin-anlegen":
         return admin_anlegen()
@@ -159,6 +187,8 @@ def main(argv=None) -> int:
         return konditionen_aktivieren()
     if args.befehl == "konditionen-entwurf-ergaenzen":
         return konditionen_entwurf_ergaenzen(args.version, args.datei, args.notiz)
+    if args.befehl == "bericht-kennzeichnen":
+        return bericht_kennzeichnen(args.bericht_id, args.text, aufheben=args.aufheben)
     return 2
 
 
