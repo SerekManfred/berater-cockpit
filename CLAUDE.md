@@ -629,4 +629,7 @@ vollständig erhalten und getestet. Bevor echte Nutzer oder Kundendaten ins Syst
   älterer Migrationsstand noch nicht hat, damit alte Sicherungen prüfbar bleiben.
 - Kleine, nachvollziehbare Commits mit deutscher Beschreibung.
 - **Nie pushen ohne ausdrückliche Freigabe im Chat** (gilt für jeden Auftrag; bei Phase 2c wurde ohne Freigabe gepusht). Commits nur lokal.
+- **Vor jedem Push die Ausgabe von `git log --oneline origin/main..HEAD` im Chat vorlegen; freigegeben ist genau diese Liste,
+  nichts darüber hinaus** (Geschäftsführer 19.11.2026 – beim Push von vier freigegebenen Commits ging ein fünfter, `75889c8`, mit;
+  nachträglich freigegeben). Kommt nach der Freigabe ein Commit hinzu, Liste erneut vorlegen.
 - Oberfläche: barrierearm (echte Buttons/Labels, Kontrast ≥ 4,5:1, Klickflächen ≥ 44 px), tablet-tauglich.
