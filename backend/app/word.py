@@ -99,6 +99,58 @@ def generator_anfrage(pfad: str, daten: dict, was: str = "Der Word-Bericht", tim
     raise HTTPException(502, f"Der Word-Generator hat unerwartet geantwortet (Status {r.status_code}). Bitte einen Admin informieren.")
 
 
+def word_einfrieren(db: Session, b: Bericht, p: Projekt, request: Request | None, von_id: int | None, quelle: str) -> bytes:
+    """Word einmalig erzeugen und einfrieren (Geschäftsführer 19.11.2026): Datei in die Unterlagen (Kategorie „bericht“),
+    `berichte.word` mit sha256 und Generator-Version. Nie für einen Bericht, der schon eingefroren ist. Wirft HTTPException
+    (503/502), wenn der Generator nicht liefert – der Aufrufer entscheidet, ob das den Vorgang abbricht."""
+    import hashlib
+
+    from app import dateien, systeminfo
+    from app.modelle import Datei, jetzt
+    if b.word:
+        raise HTTPException(409, "Das Word dieses Berichts ist bereits eingefroren.")
+    daten = generator_daten(b, p, berater_name(db, b, p))
+    daten["dokument_eigenschaften"] = systeminfo.dokument_eigenschaften(systeminfo.erzeugt_mit(None, None, b.konditionen_version))
+    antwort = generator_anfrage(GENERATOR_PFAD[b.modul], daten)
+    inhalt = antwort.content
+    speichername = dateien.neuer_speichername()
+    ziel = dateien.inhalt_pfad(speichername)
+    ziel.write_bytes(inhalt)
+    if dateien.typ_erkennen(ziel) is not dateien.TYPEN["docx"]:
+        dateien.entfernen(speichername)
+        raise HTTPException(502, "Der Word-Generator hat keine gültige Word-Datei geliefert. Bitte einen Admin informieren.")
+    sha = hashlib.sha256(inhalt).hexdigest()
+    d = Datei(projekt_id=p.id, kategorie="bericht", quelle="generator",
+              dateiname_original=f"{DATEINAME[b.modul]}_{p.projektnummer}_V{b.versionsnummer}.docx",  # ohne Kundennamen
+              speichername=speichername, mime_typ=DOCX, groesse=len(inhalt), sha256=sha, hat_vorschau=False,
+              hochgeladen_von_id=von_id, hochgeladen_am=jetzt())
+    db.add(d)
+    db.flush()
+    generator = systeminfo.generator_version_aus(antwort)
+    b.word = {"datei_id": d.id, "sha256": sha, "groesse": len(inhalt), "generator": generator, "cockpit": config.COCKPIT_VERSION,
+              "erzeugt_am": jetzt().isoformat(), "quelle": quelle}
+    protokollieren(db, request, "bericht_word_eingefroren", von_id, projekt_id=p.id, projektnummer=p.projektnummer,
+                   bericht_id=b.id, versionsnummer=b.versionsnummer, datei_id=d.id, sha256=sha, groesse=len(inhalt),
+                   generator_version=generator, cockpit=config.COCKPIT_VERSION, quelle=quelle)
+    return inhalt
+
+
+def eingefrorenes_word(db: Session, b: Bericht) -> bytes:
+    """Gespeicherte Datei mit Prüfsumme – fehlt sie oder stimmt die Prüfsumme nicht, nie still neu erzeugen."""
+    import hashlib
+
+    from app import dateien
+    from app.modelle import Datei
+    d = db.get(Datei, b.word.get("datei_id"))
+    if d is None or d.geloescht_am is not None or not dateien.inhalt_pfad(d.speichername).exists():
+        raise HTTPException(404, "Das eingefrorene Word dieses Berichts liegt nicht mehr in den Unterlagen (Papierkorb?). "
+                                 "Bitte einen Admin informieren – neu erzeugt wird nur über „Neue Version“.")
+    inhalt = dateien.inhalt_pfad(d.speichername).read_bytes()
+    if hashlib.sha256(inhalt).hexdigest() != b.word.get("sha256"):
+        raise HTTPException(500, "Die Prüfsumme des eingefrorenen Word-Berichts stimmt nicht. Bitte einen Admin informieren.")
+    return inhalt
+
+
 @router.get("/berichte/{bericht_id}/word")
 def bericht_word(bericht_id: int, request: Request, ich: Benutzer = Depends(aktueller_benutzer),
                  db: Session = Depends(get_db)):
@@ -113,23 +165,24 @@ def bericht_word(bericht_id: int, request: Request, ich: Benutzer = Depends(aktu
         raise HTTPException(409, {"meldung": "Bitte zuerst die Hinweise zu den Wohneinheiten prüfen und bestätigen "
                                              "(„Wohneinheiten geprüft“): " + " ".join(x["text"] for x in offen),
                                   "wohneinheiten": offen})
-    ersteller = berater_name(db, b, p)
-    from app import systeminfo
-    daten = generator_daten(b, p, ersteller)
-    daten["dokument_eigenschaften"] = systeminfo.dokument_eigenschaften(systeminfo.erzeugt_mit(None, None, b.konditionen_version))
-    try:
-        antwort = generator_anfrage(GENERATOR_PFAD[b.modul], daten)
-        inhalt = antwort.content
-    except HTTPException as fehler:
-        protokollieren(db, request, "bericht_word_fehlgeschlagen", ich.id, projekt_id=p.id, bericht_id=b.id,
-                       status=fehler.status_code)
-        db.commit()
-        raise
+    # Eingefroren (ab 20.11.2026): immer die gespeicherte Datei; noch nicht eingefroren (Generator beim Speichern nicht
+    # erreichbar) → jetzt einmal erzeugen und einfrieren. Nie neu erzeugen, wenn schon eine Datei existiert.
+    if b.word:
+        inhalt = eingefrorenes_word(db, b)
+    else:
+        try:
+            inhalt = word_einfrieren(db, b, p, request, ich.id, "erster_download")
+        except HTTPException as fehler:
+            db.rollback()
+            protokollieren(db, request, "bericht_word_fehlgeschlagen", ich.id, projekt_id=p.id, bericht_id=b.id,
+                           status=fehler.status_code)
+            db.commit()
+            raise
     dateiname = f"{DATEINAME[b.modul]}_{p.projektnummer}_V{b.versionsnummer}.docx"
     protokollieren(db, request, "bericht_word_erzeugt", ich.id, projekt_id=p.id, projektnummer=p.projektnummer,
                    bericht_id=b.id, versionsnummer=b.versionsnummer, konditionen_version=b.konditionen_version,
-                   groesse=len(inhalt), generator_version=systeminfo.generator_version_aus(antwort),
-                   cockpit=config.COCKPIT_VERSION)
+                   groesse=len(inhalt), eingefroren=True, datei_id=b.word.get("datei_id"),
+                   generator_version=b.word.get("generator"), sha256=b.word.get("sha256"), cockpit=config.COCKPIT_VERSION)
     db.commit()
     return Response(inhalt, media_type=DOCX, headers={
         "Content-Disposition": f'attachment; filename="{dateiname}"',

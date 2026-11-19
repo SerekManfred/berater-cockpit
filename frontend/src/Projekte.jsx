@@ -416,7 +416,8 @@ function ProjektAkte({ ich, id, onZurueck, onGehe }) {
                     <td>{MODULE[b.modul] || b.modul}{b.kennzeichnung && <div className="marke-warnung">{b.kennzeichnung.text}</div>}</td><td>V{b.versionsnummer}</td><td>{zeit(b.erstellt_am)}</td>
                     <td>{b.erstellt_von || "–"}</td><td>Version {b.konditionen_version}
                       <div className="klein erzeugt-mit">{b.erzeugt_mit ? erzeugtMitText(b.erzeugt_mit)
-                        : "Word wird beim Herunterladen mit dem laufenden Generator erzeugt"}</div></td><td>{BERICHT_STATUS[b.status] || b.status}</td>
+                        : b.word ? `Word eingefroren am ${zeit(b.word.erzeugt_am)} · Generator ${b.word.generator || "–"}`
+                        : b.modul === "foerderung-em-eh" ? "Word noch nicht erzeugt – wird beim ersten Herunterladen eingefroren" : "–"}</div></td><td>{BERICHT_STATUS[b.status] || b.status}</td>
                     <td><div className="zeilen-aktionen">
                       {!NUR_ASSISTENT.includes(b.modul) && <button className="btn2" aria-label={`${MODULE[b.modul] || b.modul} Version ${b.versionsnummer} öffnen`}
                         onClick={() => onGehe({ art: "bericht", id: b.id, projektId: p.id })}>Öffnen</button>}

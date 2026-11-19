@@ -253,7 +253,9 @@ def test_protokoll_projektakte():
     admin.post(f"/berichte/{b['id']}/neue-version", json={"eingaben": REFERENZFALL})
     admin.delete(f"/projekte/{p['id']}")
     eigene = [a for a in aktionen(admin.benutzer_id) if a != "login"]
-    assert eigene == ["projekt_angelegt", "projekt_geaendert", "bericht_gespeichert", "bericht_gespeichert", "projekt_geloescht"]
+    # ohne Generator im Test: nach jedem Speichern „Word ausstehend“ (Einfrieren beim ersten Download, 20.11.2026)
+    assert eigene == ["projekt_angelegt", "projekt_geaendert", "bericht_gespeichert", "bericht_word_ausstehend",
+                      "bericht_gespeichert", "bericht_word_ausstehend", "projekt_geloescht"]
     letzter = admin.get("/protokoll").json()[0]
     assert letzter["details"] == {"projekt_id": p["id"], "projektnummer": p["projektnummer"]}
     with SessionLocal() as db:

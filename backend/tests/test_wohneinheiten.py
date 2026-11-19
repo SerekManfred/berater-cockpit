@@ -18,7 +18,7 @@ from tests.test_bericht_init import ENTWURF, alle_freigeben, fertiger_entwurf, s
 from tests.test_bericht_init import generator as init_generator  # noqa: F401  (Fixture)
 from tests.test_konditionen import nutzer as konto
 from tests.test_projekte import _ohne_2fa, nutzer, projekt  # noqa: F401  (Fixture wird mitgenutzt)
-from tests.test_word import MODUL, REFERENZFALL
+from tests.test_word import MODUL, REFERENZFALL, mini_docx
 
 ABNAHME = {**REFERENZFALL, "we_vor_sanierung": 1, "we_neu": 4, "we_nach_sanierung": 6, "kfw266": True}
 PRUEFEN = "/module/foerderung-em-eh/wohneinheiten-pruefen"
@@ -34,7 +34,7 @@ def word_generator(monkeypatch):
 
     def antwort(request: httpx.Request):
         anfragen.append(json.loads(request.content))
-        return httpx.Response(200, content=b"PK\x03\x04-test-docx", headers={"content-type": word.DOCX})
+        return httpx.Response(200, content=mini_docx(), headers={"content-type": word.DOCX})
 
     monkeypatch.setattr(word, "TRANSPORT", httpx.MockTransport(antwort))
     return anfragen
@@ -134,7 +134,8 @@ def test_abnahme_word_erst_nach_bestaetigung(word_generator):
 
     r = verwaltung.get(f"/berichte/{b['id']}/word")
     assert r.status_code == 409 and "Wohneinheiten geprüft" in r.json()["detail"]["meldung"]
-    assert codes(r.json()["detail"]["wohneinheiten"]) == ["we_summe", "we_projekt"] and word_generator == []
+    # Word wurde beim Speichern einmal eingefroren; der Download bleibt bis zur Bestätigung gesperrt
+    assert codes(r.json()["detail"]["wohneinheiten"]) == ["we_summe", "we_projekt"] and len(word_generator) == 1
     assert verwaltung.post(f"/berichte/{b['id']}/wohneinheiten-geprueft").status_code == 403  # bestätigen: Berater
 
     r = berater.post(f"/berichte/{b['id']}/wohneinheiten-geprueft")

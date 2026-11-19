@@ -204,6 +204,7 @@ def _bericht_kurz(b: Bericht, namen: dict[int, str]) -> dict:
         # Versionen beim Erzeugen (INIT: gespeichertes Word); Fördervergleich: Word entsteht beim Herunterladen
         "erzeugt_mit": (b.eingaben or {}).get("erzeugt_mit"),
         "kennzeichnung": b.kennzeichnung,  # z. B. „Beispieldaten – nicht verwenden“ (Migration 0014)
+        "word": {k: (b.word or {}).get(k) for k in ("generator", "erzeugt_am", "quelle", "sha256")} if b.word else None,
         "erstellt_von_id": b.erstellt_von_id, "erstellt_von": namen.get(b.erstellt_von_id), "erstellt_am": b.erstellt_am,
     }
 
@@ -281,7 +282,24 @@ def _bericht_speichern(db: Session, request: Request, p: Projekt, modul: str, ei
     except IntegrityError:
         db.rollback()
         raise HTTPException(409, "Gleichzeitig wurde eine andere Version gespeichert. Bitte erneut speichern.")
+    word_beim_speichern(db, request, b, p, benutzer)
     return b
+
+
+def word_beim_speichern(db: Session, request: Request | None, b: Bericht, p: Projekt, benutzer: Benutzer):
+    """Fördervergleich: Word sofort erzeugen und einfrieren (Geschäftsführer 19.11.2026). Liefert der Generator nicht, bleibt der
+    Bericht gespeichert („Word ausstehend“) – der erste Download erzeugt und friert dann ein."""
+    from app import word
+    if b.modul not in word.GENERATOR_PFAD:
+        return
+    try:
+        word.word_einfrieren(db, b, p, request, benutzer.id, "speichern")
+        db.commit()
+    except HTTPException as fehler:
+        db.rollback()
+        protokollieren(db, request, "bericht_word_ausstehend", benutzer.id, projekt_id=p.id, bericht_id=b.id,
+                       status=fehler.status_code)
+        db.commit()
 
 
 def _nicht_ueber_entwurf(modul: str):

@@ -22,7 +22,7 @@ from app.parteien import berichtskunde, weitere_partei
 from tests.conftest import alembic_config
 from tests.test_checkliste import checkliste, generator, leere_datenbank  # noqa: F401  (Fixtures)
 from tests.test_projekte import _ohne_2fa, nutzer  # noqa: F401  (Fixture wird mitgenutzt)
-from tests.test_word import MODUL, REFERENZFALL
+from tests.test_word import MODUL, REFERENZFALL, mini_docx
 
 AG = {"auftraggeber_name": "Musterbau GmbH", "auftraggeber_ansprechpartner": "Herr Bauleiter",
       "auftraggeber_strasse": "Rheinallee 5", "auftraggeber_plz": "53639", "auftraggeber_ort": "Königswinter",
@@ -166,7 +166,7 @@ def test_foerdervergleich_word_daten_nach_berichte_an(monkeypatch, berichte_an, 
 
     def antwort(request: httpx.Request):
         anfragen.append(json.loads(request.content))
-        return httpx.Response(200, content=b"PK\x03\x04-test-docx", headers={"content-type": word.DOCX})
+        return httpx.Response(200, content=mini_docx(), headers={"content-type": word.DOCX})
 
     monkeypatch.setattr(word, "TRANSPORT", httpx.MockTransport(antwort))
     c = nutzer("berater")
@@ -260,7 +260,11 @@ def test_echter_generator_abnahme_berichte_an(monkeypatch):
         bogen = _docx_text(c.get(f"/dateien/{r.json()['id']}/inhalt").content)
         for teil in (name, anschrift, "Teststraße 1", "44135 Dortmund"):
             assert teil in bogen, (berichte_an, teil)
-        wort = c.get(f"/berichte/{b['id']}/word")
+        # Word ist eingefroren (20.11.2026): der neue Adressat erscheint erst in einer neuen Version
+        neu = c.post(f"/berichte/{b['id']}/neue-version", json={"eingaben": REFERENZFALL, "we_geprueft": True}).json()
+        wort = c.get(f"/berichte/{neu['id']}/word")
         assert wort.status_code == 200, wort.text
         t = _docx_text(wort.content)
         assert name in t and "Dortmund" in t, berichte_an
+    alt = _docx_text(c.get(f"/berichte/{b['id']}/word").content)       # erster Bericht unverändert (Stand beim Speichern)
+    assert "Erika Muster" in alt and "Musterbau GmbH" not in alt

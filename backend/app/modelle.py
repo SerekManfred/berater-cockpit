@@ -157,6 +157,9 @@ class Bericht(Base):
     # Kennzeichnung (Migration 0014), z. B. {"text": "Beispieldaten – nicht verwenden", "von_id", "von", "am"}.
     # Reine Markierung – Eingaben, Ergebnis und Snapshot bleiben unverändert.
     kennzeichnung: Mapped[dict | None] = mapped_column(DETAILS_TYP)
+    # Migration 0017: eingefrorenes Word {datei_id, sha256, groesse, generator, cockpit, erzeugt_am, quelle} – einmal gesetzt,
+    # danach nie geändert; der Download liefert genau diese Datei (Fördervergleich; INIT nutzt eingaben.word_datei_id)
+    word: Mapped[dict | None] = mapped_column(DETAILS_TYP)
 
 
 DATEI_KATEGORIEN = ("kostenschaetzung", "energieausweis", "plaene", "fotos", "checkliste", "angebote", "bericht", "sonstiges")

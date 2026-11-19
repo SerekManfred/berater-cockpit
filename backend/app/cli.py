@@ -268,6 +268,36 @@ def konditionen_fundstellen(version: int, datei: str, notiz: str) -> int:
     return 0
 
 
+def berichte_word_einfrieren(nur_id: int | None = None) -> int:
+    """Bestand einfrieren (Variante a, Geschäftsführer 19.11.2026): jeden gespeicherten Fördervergleich ohne eingefrorenes
+    Word einmal mit dem laufenden Generator erzeugen und ablegen – genau so, wie ein Download in diesem Moment aussähe.
+    Protokoll `bericht_word_eingefroren` mit quelle „bestand“. Bereits eingefrorene Berichte bleiben unverändert."""
+    from fastapi import HTTPException
+
+    from app import word
+    from app.modelle import Bericht, Projekt
+    fehler = 0
+    with SessionLocal() as db:
+        abfrage = select(Bericht).where(Bericht.modul.in_(list(word.GENERATOR_PFAD))).order_by(Bericht.id)
+        if nur_id:
+            abfrage = abfrage.where(Bericht.id == nur_id)
+        for b in db.scalars(abfrage).all():
+            if b.word:
+                print(f"Bericht {b.id}: bereits eingefroren ({b.word.get('generator')}, {b.word.get('erzeugt_am', '')[:10]}).")
+                continue
+            p = db.get(Projekt, b.projekt_id)
+            try:
+                word.word_einfrieren(db, b, p, None, None, "bestand")
+                db.commit()
+                print(f"Bericht {b.id} ({p.projektnummer} V{b.versionsnummer}): eingefroren mit Generator {b.word['generator']}, "
+                      f"sha256 {b.word['sha256'][:12]}…")
+            except HTTPException as f:
+                db.rollback()
+                fehler += 1
+                print(f"Bericht {b.id}: nicht eingefroren ({f.status_code}: {f.detail})", file=sys.stderr)
+    return 1 if fehler else 0
+
+
 def main(argv=None) -> int:
     parser = argparse.ArgumentParser(prog="python -m app.cli", description="Berater-Cockpit – Verwaltung")
     befehle = parser.add_subparsers(dest="befehl", required=True)
@@ -303,6 +333,8 @@ def main(argv=None) -> int:
     fsp.add_argument("version", type=int)
     fsp.add_argument("datei")
     fsp.add_argument("--notiz", required=True)
+    we = befehle.add_parser("berichte-word-einfrieren", help="Word aller gespeicherten Fördervergleiche ohne Einfrierung einfrieren")
+    we.add_argument("--bericht", type=int, help="nur diesen Bericht")
     args = parser.parse_args(argv)
     if args.befehl == "admin-anlegen":
         return admin_anlegen()
@@ -312,6 +344,8 @@ def main(argv=None) -> int:
         return konditionen_aktivieren()
     if args.befehl == "konditionen-entwurf-ergaenzen":
         return konditionen_entwurf_ergaenzen(args.version, args.datei, args.notiz)
+    if args.befehl == "berichte-word-einfrieren":
+        return berichte_word_einfrieren(args.bericht)
     if args.befehl == "konditionen-quelle-hochladen":
         return konditionen_quelle_hochladen(args.datei, args.titel, args.stand, args.abgerufen_am, args.herausgeber, args.url,
                                             args.auftrag)

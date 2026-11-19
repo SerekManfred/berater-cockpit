@@ -143,6 +143,14 @@ Ausführliches Fachkonzept: `docs/Konzept_Berater-Cockpit.docx` (falls abgelegt)
   `http://cockpit-generator:3000/foerdervergleich` und liefert `Foerdervergleich_<Projektnummer>_V<Version>.docx`. **Nie neu rechnen.**
   Alle Rollen dürfen (auch Verwaltung, für den Versand). Protokoll `bericht_word_erzeugt` bzw. `bericht_word_fehlgeschlagen`.
 - Generator nicht erreichbar → 503 mit verständlicher Meldung; Generator lehnt ab (422) → 502 mit seinem Grund.
+- **Word eingefroren** (Geschäftsführer 19.11.2026, Migration 0017, `berichte.word` {datei_id, sha256, groesse, generator, cockpit,
+  erzeugt_am, quelle}): beim Speichern erzeugt `word.word_einfrieren()` das Word einmal und legt es in den Unterlagen ab (Kategorie
+  `bericht`, `Foerdervergleich_<Nr>_V<n>.docx`); Protokoll `bericht_word_eingefroren`. Generator beim Speichern nicht erreichbar →
+  Bericht trotzdem gespeichert, `bericht_word_ausstehend`, der erste Download friert ein (`quelle: erster_download`).
+  **Der Download liefert immer genau diese Datei** (sha256-Prüfung; fehlt sie oder stimmt die Prüfsumme nicht → 404/500, nie still
+  neu erzeugen); neu erzeugt wird nur über „Neue Version“. „Wohneinheiten geprüft“ sperrt weiter den Download, nicht das Einfrieren.
+  Bestand: `python -m app.cli berichte-word-einfrieren [--bericht ID]` (Variante a, `quelle: bestand`). Oberfläche: „Word eingefroren
+  am … · Generator …“ in der Berichtsliste. Generator-Änderungen wirken damit nur auf neue Berichte bzw. neue Versionen.
 - Anzeigefelder in den Eingaben (optional, Rechenkern ignoriert sie, `ANZEIGEFELDER` in `app/rechnen.py`): `we_vor_sanierung`,
   `bestandsheizung`, `nutzung`, `wpb_status`, `kosten_hinweis` (geht als `kosten_hinweis` auf oberster Ebene an den Generator).
   Auswahlwerte wie `modules/foerderung-em-eh/module.yaml`; nicht ausgefüllte Felder werden nicht gespeichert.
@@ -313,6 +321,12 @@ Ausführliches Fachkonzept: `docs/Konzept_Berater-Cockpit.docx` (falls abgelegt)
   Anmeldung und Sitzung im Code gesperrt (`login_abgelehnt` `technischer_benutzer`), Benutzerverwaltung → 409.
   Im Word steht als Berater der **Zuständige des Projekts** (`word.berater_name`), nie der technische Name.
   „Wohneinheiten geprüft“ setzt die Kommandozeile nie. Tests: `tests/test_technischer_benutzer.py`.
+  **Nie für Konditionen** (19.11.2026): `auth.nicht_technisch()` in jeder Rollenprüfung (`rolle(...)`, auch bei ergänzten Rollen)
+  und zusätzlich im Rumpf aller schreibenden Konditionen-, Quellen- und Förderprüfungs-Routen → 403 (auch bei Direktaufruf,
+  `tests/test_technisch_konditionen.py`). Befund: Quelldokumente 1–3 und die Fundstellen von V8 hatte Claude Code per Skript direkt in
+  die Datenbank geschrieben (an der Rollenprüfung vorbei, hochgeladen_von = technischer Benutzer). Seitdem nur noch per
+  Kommandozeile mit Ersteller „Kommandozeile“: `konditionen-quelle-hochladen DATEI.pdf --titel … --stand … --abgerufen-am … --auftrag …`
+  und `konditionen-fundstellen VERSION DATEI.json --notiz …` (nur offene Entwürfe; Einreichen/Freigeben bleibt Menschen).
 - **Neue Version – kurze Leistungstexte** (19.11.2026): gespeicherte Leistungen kürzer als `LEISTUNG_MIN_ZEICHEN` (20) ersetzt das
   Formular durch den Text der Angebotsvorlage, Hinweis „Leistungen aus der Angebotsvorlage übernommen (bisher: …)“ mit Knopf
   „Bisherigen Text behalten“ (`kurzeLeistungenErsetzen` in `Foerdervergleich.jsx`). Titel und Beträge bleiben; gespeichert erst mit
@@ -655,6 +669,9 @@ vollständig erhalten und getestet. Bevor echte Nutzer oder Kundendaten ins Syst
 5. **KI nur mit AVV:** `KI_AKTIV=true` erst, wenn API-Bedingungen + AVV mit Anthropic vorliegen und der Geschäftsführer freigibt.
 6. **Kopie der Datensicherung außer Haus einrichten** (Ziel noch offen, siehe „Unterlagen, Papierkorb, Datensicherung“).
 7. **`BEISPIELDATEN_AKTIV=false`** in der `.env` der Produktion (Referenzfall-Knopf aus).
+   **Word einfrieren ab dem ersten Bericht** (Geschäftsführer 19.11.2026): auf der Produktion von Anfang an mit Migration 0017
+   starten, Generator vor dem ersten Speichern erreichbar prüfen; `berichte-word-einfrieren` dort nur, falls doch ein Bericht
+   „ausstehend“ blieb.
 8. **API-Logs dauerhaft speichern** (Befund 19.11.2026: Logs von `cockpit-api` gingen beim Neustart verloren, Herkunft der Eingaben
    von 2026-0004 V3 nicht mehr nachweisbar): eigenes Volume, Rotation, ohne Geheimnisse und Personendaten, Teil der Datensicherung.
    Noch nicht umgesetzt.
