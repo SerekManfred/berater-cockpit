@@ -291,3 +291,9 @@ td.angekuendigt { background: var(--gold-l); }
 .versionsleiste { display: flex; flex-wrap: wrap; gap: 6px 18px; padding: 10px 20px; border-top: 1px solid var(--rand); font-size: 12px; color: var(--grau); background: #fff; }
 .fehlertext { color: var(--rot); font-weight: bold; }
 .erzeugt-mit { margin-top: 4px; }
+/* Fundstellen je Konditionen-Feld (19.11.2026) */
+.felder > div.breit { grid-column: 1 / -1; }
+.fundstellen { margin-top: 4px; }
+.fundstellen .klein-knopf { min-height: 44px; font-size: 13px; padding: 4px 10px; }
+.fundstellen .klein-knopf.fehlt { border-color: var(--gold); background: var(--gold-l); }
+.fundstellen-liste { border-left: 3px solid var(--gold); padding: 8px 0 8px 12px; margin-top: 6px; display: grid; gap: 10px; }

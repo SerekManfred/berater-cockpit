@@ -181,6 +181,19 @@ Ausführliches Fachkonzept: `docs/Konzept_Berater-Cockpit.docx` (falls abgelegt)
   `frontend/src/testdaten/`, `backend/tests/daten/konditionen_v2_v3.json`.
 - **Protokoll:** `konditionen_entwurf_angelegt`, `_entwurf_geaendert`, `_zur_pruefung`, `_zurueckgezogen`, `_freigegeben`, `_zurueckgewiesen`,
   `_aktiviert`, `_planung_aufgehoben`.
+- **Quelldokumente und Fundstellen** (Geschäftsführer 19.11.2026, Migration 0016, `app/konditionen_quellen.py`): Tabelle
+  `konditionen_quellen` (Titel, Herausgeber, Stand, URL nur https, Abrufdatum, sha256; PDF im Volume unter `konditionen_quellen/`,
+  Typprüfung wie Unterlagen, nur PDF, Duplikat → 409). Lesen/Herunterladen alle Angemeldeten, hochladen admin und pruefer, löschen
+  nur admin und nur unbenutzt. Protokoll `konditionen_quelle_hochgeladen` / `_geloescht`. Oberfläche: Reiter „Quelldokumente“,
+  im Entwurf je Feld „Fundstelle“ (Quelle + Seite oder Abschnitt, Zitat ≤ 300, höchstens 5), in der Version Reiter „Fundstellen“.
+- **Fundstellen** stehen in der eigenen Spalte `konditionen_versionen.fundstellen` {pfad: [{quelle_id, seite, abschnitt, zitat}]}
+  (nicht in `daten` → Snapshots, Rechenkern, Generator, Förderprüfung unberührt); neue Entwürfe übernehmen die Fundstellen der
+  Kopiervorlage, „Korrektur in geplante“ die der korrigierten Felder; Fundstellen ändern zählt als Bearbeiten (Vier-Augen).
+  **Regel (`FUNDSTELLEN_PFLICHT_AB = 7`): bis einschließlich Version 6 nur Hinweis, ab Version 7 sperrt ein gegenüber der
+  Kopiervorlage geändertes Feld ohne Fundstelle Einreichen und Freigabe (422)**; ausgenommen Allgemein, Quelle, Prüfdatum.
+  Hinweis/Sperre in Editor und Freigabe-Ansicht (`FundstellenHinweis`). Version 7 war am 19.11.2026 bereits freigegeben (geplant) –
+  die Sperre greift damit ab dem nächsten Entwurf. Noch nicht umgesetzt: Förderprüfung meldet geänderte Merkblätter per sha256.
+  Tests: `tests/test_konditionen_quellen.py`, `KonditionenQuellen.test.jsx`.
 - **Im Voraus freigeben – Status „geplant“** (Geschäftsführer 16.11.2026, Migration 0011): Freigabe mit „gültig ab“ nach heute
   (Europe/Berlin, `fristen.heute()`) → `geplant` statt `aktiv` (Vier-Augen-Prüfung erledigt, höchstens eine geplante Version per
   Teilindex `uq_konditionen_eine_geplante`). Am Stichtag `faellige_aktivieren()` (`app/rechnen.py`, eigene DB-Sitzung, Sperre,

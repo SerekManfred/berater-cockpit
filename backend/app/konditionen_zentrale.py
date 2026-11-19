@@ -19,7 +19,7 @@ from sqlalchemy.orm import Session
 from app import fristen
 from app.auth import aktueller_benutzer, rolle
 from app.db import get_db
-from app.modelle import Benutzer, KonditionenVersion, jetzt
+from app.modelle import Benutzer, KonditionenQuelle, KonditionenVersion, jetzt
 from app.protokoll import protokollieren
 from app.rechnen import FREIGEGEBEN, konditionen_daten, lade_konditionen
 
@@ -287,6 +287,73 @@ def pruefen(daten: dict, aenderungsnotiz: str | None = None) -> list[dict]:
     return fehler
 
 
+# ---------- Fundstellen (Geschäftsführer 19.11.2026) ----------
+# Bis einschließlich Version 6 nur Warnung; ab Version 7 sperrt ein geändertes Feld ohne Fundstelle Einreichen und Freigabe.
+FUNDSTELLEN_PFLICHT_AB = 7
+FUNDSTELLE_FREI = (".quelle", ".geprueft_am")   # Dokumentationsfelder selbst brauchen keine Fundstelle
+
+
+def feld_pfad(pfad: str) -> str | None:
+    """Pfad aus dem Vergleich → Feld der Formularbeschreibung (Tabellenzellen → Tabellenfeld)."""
+    if pfad in FELDER:
+        return pfad
+    return next((p for p in FELDER if pfad.startswith(p + ".")), None)
+
+
+def fundstellen_pruefen(fundstellen: dict, db: Session) -> list[dict]:
+    """Nur Felder aus der Formularbeschreibung, je Feld höchstens 5 Fundstellen auf vorhandene Quellen,
+    Seite oder Abschnitt Pflicht, Zitat höchstens 300 Zeichen. Rückgabe: bereinigte Fundstellen."""
+    if not isinstance(fundstellen, dict):
+        raise HTTPException(422, "Fundstellen: Objekt {Feld: [Fundstelle]} erwartet")
+    bekannt = set(db.scalars(select(KonditionenQuelle.id)))
+    aus = {}
+    for pfad, liste in fundstellen.items():
+        if pfad not in FELDER:
+            raise HTTPException(422, f"Fundstelle für unbekanntes Feld „{pfad}“")
+        if not isinstance(liste, list) or len(liste) > 5:
+            raise HTTPException(422, f"{FELDER[pfad]['label']}: höchstens 5 Fundstellen")
+        sauber = []
+        for f in liste:
+            f = f if isinstance(f, dict) else {}
+            qid, seite, abschnitt, zitat = (f.get("quelle_id"), str(f.get("seite") or "").strip(),
+                                           str(f.get("abschnitt") or "").strip(), str(f.get("zitat") or "").strip())
+            if qid not in bekannt:
+                raise HTTPException(422, f"{FELDER[pfad]['label']}: Quelldokument fehlt oder ist unbekannt")
+            if not (seite or abschnitt):
+                raise HTTPException(422, f"{FELDER[pfad]['label']}: bitte Seite oder Abschnitt angeben")
+            if len(seite) > 20 or len(abschnitt) > 120 or len(zitat) > 300:
+                raise HTTPException(422, f"{FELDER[pfad]['label']}: Seite ≤ 20, Abschnitt ≤ 120, Zitat ≤ 300 Zeichen")
+            sauber.append({"quelle_id": qid, "seite": seite, "abschnitt": abschnitt, "zitat": zitat})
+        if sauber:
+            aus[pfad] = sauber
+    return aus
+
+
+def fundstellen_fehlend(db: Session, v: KonditionenVersion) -> list[dict]:
+    """Gegenüber der Kopiervorlage geänderte Felder ohne Fundstelle [{pfad, label}] (Feld des Formulars, nicht die Zelle)."""
+    basis = db.get(KonditionenVersion, v.basis_id) if v.basis_id else None
+    if basis is None:
+        return []
+    fs, aus = v.fundstellen or {}, {}
+    for z in vergleichen(basis.daten, v.daten):
+        pfad = feld_pfad(z["pfad"])
+        if pfad is None or pfad.startswith("gueltig_ab") or z["programm"] == "allgemein" or pfad.endswith(FUNDSTELLE_FREI):
+            continue
+        if not fs.get(pfad):
+            aus[pfad] = {"pfad": pfad, "label": FELDER[pfad]["label"], "programm_titel": z["programm_titel"]}
+    return list(aus.values())
+
+
+def fundstellen_sperre(db: Session, v: KonditionenVersion):
+    """Ab Version 7: geänderte Felder ohne Fundstelle → 422 (Einreichen, Freigeben)."""
+    fehlend = fundstellen_fehlend(db, v) if v.version >= FUNDSTELLEN_PFLICHT_AB else []
+    if fehlend:
+        raise HTTPException(422, {"meldung": f"{len(fehlend)} geänderte(s) Feld(er) ohne Fundstelle – ab Version "
+                                             f"{FUNDSTELLEN_PFLICHT_AB} Pflicht.",
+                                  "fehler": [{"pfad": f["pfad"], "meldung": "Fundstelle fehlt (Quelldokument + Seite/Abschnitt)"}
+                                             for f in fehlend]})
+
+
 def uebernehmen(alt: dict, neu: dict) -> dict:
     """Nur Felder aus der Formularbeschreibung übernehmen – kein freies JSON."""
     daten = copy.deepcopy(alt)
@@ -421,7 +488,10 @@ def _detail(db: Session, v: KonditionenVersion, ich: Benutzer) -> dict:
             "vorgaenger_id": vorg.id if vorg else None, "vorgaenger_version": vorg.version if vorg else None,
             "fehler": pruefen(v.daten, v.aenderungsnotiz or "") if v.status == "entwurf" else [],
             "darf_pruefen": v.status == "zur_pruefung" and ("admin" in ich.rollen or "pruefer" in ich.rollen) and not _beteiligt(v, ich),
-            "beteiligt": _beteiligt(v, ich)}
+            "beteiligt": _beteiligt(v, ich),
+            "fundstellen": v.fundstellen or {},
+            "fundstellen_fehlend": fundstellen_fehlend(db, v) if v.status in ("entwurf", "zur_pruefung") else [],
+            "fundstellen_pflicht": v.version >= FUNDSTELLEN_PFLICHT_AB, "fundstellen_pflicht_ab": FUNDSTELLEN_PFLICHT_AB}
 
 
 # ---------- Routen: lesen ----------
@@ -495,6 +565,7 @@ class EntwurfNeu(BaseModel):
 class EntwurfAenderung(BaseModel):
     daten: dict
     aenderungsnotiz: str | None = Field(None, max_length=5000)
+    fundstellen: dict | None = None   # {pfad: [{quelle_id, seite, abschnitt, zitat}]}; None = unverändert
 
 
 class Pruefung(BaseModel):
@@ -525,7 +596,8 @@ def entwurf_anlegen(db: Session, request: Request | None, ersteller_id: int | No
     daten["gueltig_ab"] = gueltig
     v = KonditionenVersion(version=neue_nummer, gueltig_ab=date.fromisoformat(gueltig), status="entwurf", daten=daten,
                            aenderungsnotiz=aenderungsnotiz, basis_id=basis.id, erstellt_von_id=ersteller_id,
-                           erstellt_am=jetzt(), bearbeitet_von=[], eingereicht_von=[])
+                           erstellt_am=jetzt(), bearbeitet_von=[], eingereicht_von=[],
+                           fundstellen=copy.deepcopy(basis.fundstellen or {}))   # Belege gelten für unveränderte Werte weiter
     db.add(v)
     db.flush()
     protokollieren(db, request, "konditionen_entwurf_angelegt", ersteller_id, version=v.version, basis_version=basis.version,
@@ -563,8 +635,18 @@ def entwurf_speichern(versions_id: int, daten: EntwurfAenderung, request: Reques
     notiz_neu = daten.aenderungsnotiz is not None and daten.aenderungsnotiz != v.aenderungsnotiz
     if notiz_neu:
         v.aenderungsnotiz = daten.aenderungsnotiz
-    if geaendert or notiz_neu:
-        protokollieren(db, request, "konditionen_entwurf_geaendert", ich.id, version=v.version, felder=geaendert[:100])
+    fs_geaendert = []
+    if daten.fundstellen is not None:
+        fs = fundstellen_pruefen(daten.fundstellen, db)
+        alt = v.fundstellen or {}
+        fs_geaendert = sorted(p for p in set(fs) | set(alt) if fs.get(p) != alt.get(p))
+        if fs_geaendert:
+            v.fundstellen = fs
+            if ich.id not in (v.bearbeitet_von or []):   # Belege ändern zählt als Bearbeiten (Vier-Augen-Prinzip)
+                v.bearbeitet_von = [*(v.bearbeitet_von or []), ich.id]
+    if geaendert or notiz_neu or fs_geaendert:
+        protokollieren(db, request, "konditionen_entwurf_geaendert", ich.id, version=v.version, felder=geaendert[:100],
+                       **({"fundstellen": fs_geaendert[:100]} if fs_geaendert else {}))
     db.commit()
     return _detail(db, v, ich)
 
@@ -578,6 +660,7 @@ def einreichen(versions_id: int, request: Request, hintergrund: BackgroundTasks,
     fehler = pruefen(v.daten, v.aenderungsnotiz or "")
     if fehler:
         raise HTTPException(422, {"meldung": f"{len(fehler)} Angabe(n) fehlen oder sind ungültig.", "fehler": fehler})
+    fundstellen_sperre(db, v)
     v.status = "zur_pruefung"
     if ich.id not in (v.eingereicht_von or []):
         v.eingereicht_von = [*(v.eingereicht_von or []), ich.id]
@@ -615,6 +698,7 @@ def freigeben(versions_id: int, daten: Pruefung, request: Request, ich: Benutzer
     fehler = pruefen(v.daten)
     if fehler:
         raise HTTPException(422, {"meldung": "Die Version verletzt Prüfregeln und kann nicht freigegeben werden.", "fehler": fehler})
+    fundstellen_sperre(db, v)
     v.geprueft_von_id, v.geprueft_am, v.pruefnotiz = ich.id, jetzt(), (daten.notiz or None)
     v.daten = {**v.daten, "version": v.version, "gueltig_ab": v.gueltig_ab.isoformat()}
     if v.gueltig_ab > fristen.heute():
@@ -703,6 +787,13 @@ def korrektur_in_geplante(versions_id: int, request: Request, ich: Benutzer = De
                         f"(gilt ab {g.gueltig_ab.strftime('%d.%m.%Y')}) übernommen:",
                         *[f"- {f['programm_titel']} – {f['label']}: {f['geplant_text']} → {f['aktiv_text']}" for f in k["felder"]]])
     neu = entwurf_anlegen(db, request, ich.id, g, aenderungen, notiz)
+    # Fundstellen der korrigierten Felder kommen mit (sie belegen genau diese Werte)
+    fs = dict(neu.fundstellen or {})
+    for f in k["felder"]:
+        pf = feld_pfad(f["pfad"])
+        if pf and (v.fundstellen or {}).get(pf):
+            fs[pf] = copy.deepcopy(v.fundstellen[pf])
+    neu.fundstellen = fs
     protokollieren(db, request, "konditionen_korrektur_uebernommen", ich.id, aus_version=v.version, geplant_version=g.version,
                    entwurf_version=neu.version, felder=[f["pfad"] for f in k["felder"]][:100])
     db.commit()

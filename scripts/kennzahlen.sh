@@ -14,6 +14,7 @@ projekte projekte id
 berichte berichte id
 dateien dateien id
 konditionen konditionen_versionen id
+konditionenquellen konditionen_quellen id
 entwuerfe bericht_entwuerfe id
 angebotsvorlagen angebotsvorlagen kennung
 foerdermeldungen foerder_meldungen id

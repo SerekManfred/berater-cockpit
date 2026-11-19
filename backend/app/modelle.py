@@ -214,6 +214,26 @@ class KonditionenVersion(Base):
     geprueft_am: Mapped[datetime | None] = mapped_column(UTCZeit)
     pruefnotiz: Mapped[str | None] = mapped_column(Text)
     aktiviert_am: Mapped[datetime | None] = mapped_column(UTCZeit)   # automatische Aktivierung einer geplanten Version (0011)
+    # Migration 0016: Fundstellen je Feld {pfad: [{quelle_id, seite, abschnitt, zitat}]} – eingefroren wie die Werte,
+    # eigene Spalte (nicht in daten), damit Snapshots, Rechenkern, Generator und Förderprüfung unberührt bleiben
+    fundstellen: Mapped[dict] = mapped_column(DETAILS_TYP, nullable=False, default=dict)
+
+
+class KonditionenQuelle(Base):
+    """Quelldokument der Konditionen-Zentrale (Migration 0016): PDF eines Merkblatts/einer Richtlinie mit Stand und URL.
+    Inhalt im Volume unter konditionen_quellen/<speichername>, nie im Web-Verzeichnis."""
+    __tablename__ = "konditionen_quellen"
+    id: Mapped[int] = mapped_column(Integer, primary_key=True)
+    titel: Mapped[str] = mapped_column(String(200), nullable=False)       # z. B. „KfW-Merkblatt 261“
+    herausgeber: Mapped[str | None] = mapped_column(String(100))          # z. B. KfW, BAFA
+    stand: Mapped[str] = mapped_column(String(40), nullable=False)        # wie im Dokument, z. B. „09/2026“
+    url: Mapped[str | None] = mapped_column(String(500))
+    abgerufen_am: Mapped[date] = mapped_column(Date, nullable=False)
+    speichername: Mapped[str] = mapped_column(String(32), nullable=False, unique=True)
+    groesse: Mapped[int] = mapped_column(BigInteger, nullable=False)
+    sha256: Mapped[str] = mapped_column(String(64), nullable=False, index=True)
+    hochgeladen_von_id: Mapped[int | None] = mapped_column(ForeignKey("benutzer.id", ondelete="SET NULL"))
+    hochgeladen_am: Mapped[datetime] = mapped_column(UTCZeit, nullable=False, default=jetzt)
 
 
 # ---------- Bericht-Entwürfe (Phase 2b) ----------

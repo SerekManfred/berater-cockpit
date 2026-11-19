@@ -70,6 +70,9 @@ def _leere_tabellen():
         # Konditionen: nur der Startbestand (Version 1, aktiv) bleibt
         db.execute(delete(KonditionenVersion).where(KonditionenVersion.version != 1))
         db.execute(update(KonditionenVersion).where(KonditionenVersion.version == 1).values(status="aktiv"))
+        from app.modelle import KonditionenQuelle
+        db.execute(update(KonditionenVersion).where(KonditionenVersion.version == 1).values(fundstellen={}))
+        db.execute(delete(KonditionenQuelle))  # vor Benutzern (Fremdschlüssel hochgeladen_von_id)
         # Angebotsvorlagen: zurück auf die Startwerte der Migration 0008
         from app.modelle import Angebotsvorlage
         for kennung, titel, leistungen in vorlagen_startwerte():

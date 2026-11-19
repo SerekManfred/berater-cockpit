@@ -2,6 +2,7 @@ import React, { useEffect, useMemo, useState } from "react";
 import { api, hatRolle, zeit } from "./api.js";
 import { ZahlEingabe } from "./ZahlFeld.jsx";
 import { FoerderpruefungSeite, darfMeldungenSehen } from "./Foerderpruefung.jsx";
+import { FundstellenEditor, FundstellenHinweis, FundstellenListe, Quelldokumente } from "./KonditionenQuellen.jsx";
 
 // ---------- Darstellung von Werten ----------
 
@@ -69,10 +70,12 @@ export function Konditionen({ ich, startVersion = null }) {
     <>
       <div className="reiter" role="tablist" aria-label="Förderkonditionen">
         <button role="tab" aria-selected={seite.art === "uebersicht"} className={seite.art === "uebersicht" ? "aktiv" : ""} onClick={() => gehe({ art: "uebersicht" })}>Aktive Version</button>
-        <button role="tab" aria-selected={!["uebersicht", "foerderpruefung"].includes(seite.art)} className={!["uebersicht", "foerderpruefung"].includes(seite.art) ? "aktiv" : ""} onClick={() => gehe({ art: "liste" })}>Versionen</button>
+        <button role="tab" aria-selected={!["uebersicht", "foerderpruefung", "quellen"].includes(seite.art)} className={!["uebersicht", "foerderpruefung", "quellen"].includes(seite.art) ? "aktiv" : ""} onClick={() => gehe({ art: "liste" })}>Versionen</button>
+        <button role="tab" aria-selected={seite.art === "quellen"} className={seite.art === "quellen" ? "aktiv" : ""} onClick={() => gehe({ art: "quellen" })}>Quelldokumente</button>
         {darfMeldungenSehen(ich) && <button role="tab" aria-selected={seite.art === "foerderpruefung"} className={seite.art === "foerderpruefung" ? "aktiv" : ""} onClick={() => gehe({ art: "foerderpruefung" })}>Förderprüfung</button>}
       </div>
       {seite.art === "uebersicht" && <Uebersicht formular={formular} />}
+      {seite.art === "quellen" && <Quelldokumente ich={ich} />}
       {seite.art === "foerderpruefung" && <FoerderpruefungSeite ich={ich} onEntwurf={id => gehe({ art: "version", id })} />}
       {seite.art === "liste" && <Versionsliste ich={ich} onGehe={gehe} />}
       {seite.art === "version" && <VersionAnsicht key={seite.id + (seite.reiter || "")} ich={ich} id={seite.id} reiter={seite.reiter} formular={formular} onGehe={gehe} />}
@@ -204,6 +207,8 @@ function VersionAnsicht({ ich, id, reiter: startReiter, formular, onGehe }) {
   const laden = () => api(`/konditionen/versionen/${id}`).then(setV).catch(e => setFehler(e.message));
   useEffect(() => { laden(); }, [id]);
   useEffect(() => { if (v?.darf_pruefen && !startReiter) setReiter("vergleich"); }, [v?.darf_pruefen]);
+  const [quellen, setQuellen] = useState([]);
+  useEffect(() => { api("/konditionen/quellen").then(q => setQuellen(Array.isArray(q) ? q : [])).catch(() => setQuellen([])); }, []);
 
   async function aktion(pfad, body, text) {
     setFehler(""); setMeldung("");
@@ -240,6 +245,7 @@ function VersionAnsicht({ ich, id, reiter: startReiter, formular, onGehe }) {
         neue Entwürfe entstehen als Kopie dieser Version.</div>}
       {v.status === "geplant" && hatRolle(ich, "pruefer") &&
         <PlanungAufheben onAufheben={begruendung => aktion("planung-aufheben", { begruendung }, `Planung von Version ${v.version} aufgehoben – sie wird nicht aktiv.`)} />}
+      {["entwurf", "zur_pruefung"].includes(v.status) && <FundstellenHinweis v={v} />}
       {v.darf_pruefen && <PruefFormular gueltigAb={v.gueltig_ab} onFreigeben={notiz => aktion("freigeben", { notiz }, freigabeText)}
         onZurueckweisen={begruendung => aktion("zurueckweisen", { begruendung }, `Version ${v.version} wurde zurückgewiesen.`)} />}
 
@@ -247,8 +253,12 @@ function VersionAnsicht({ ich, id, reiter: startReiter, formular, onGehe }) {
         <button role="tab" aria-selected={reiter === "werte"} className={reiter === "werte" ? "aktiv" : ""} onClick={() => setReiter("werte")}>Alle Werte</button>
         <button role="tab" aria-selected={reiter === "vergleich"} className={reiter === "vergleich" ? "aktiv" : ""} onClick={() => setReiter("vergleich")} disabled={!v.vorgaenger_id}>
           {v.vorgaenger_version ? `Änderungen gegenüber V${v.vorgaenger_version}` : "Keine Vorgängerversion"}</button>
+        <button role="tab" aria-selected={reiter === "fundstellen"} className={reiter === "fundstellen" ? "aktiv" : ""} onClick={() => setReiter("fundstellen")}>
+          Fundstellen ({Object.keys(v.fundstellen || {}).length})</button>
       </div>
-      {reiter === "werte" ? <Werte formular={formular} daten={v.daten} /> : <Vergleich id={v.id} />}
+      {reiter === "werte" ? <Werte formular={formular} daten={v.daten} />
+        : reiter === "fundstellen" ? <FundstellenListe fundstellen={v.fundstellen} formular={formular} quellen={quellen} />
+        : <Vergleich id={v.id} />}
     </>
   );
 }
@@ -421,10 +431,15 @@ function Editor({ id, formular, onGehe }) {
   const [meldung, setMeldung] = useState("");
   const [allgemein, setAllgemein] = useState("");
   const [geaendert, setGeaendert] = useState(false);
+  const [fs, setFs] = useState({});
+  const [quellen, setQuellen] = useState([]);
   useEffect(() => {
-    api(`/konditionen/versionen/${id}`).then(x => { setV(x); setDaten(x.daten); setNotiz(x.aenderungsnotiz || ""); setFehler(x.fehler); })
+    api(`/konditionen/versionen/${id}`).then(x => { setV(x); setDaten(x.daten); setNotiz(x.aenderungsnotiz || ""); setFehler(x.fehler); setFs(x.fundstellen || {}); })
       .catch(e => setAllgemein(e.message));
+    api("/konditionen/quellen").then(q => setQuellen(Array.isArray(q) ? q : [])).catch(() => setQuellen([]));
   }, [id]);
+  const fehltFs = new Set((v?.fundstellen_fehlend || []).map(f => f.pfad));
+  const setFundstellen = (pfad, liste) => { setFs(alt => ({ ...alt, [pfad]: liste })); setGeaendert(true); };
   const fehlerJePfad = useMemo(() => Object.fromEntries(fehler.map(f => [f.pfad, f.meldung])), [fehler]);
   const set = (pfad, wert) => { setDaten(d => setzen(d, pfad, wert)); setGeaendert(true); };
 
@@ -433,8 +448,11 @@ function Editor({ id, formular, onGehe }) {
     // Ungültige Zahl (NaN) nicht still als „leer“ speichern
     if (enthaeltNaN(daten)) { setAllgemein("Mindestens ein Zahlenfeld enthält keine gültige Zahl – siehe rote Markierung."); return null; }
     try {
-      const x = await api(`/konditionen/versionen/${id}`, { method: "PUT", body: { daten, aenderungsnotiz: notiz } });
-      setV(x); setDaten(x.daten); setFehler(x.fehler); setGeaendert(false);
+      // ganz leere neue Zeilen (noch nichts gewählt) nicht mitschicken; halb ausgefüllte meldet das Backend
+      const fundstellen = Object.fromEntries(Object.entries(fs).map(([p, l]) =>
+        [p, (l || []).filter(z => z.quelle_id || (z.seite || "").trim() || (z.abschnitt || "").trim() || (z.zitat || "").trim())]).filter(([, l]) => l.length));
+      const x = await api(`/konditionen/versionen/${id}`, { method: "PUT", body: { daten, aenderungsnotiz: notiz, fundstellen } });
+      setV(x); setDaten(x.daten); setFehler(x.fehler); setFs(x.fundstellen || {}); setGeaendert(false);
       setMeldung(x.fehler.length ? `Gespeichert. Noch ${x.fehler.length} Angabe(n) offen – siehe Markierungen.` : "Gespeichert. Alle Prüfregeln erfüllt.");
       return x;
     } catch (e) { setAllgemein(e.message); return null; }
@@ -453,7 +471,9 @@ function Editor({ id, formular, onGehe }) {
     <>
       <div className="aktionen" style={{ marginTop: 0, marginBottom: 12 }}><button className="btn2" onClick={() => onGehe({ art: "version", id })}>← Zur Ansicht</button></div>
       <h1>Entwurf Version {v.version} bearbeiten</h1>
-      <p className="hinweis">Kopie von Version {v.vorgaenger_version}. Prozentwerte als Prozent eingeben (15 für 15 %), Beträge in Euro. Quelle und Prüfdatum sind je Programm Pflicht.</p>
+      <p className="hinweis">Kopie von Version {v.vorgaenger_version}. Prozentwerte als Prozent eingeben (15 für 15 %), Beträge in Euro. Quelle und Prüfdatum sind je Programm Pflicht.
+        Je Feld „Fundstelle“: Quelldokument (Reiter „Quelldokumente“) mit Seite oder Abschnitt.</p>
+      <FundstellenHinweis v={v} />
       <section className="karte">
         <label>Änderungsnotiz (Pflicht: was ändert sich und warum?)
           <textarea rows={2} value={notiz} onChange={e => { setNotiz(e.target.value); setGeaendert(true); }} aria-invalid={!!fehlerJePfad.aenderungsnotiz} />
@@ -467,7 +487,12 @@ function Editor({ id, formular, onGehe }) {
             <div key={gruppe || "-"}>
               {gruppe && <h3>{gruppe}</h3>}
               <div className="felder">
-                {felder.map(f => <Eingabe key={f.pfad} feld={f} wert={lesen(daten, f.pfad)} fehler={fehlerJePfad} onChange={w => set(f.pfad, w)} />)}
+                {felder.map(f => (
+                  <div key={f.pfad} className={f.typ === "text_lang" || f.typ === "tabelle" || f.typ === "mehrfach" ? "breit" : undefined}>
+                    <Eingabe feld={f} wert={lesen(daten, f.pfad)} fehler={fehlerJePfad} onChange={w => set(f.pfad, w)} />
+                    {!/\.(quelle|geprueft_am)$/.test(f.pfad) && p.id !== "allgemein" &&
+                      <FundstellenEditor pfad={f.pfad} liste={fs[f.pfad]} quellen={quellen} fehlt={fehltFs.has(f.pfad)} onChange={l => setFundstellen(f.pfad, l)} />}
+                  </div>))}
               </div>
             </div>
           ))}
