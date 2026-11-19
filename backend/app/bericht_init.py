@@ -673,8 +673,10 @@ def generator_daten(p: Projekt, d: dict, z: dict, rk: dict, kond: dict, version:
     if len(benutzt) > MAX_BERICHT_FOTOS:
         raise HTTPException(422, f"Höchstens {MAX_BERICHT_FOTOS} Fotos im Bericht (derzeit {len(benutzt)}). Bitte Fotos abwählen.")
     w = rk["werte"]
-    pv = {k: v for k, v in (d.get("pv") or {}).items() if v}
-    zeilen = [r for r in checkliste_import.verbrauch_zeilen_teilen((d.get("verbrauch") or {}).get("tabelle"))
+    # Datenfelder: Tausenderpunkt vor Einheiten („2500 l“ → „2.500 l“, 19.11.2026); reine Zahlen formatiert der Generator
+    pv = {k: (ki_texte.tausenderpunkte(v) if isinstance(v, str) else v) for k, v in (d.get("pv") or {}).items() if v}
+    zeilen = [{k: (ki_texte.tausenderpunkte(v) if isinstance(v, str) and k != "traeger" else v) for k, v in r.items()}
+              for r in checkliste_import.verbrauch_zeilen_teilen((d.get("verbrauch") or {}).get("tabelle"))
               if any(str(v).strip() for v in r.values())]   # Freitextzeile → je Energieträger eine Zeile (Entwurf bleibt)
     daten = {
         "titel": "Energieberatungsbericht",

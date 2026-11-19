@@ -31,8 +31,12 @@ Ausführliches Fachkonzept: `docs/Konzept_Berater-Cockpit.docx` (falls abgelegt)
   (nur Admin). Neue Routen immer mit `aktueller_benutzer` oder `rolle(...)` schützen.
 - `generator/` – Container `cockpit-generator` (Node 20, docx): erzeugt Word-Berichte im CI, rechnet nie. Nur im Netz
   `cockpit-intern` (internal, mit `cockpit-api`): kein Port, kein Internet, nicht in `cockpit-proxy`. Tests laufen beim Bauen.
-  Fertig zugeliefert (Phase 1a) – **inhaltlich nicht im Cockpit ändern**; neue Fassungen kommen als Paket und ersetzen den Ordner.
-  Einzige freigegebene Änderung (Phase 1b): `foerdervergleich.js` liest die Fachwerte aus `konditionen.fachwerte`, sonst aus `fachtexte.js`.
+  **Claude Code pflegt `generator/` selbst** (Geschäftsführer 19.11.2026; bis 18.11.2026 kamen Fassungen als Paket, zuletzt 0.4.8).
+  Grundsätze: Der Generator **rechnet nie**; Zahlen nur aus Rechenkern/Berater, Sätze nur aus den Konditionen.
+  Jede Änderung: Version in `package.json` erhöhen, README-Abschnitt ergänzen, eigene Generator-Tests (`test/test.js`, laufen beim
+  Bauen) **und Textvergleich gegen die Vorversion** (unveränderte Eingaben → nur beabsichtigte Unterschiede), bei Layout-Änderungen
+  **PDF-Sichtprüfung** (`cockpit-pdf`). **Fachliche Änderungen an Berichtsinhalten** (Förderlogik, Texte zu Programmen, Kapitelaufbau)
+  **vorher kurz im Chat ankündigen**; reine Darstellung (Einheiten, Einzüge, Formatierung) direkt umsetzen. Push nur nach Freigabe.
 - Später: Redis + Worker für lange Jobs (KI, Word-Erzeugung)
 - Betrieb mit Docker Compose. Test: `cockpit.mybase-test.de` (Hostinger-VServer, Ordner `/home/dev/berater-cockpit`). TLS und Weiterleitung macht der zentrale Caddy der Schulungsplattform (`/opt/schulung`) über das Netz `cockpit-proxy` an `cockpit-web:80`. Änderungen unter `/opt/schulung` nur mit ausdrücklicher Freigabe; freigegeben (11.11.2026) sind nur der Site-Block `cockpit.mybase-test.de` im Caddyfile und der Anschluss von `schulung-caddy-1` an das Netz `cockpit-proxy` – immer per `docker network connect`, Anhängen, `caddy validate` und `caddy reload`, nie `docker compose up` oder Neustart des Caddy (siehe README Schritt 5). Produktion später: HostEurope.
 
@@ -439,10 +443,13 @@ Ausführliches Fachkonzept: `docs/Konzept_Berater-Cockpit.docx` (falls abgelegt)
   Wohneinheiten nie weglassbar; beantwortet = bestätigt; **Klimabonus gewählt + Hinweis auf defekte Heizung** (`defekt_hinweis()`:
   „Defekte Anlagentechnik“, „defekt“, „außer Betrieb“ … in Checkliste/Notizen) → Rückfrage „Ist die bestehende Heizung
   funktionstüchtig? …“, „nein“ = Klimabonus aus, Antwort auch in „Hinweise der KI“, 19.11.2026) → **ein** KI-Lauf für alle Texte +
-  Fotos (Prompt `init_v3.md`, `PROMPT-VERSION: init-3` seit 19.11.2026: KfW 261 EE- **oder** NH-Klasse als Alternativen, NH-Aufschlag
-  nur aus `beg_wg.nh_bonus`, Tausenderpunkt, sauberes Deutsch; `init_v2.md` bleibt liegen; Schema `ki_texte.SCHEMA_SCHNELL` mit
-  `hinweise`; `ki_texte.tausenderpunkte()` setzt in KI-Texten den Punkt vor Einheiten, Jahreszahlen/PLZ unberührt) →
-  `bi.word_bauen` → Vorschau.
+  Fotos (Prompt `init_v4.md`, `PROMPT-VERSION: init-4` seit 19.11.2026: wie init-3 – KfW 261 EE- **oder** NH-Klasse als Alternativen,
+  NH-Aufschlag nur aus `beg_wg.nh_bonus`, Tausenderpunkt, sauberes Deutsch – plus **Klärungen des Beraters**: die KI bekommt
+  `klaerungen_des_beraters.heizung_funktionstuechtig`; ja → „Die Heizung ist funktionsfähig; nach Angabe der Eigentümer sind einzelne
+  Komponenten der Anlagentechnik defekt.“, nie „Kessel defekt“; nein → Kessel nicht funktionsfähig, Klimabonus nicht erreichbar.
+  Schreibt die KI trotz „ja“ von einer defekten Heizung, Hinweis je Abschnitt (`widerspruch_hinweise`). `init_v2/v3.md` bleiben liegen;
+  Schema `ki_texte.SCHEMA_SCHNELL` mit `hinweise`; `ki_texte.tausenderpunkte()` setzt den Punkt vor Einheiten in KI-Texten und in
+  den Datenfeldern an den Generator (Verbrauchstabelle, PV; Entwurf bleibt), Jahreszahlen/PLZ unberührt) → `bi.word_bauen` → Vorschau.
 - Weicht die Checkliste nur von der **Vorbelegung aus dem Projekt** ab, gilt der Bogen (Hinweis statt Rückfrage).
   Investitionskosten: optionale Felder auf der Unterlagen-Seite (Zahlen des Beraters), sonst Rückfrage.
 - **Keine Prüfmarken im Kundentext:** `kundentext_saeubern()` entfernt „[PRÜFEN …]“ und macht daraus Hinweise; „Hinweise der KI“
@@ -511,8 +518,8 @@ Ausführliches Fachkonzept: `docs/Konzept_Berater-Cockpit.docx` (falls abgelegt)
 - `app/ki/` = austauschbare Schnittstelle (Regel 7; `anthropic` umgesetzt, `langdock` meldet „noch nicht angebunden“), offizielles SDK
   `anthropic`, strukturierte Ausgabe per JSON-Schema (`ki_texte.SCHEMA`). Fachlogik in `app/ki_texte.py`; Systemprompt versioniert als
   Datei `app/ki/prompts/init_v1.md` (erste Zeile `PROMPT-VERSION: init-1`, Detailbearbeitung) und `app/ki/prompts/init_v2.md`
-  (`PROMPT-VERSION: init-2`, Schnellweg bis 18.11.2026) bzw. `init_v3.md` (`init-3`, Schnellweg seit 19.11.2026: Kundentext ohne
-  Prüfmarken, Hinweise der KI, EE/NH, Tausenderpunkt); bei Änderung neue Datei/Version, nicht still ändern.
+  (`PROMPT-VERSION: init-2`, Schnellweg bis 18.11.2026) bzw. `init_v3.md` (`init-3`, 19.11.2026: EE/NH, Tausenderpunkt) bzw.
+  `init_v4.md` (`init-4`, Schnellweg seit 19.11.2026: zusätzlich Klärungen des Beraters); bei Änderung neue Datei/Version, nicht still ändern.
 - `.env`: `KI_AKTIV` (Standard **aus**), `KI_MODELL` (Standard `claude-sonnet-5-5`), `KI_ANBIETER`, `ANTHROPIC_API_KEY`
   (Tageslimit seit Phase 2h je Benutzer in den KI-Einstellungen). Zeitlimit 180 s, höchstens 20 Fotos (1024 px) je Lauf. Fehler kommen als Meldung, nie als Absturz.
 - **An die KI gehen nur:** Objekt-/Checklisten-/PV-/Verbrauchsangaben, Notizen, Förderwahl, die Programm-Abschnitte der aktiven
@@ -588,6 +595,8 @@ vollständig erhalten und getestet. Bevor echte Nutzer oder Kundendaten ins Syst
   (ohne Generator) wird dieser Test übersprungen. Vorher bauen, damit die Images aktuell sind.
   Nie Tests gegen `cockpit-db`/die Datenbank `cockpit` laufen lassen – die Tests leeren ihre Datenbank. `conftest.py` bricht ab,
   wenn der Name der Testdatenbank kein „test“ enthält.
+- **Generator-Änderungen** (siehe „Architektur“): Version erhöhen, README, Tests, Textvergleich gegen die Vorversion, bei Layout
+  PDF-Sichtprüfung; fachliche Inhalte vorher im Chat ankündigen.
 - Bauen ohne Cache, damit die Tests im Build wirklich laufen: `scripts/bauen.sh --no-cache cockpit-api cockpit-generator` (wie
   `docker compose build`, setzt zusätzlich `COCKPIT_COMMIT` für die Versionsanzeige; im Betrieb erst committen, dann bauen).
 - **Vor jeder Migration im Betrieb sichern** – `scripts/sicherung.sh` direkt aufrufen (nicht durch eine Pipe, die den Exit-Code verdeckt)

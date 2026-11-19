@@ -1016,6 +1016,8 @@ const firstFooter = new Footer({ children: [ new Paragraph({ style: "Fusszeile",
 const doc = new Document({
   creator: A.firma,
   title: (has(D.titel) ? D.titel : "Energieberatungsbericht"),
+  // ab 0.4.9: Versionen (Generator, Cockpit, KI-Prompt, Konditionen) als benutzerdefinierte Dokumenteigenschaften – nie im Text
+  customProperties: Array.isArray(D.dokument_eigenschaften) ? D.dokument_eigenschaften : [],
   styles: {
     default: { document: { run: { font: FONT, size: 22, color: COL.anthracite } } },
     paragraphStyles: [

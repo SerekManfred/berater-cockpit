@@ -13,7 +13,7 @@ from datetime import date
 from pathlib import Path
 
 PROMPT_DATEI = Path(__file__).parent / "ki" / "prompts" / "init_v1.md"        # Detailbearbeitung (Vorschläge mit [PRÜFEN])
-PROMPT_SCHNELL = Path(__file__).parent / "ki" / "prompts" / "init_v3.md"      # Schnellweg: Kundentext + Hinweise (init-3, 19.11.2026)
+PROMPT_SCHNELL = Path(__file__).parent / "ki" / "prompts" / "init_v4.md"      # Schnellweg: Kundentext + Hinweise (init-4, 19.11.2026)
 
 
 def systemprompt(datei: Path = PROMPT_DATEI) -> tuple[str, str]:
@@ -291,7 +291,7 @@ def konditionen_fuer_ki(kond: dict) -> dict:
     return {k: copy.deepcopy(kond.get(k)) for k in KONDITIONEN_FUER_KI if kond.get(k) is not None}
 
 
-def ki_eingabe(daten: dict, objekt: dict, kond: dict, fotos: list[dict]) -> str:
+def ki_eingabe(daten: dict, objekt: dict, kond: dict, fotos: list[dict], klaerungen: dict | None = None) -> str:
     """Text an die KI: Formular, Checkliste, Notizen, Förderwahl und die freigegebenen Konditionen – ohne Kontaktdaten."""
     eingabe = {
         "objekt": objekt,
@@ -306,6 +306,7 @@ def ki_eingabe(daten: dict, objekt: dict, kond: dict, fotos: list[dict]) -> str:
                                                        "7.3 nur allgemein beschreiben"}
                            if (daten.get("foerder") or {}).get("eh_kein_vergleich") else {})},
         "notizen_des_beraters": daten.get("notizen") or "",
+        **({"klaerungen_des_beraters": klaerungen} if klaerungen else {}),
     }
     konditionen = konditionen_fuer_ki(kond)
     teile = [
@@ -386,3 +387,17 @@ def zahlen_formatieren(wert):
     if isinstance(wert, dict):
         return {k: zahlen_formatieren(v) for k, v in wert.items()}
     return wert
+
+
+# Text beschreibt die Heizung als defekt (für den Abgleich mit der Klärung „funktionstüchtig = ja“, 19.11.2026)
+HEIZUNG_DEFEKT = re.compile(r"(?:kessel|brenner|heizung|therme|w(?:ä|ae)rmeerzeuger)\w*\W+(?:\w+\W+){0,4}?(?:defekt|ausgefallen|kaputt|"
+                            r"au(?:ß|ss)er betrieb|nicht (?:mehr )?funktions)|(?:defekt|ausgefallen)\w*\W+(?:\w+\W+){0,2}?"
+                            r"(?:kessel|brenner|heizung|therme)", re.IGNORECASE)
+ERLAUBT_SATZ = "nach Angabe der Eigentümer sind einzelne Komponenten der Anlagentechnik defekt"
+
+
+def heizung_als_defekt(texte) -> bool:
+    for t in _strings(texte):
+        if HEIZUNG_DEFEKT.search(t.replace(ERLAUBT_SATZ, "")):
+            return True
+    return False

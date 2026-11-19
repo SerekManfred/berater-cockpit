@@ -8,6 +8,7 @@ import io
 import json
 import os
 import re
+import sys
 import zipfile
 
 import httpx
@@ -552,7 +553,8 @@ def test_rueckfrage_verbrauch_als_zeilen_nie_freitext(ki_an, v3_aktiv, generator
         *andere, {"id": z["id"], "wert": json.dumps(zeilen)}]})
     assert r.status_code == 202, r.text
     assert berater.get(f"/projekte/{p['id']}/bericht-init/entwurf").json()["daten"]["verbrauch"]["tabelle"] == zeilen
-    assert generator[-1]["daten"]["verbrauch"]["tabelle"] == zeilen
+    assert generator[-1]["daten"]["verbrauch"]["tabelle"] == [{"traeger": "Heizöl", "menge": "2.500 l", "kosten": "2.800 €"},
+                                                            {"traeger": "Strom", "menge": "3.800 kWh", "kosten": "1.250 €"}]
 
 
 def test_detailbearbeitung_speichert_zeilen_alter_entwurf_bleibt(ki_an, v3_aktiv, generator, pdf, ohne_abgleich):
@@ -572,7 +574,8 @@ def test_detailbearbeitung_speichert_zeilen_alter_entwurf_bleibt(ki_an, v3_aktiv
     z = berater.get(PFAD.format(p["id"])).json()
     r = berater.post(PFAD.format(p["id"]) + "/neu-erzeugen", json={"revision": z["revision"]})
     assert r.status_code == 200, r.text
-    assert generator[-1]["daten"]["verbrauch"]["tabelle"] == zeilen                   # … aber das Word bekommt Zeilen
+    assert generator[-1]["daten"]["verbrauch"]["tabelle"] == [{"traeger": "Heizöl", "menge": "2.500 l", "kosten": "2.800 €"},
+                                                            {"traeger": "Strom", "menge": "3.800 kWh", "kosten": "1.250 €"}]   # … Zeilen
     with SessionLocal() as db:
         be = db.scalars(select(BerichtEntwurf).where(BerichtEntwurf.projekt_id == p["id"])).one()
         assert be.daten["verbrauch"]["tabelle"] == frei
@@ -631,9 +634,11 @@ def test_tausenderpunkt_nur_vor_einheit(roh, erwartet):
     assert ki_texte.tausenderpunkte(roh) == erwartet
 
 
-def test_prompt_init3_ee_oder_nh_und_zahlen():
+def test_prompt_init4_ee_oder_nh_zahlen_und_klaerungen():
     version, text = ki_texte.systemprompt(ki_texte.PROMPT_SCHNELL)
-    assert version == "init-3" and text.startswith("Sie schreiben die Texte")
+    assert version == "init-4" and text.startswith("Sie schreiben die Texte")
+    assert "„Die Heizung ist funktionsfähig; nach Angabe der Eigentümer sind einzelne Komponenten der\n     Anlagentechnik defekt.“" in text
+    assert "klaerungen_des_beraters" in text and "Der Kessel ist nicht funktionsfähig." in text
     assert "Alternativen" in text and "nh_bonus" in text and "nie „nur mit EE-Klasse“" in text
     assert "2.500 l Heizöl" in text and "Ein früher Heizungstausch lohnt sich daher besonders." in text
 
@@ -647,13 +652,13 @@ def test_erzeugt_mit_gespeichert_vorschau_bericht_und_liste(ki_an, v3_aktiv, gen
     cid, ids = unterlagen(berater, p, ki_an, fotos=1)
     s = starten(berater, p, cid, ids)
     m = s["schnellweg"]["vorschau"]["erzeugt_mit"]
-    assert (m["generator"], m["prompt"], m["konditionen_version"], m["cockpit"]) == ("9.9.9-test", "init-3", v3_aktiv, "abc1234")
+    assert (m["generator"], m["prompt"], m["konditionen_version"], m["cockpit"]) == ("9.9.9-test", "init-4", v3_aktiv, "abc1234")
     eig = generator[-1]["daten"]["dokument_eigenschaften"]          # für die Word-Eigenschaften, nicht für den Text
-    assert eig == {"Cockpit": "abc1234", "KI-Prompt": "init-3", "Konditionen-Version": str(v3_aktiv)}
+    assert eig == {"Cockpit": "abc1234", "KI-Prompt": "init-4", "Konditionen-Version": str(v3_aktiv)}
     f = berater.post(PFAD.format(p["id"]) + "/freigeben", json={"revision": s["revision"]}).json()
     akte = berater.get(f"/projekte/{p['id']}").json()
     b = next(x for x in akte["berichte"] if x["id"] == f["bericht_id"])
-    assert b["erzeugt_mit"]["generator"] == "9.9.9-test" and b["erzeugt_mit"]["prompt"] == "init-3"
+    assert b["erzeugt_mit"]["generator"] == "9.9.9-test" and b["erzeugt_mit"]["prompt"] == "init-4"
     monkeypatch.setattr(config, "COCKPIT_VERSION", "neu9999")         # später: gespeicherte Angaben bleiben
     akte = berater.get(f"/projekte/{p['id']}").json()
     assert next(x for x in akte["berichte"] if x["id"] == f["bericht_id"])["erzeugt_mit"]["cockpit"] == "abc1234"
@@ -668,7 +673,7 @@ def test_systeminfo_generator_live(monkeypatch, v3_aktiv):
     _health(monkeypatch, lambda r: httpx.Response(200, json={"status": "ok", "version": "0.4.9"}))
     s = c.get("/systeminfo").json()
     assert s["generator"] == {"erreichbar": True, "version": "0.4.9"}
-    assert s["prompts"] == {"schnellweg": "init-3", "detail": "init-1"} and s["konditionen"]["aktiv"] == v3_aktiv
+    assert s["prompts"] == {"schnellweg": "init-4", "detail": "init-1"} and s["konditionen"]["aktiv"] == v3_aktiv
     _health(monkeypatch, lambda r: httpx.Response(200, json={"status": "ok"}, headers={"X-Generator-Version": "0.4.9"}))
     assert c.get("/systeminfo").json()["generator"]["version"] == "0.4.9"
     _health(monkeypatch, lambda r: httpx.Response(200, json={"status": "ok"}))   # vor 0.4.9: keine Version, nie geraten
@@ -683,6 +688,55 @@ def test_systeminfo_generator_live(monkeypatch, v3_aktiv):
 def test_systeminfo_nur_angemeldet():
     from tests.test_anmeldung import client
     assert client().get("/systeminfo").status_code == 401
+
+
+# ---------- Klärung „Heizung funktionstüchtig“ an die KI (init-4, 19.11.2026) ----------
+
+@pytest.mark.parametrize("antwort, erwartet", [("ja", True), ("nein", False)])
+def test_klaerung_geht_an_die_ki(ki_an, v3_aktiv, generator, pdf, ohne_abgleich, monkeypatch, antwort, erwartet):
+    _bogen_mit(monkeypatch, "Ölkessel: Brenner defekt laut Eigentümer.")
+    berater = konto("berater")
+    p = efh(berater)
+    cid, ids = unterlagen(berater, p, ki_an, fotos=1)
+    r = starten(berater, p, cid, ids)
+    assert ki_an.anfragen == []                                            # Rückfrage vor dem Texten
+    berater.post(PFAD.format(p["id"]) + "/antworten", json={"revision": r["revision"],
+                                                            "antworten": [{"id": "heizung_funktion", "wert": antwort}]})
+    eingabe = next(x["text"] for x in ki_an.anfragen[-1]["inhalt"] if x["typ"] == "text")
+    assert '"klaerungen_des_beraters": {' in eingabe and f'"heizung_funktionstuechtig": {"true" if erwartet else "false"}' in eingabe
+    assert ki_an.anfragen[-1]["system"].count("klaerungen_des_beraters") >= 1
+
+
+def test_text_nennt_heizung_defekt_trotz_ja_wird_hinweis(ki_an, v3_aktiv, generator, pdf, ohne_abgleich, monkeypatch):
+    _bogen_mit(monkeypatch, "Heizung außer Betrieb?")
+    voll = antwort_voll
+    monkeypatch.setattr(sys.modules[__name__], "antwort_voll", lambda ids: {**voll(ids), "zwischenfazit": "Der Ölkessel ist defekt."})
+    berater = konto("berater")
+    p = efh(berater)
+    cid, ids = unterlagen(berater, p, ki_an, fotos=1)
+    r = starten(berater, p, cid, ids)
+    s = berater.post(PFAD.format(p["id"]) + "/antworten", json={"revision": r["revision"],
+                                                                "antworten": [{"id": "heizung_funktion", "wert": "ja"}]}).json()["schnellweg"]
+    assert "4.: Text beschreibt die Heizung als defekt, obwohl sie laut Berater funktionstüchtig ist – bitte korrigieren." in s["hinweise"]
+    assert not ki_texte.heizung_als_defekt("Die Heizung ist funktionsfähig; nach Angabe der Eigentümer sind einzelne Komponenten "
+                                           "der Anlagentechnik defekt.")
+    assert ki_texte.heizung_als_defekt("Der Brenner ist ausgefallen.") and not ki_texte.heizung_als_defekt("Feuchte Kellerwand.")
+
+
+def test_datenfelder_mit_tausenderpunkt_entwurf_bleibt(ki_an, v3_aktiv, generator, pdf, ohne_abgleich):
+    berater = konto("berater")
+    p = efh(berater)
+    cid, ids = unterlagen(berater, p, ki_an, fotos=1)
+    starten(berater, p, cid, ids)
+    zeilen = [{"traeger": "Heizöl", "menge": "2500 l", "kosten": "2800 €"}, {"traeger": "Strom", "menge": "3800 kWh", "kosten": "1250"}]
+    e = _entwurf_aendern(berater, p["id"], lambda d: (d["verbrauch"].update(tabelle=zeilen), d["pv"].update(jahresertrag="10000 kWh/a",
+                                                                                                          alter="12 Jahre")))
+    berater.post(PFAD.format(p["id"]) + "/neu-erzeugen", json={"revision": e["revision"]})
+    gesendet = generator[-1]["daten"]
+    assert gesendet["verbrauch"]["tabelle"] == [{"traeger": "Heizöl", "menge": "2.500 l", "kosten": "2.800 €"},
+                                                {"traeger": "Strom", "menge": "3.800 kWh", "kosten": "1250"}]   # reine Zahl: Generator
+    assert gesendet["pv"]["jahresertrag"] == "10.000 kWh/a" and gesendet["pv"]["alter"] == "12 Jahre"
+    assert berater.get(f"/projekte/{p['id']}/bericht-init/entwurf").json()["daten"]["verbrauch"]["tabelle"] == zeilen
 
 
 # ---------- echter Generator (nur mit GENERATOR_TEST_URL) ----------
@@ -704,5 +758,17 @@ def test_echter_generator_kein_pruefen_wasserzeichen_nur_vorschau(ki_an, v3_akti
         alles = " ".join(re.sub(r"<[^>]+>", "", z.read(n).decode("utf-8", "replace")) for n in z.namelist() if n.endswith(".xml"))
         bilder = [n for n in z.namelist() if n.startswith("word/media/")]
     assert "PRÜFEN" not in alles and "ENTWURF" not in alles and not wasserzeichen.hat_wasserzeichen(docx)
+    # ab Generator 0.4.9: Version live gemeldet, im Bericht gespeichert und als Dokumenteigenschaft im Word – nicht im Text
+    version = berater.get("/systeminfo").json()["generator"]["version"]
+    assert version and re.fullmatch(r"\d+\.\d+\.\d+", version)
+    assert s["schnellweg"]["vorschau"]["erzeugt_mit"]["generator"] == version
+    with zipfile.ZipFile(io.BytesIO(docx)) as z:
+        custom = z.read("docProps/custom.xml").decode()
+    for teil in ('name="Generator"', version, 'name="KI-Prompt"', "init-4", 'name="Konditionen-Version"'):
+        assert teil in custom, teil
+    with zipfile.ZipFile(io.BytesIO(docx)) as z:   # nicht im Text, nicht in Kopf-/Fußzeilen (nur in docProps)
+        text = " ".join(re.sub(r"<[^>]+>", "", z.read(n).decode("utf-8", "replace")) for n in z.namelist()
+                        if n.startswith("word/") and n.endswith(".xml"))
+    assert "init-4" not in text and version not in text
     assert "Ölkessel Vitola-biferral" in alles and "Feuchtefleck" in alles
     assert len(bilder) >= 6                                            # Logo(s) + 6 Fotos

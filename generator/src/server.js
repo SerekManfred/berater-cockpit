@@ -7,6 +7,7 @@ const { Packer } = require("docx");
 const { erstelleFoerdervergleich } = require("./foerdervergleich");
 const { erzeugeCheckliste, checklistenStand, MODULE } = require("./checkliste");
 const { erzeugeBericht, BERICHT_MODULE } = require("./bericht");
+const { VERSION } = require("./version");
 
 const DOCX = "application/vnd.openxmlformats-officedocument.wordprocessingml.document";
 const BERICHTE = { "/foerdervergleich": async d => Packer.toBuffer(erstelleFoerdervergleich(d)) };
@@ -16,7 +17,11 @@ const STAND = Object.fromEntries(MODULE.map(m => ["/checkliste/" + m, checkliste
 const MAX = 2 * 1024 * 1024, MAX_BERICHT = 64 * 1024 * 1024; // Berichte enthalten Fotos (base64)
 
 http.createServer((req, res) => {
-  if (req.method === "GET" && req.url === "/health") { res.writeHead(200, { "Content-Type": "application/json" }); return res.end('{"status":"ok"}'); }
+  res.setHeader("X-Generator-Version", VERSION);   // ab 0.4.9: jede Antwort meldet die Version (Versionsanzeige im Cockpit)
+  if (req.method === "GET" && req.url === "/health") {
+    res.writeHead(200, { "Content-Type": "application/json" });
+    return res.end(JSON.stringify({ status: "ok", version: VERSION }));
+  }
   const bau = BERICHTE[req.url];
   if (req.method !== "POST" || !bau) { res.writeHead(404); return res.end(); }
   const grenze = req.url.startsWith("/bericht/") ? MAX_BERICHT : MAX;

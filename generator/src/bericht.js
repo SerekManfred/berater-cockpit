@@ -2,6 +2,7 @@
 // Der Generator rechnet nicht: Förderzahlen kommen als foerderung.rechenkern aus dem Cockpit-Rechenkern (Regel 1).
 // Fotos kommen mit der Anfrage ({daten, bilder}); der Skill liest sie virtuell, es wird keine Datei geschrieben.
 const { spawn } = require("child_process");
+const { eigenschaften } = require("./version");
 const path = require("path");
 
 const SKILLS = path.join(__dirname, "..", "skills");
@@ -44,7 +45,8 @@ function pruefen(modul, paket) {
 function bereinigen(d) {
   const f = { ...d.foerderung };
   delete f.saetze; delete f.uebersicht;
-  return { ...d, foerderung: f };
+  // ab 0.4.9: Dokumenteigenschaften immer mit der eigenen Version (das Skill-Skript schreibt sie ins Word, nicht in den Text)
+  return { ...d, foerderung: f, dokument_eigenschaften: eigenschaften(d.dokument_eigenschaften) };
 }
 
 // -> Promise<Buffer> (.docx)

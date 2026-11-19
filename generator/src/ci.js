@@ -83,10 +83,11 @@ function box(inhalt, fill = C.goldL, balken = C.gold) {
 const logo = () => new Paragraph({ spacing: { after: 140 }, children: [new ImageRun({ type: "jpg", data: LOGO,
   transformation: { width: 300, height: 72 }, altText: { title: "Logo", description: "Energieberatung Manfred Serek GmbH", name: "logo" } })] });
 
-function dokument(kinder, { kopfzeile, titel }) {
+function dokument(kinder, { kopfzeile, titel, eigenschaften }) {
   const { Document } = require("docx");
   return new Document({
     creator: "Energieberatung Manfred Serek GmbH", title: titel,
+    customProperties: eigenschaften || [],   // ab 0.4.9: Versionen als Dokumenteigenschaften, nie im Text
     styles: { default: { document: { run: { font: F, size: 19, color: C.anth } } },
       paragraphStyles: [{ id: "Fusszeile", name: "Fusszeile", basedOn: "Normal", run: { size: 14, color: C.grau, font: F } }] },
     numbering: { config: [{ reference: "punkte", levels: [{ level: 0, format: LevelFormat.BULLET, text: "▪", alignment: AlignmentType.LEFT,

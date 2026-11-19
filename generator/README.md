@@ -141,3 +141,13 @@ Datenvertrag: `docs/Datenvertrag_Generator_EH_Vergleich.md` (Cockpit, 18.11.2026
 ## Kleinigkeiten (ab 0.4.8)
 - 5.1/5.2: leere Einleitungen werden weggelassen (kein „(keine Angabe)“ unter der Überschrift).
 - Gegenüberstellung: Der Satz „(„—“ = noch offen)“ erscheint nur, wenn tatsächlich ein Wert fehlt.
+
+## Versionsmeldung und Dokumenteigenschaften (ab 0.4.9)
+Ab 0.4.9 pflegt Claude Code den Generator im Cockpit (Regel des Geschäftsführers vom 19.11.2026, siehe CLAUDE.md).
+- `GET /health` → `{"status": "ok", "version": "0.4.9"}`; **jede** Antwort trägt die Kopfzeile `X-Generator-Version`.
+  Einzige Quelle ist `package.json` (`src/version.js`).
+- Optionales Feld `dokument_eigenschaften` (INIT: `daten.dokument_eigenschaften`, Fördervergleich: oberste Ebene), z. B.
+  `{"Cockpit": "539e3b8", "KI-Prompt": "init-4", "Konditionen-Version": "6"}`. Der Generator schreibt diese Werte und seine eigene
+  Version (`Generator`) als **benutzerdefinierte Dokumenteigenschaften** (`docProps/custom.xml`; Word: Datei → Informationen →
+  Eigenschaften → Erweiterte Eigenschaften → Anpassen) – **nicht** in Text, Kopf- oder Fußzeile. Leere Werte entfallen.
+- Ohne das Feld steht nur `Generator` in den Eigenschaften; der Berichtsinhalt ist unverändert gegenüber 0.4.8.

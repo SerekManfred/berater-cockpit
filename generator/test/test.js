@@ -146,5 +146,43 @@ async function text(daten) {
   assert(!w4.includes("****") && w4.includes("ist angekündigt (voraussichtlich Q1 2027)"), "WPB Fall 4: kein „ab ****“");
   const ohneDatum = fx("fall3_in_kraft"); ohneDatum.konditionen.beg_em.wpb_bonus_ab = null;
   assert(!(await text(ohneDatum)).includes("****"), "WPB in Kraft ohne Datum: kein „ab ****“");
-  console.log(`OK – WPB angekündigt (4 Fälle) + Bericht INIT (mit/ohne EH-Vergleich) + ${n} Beispiele + Referenzzahlen + Schutzprüfungen + Fachwerte mit/ohne + ${MODULE.length} Checklisten`);
+  // ab 0.4.9: Versionsmeldung und Dokumenteigenschaften (nie im Text)
+  {
+    const JSZipV = require("jszip");
+    const { VERSION, eigenschaften } = require("../src/version");
+    assert.strictEqual(VERSION, require("../package.json").version, "Version nur aus package.json");
+    assert.deepStrictEqual(eigenschaften({ Cockpit: "abc1234", "KI-Prompt": "", "Konditionen-Version": "6", Generator: "falsch" }),
+      [{ name: "Generator", value: VERSION }, { name: "Cockpit", value: "abc1234" }, { name: "Konditionen-Version", value: "6" }]);
+    const teile = async buf => { const z = await JSZipV.loadAsync(buf);
+      return { doc: await z.file("word/document.xml").async("string"), custom: await z.file("docProps/custom.xml").async("string") }; };
+    const mitE = JSON.parse(JSON.stringify(bd));
+    mitE.dokument_eigenschaften = { Cockpit: "abc1234", "KI-Prompt": "init-4", "Konditionen-Version": "6" };
+    const a = await teile(await erzeugeBericht("init", { daten: bd, bilder }));
+    const b = await teile(await erzeugeBericht("init", { daten: mitE, bilder }));
+    assert.strictEqual(a.doc, b.doc, "INIT: Dokumenttext unverändert durch Eigenschaften");
+    for (const z of ['name="Generator"', VERSION, 'name="Cockpit"', "abc1234", 'name="KI-Prompt"', "init-4", 'name="Konditionen-Version"'])
+      assert(b.custom.includes(z), "INIT custom.xml: " + z);
+    assert(a.custom.includes('name="Generator"') && !a.custom.includes("abc1234"), "INIT ohne Feld: nur Generator");
+    assert(!b.doc.includes("abc1234") && !b.doc.includes("init-4"), "Eigenschaften nicht im Text");
+    const fvDaten = JSON.parse(fs.readFileSync(path.join(__dirname, "..", "beispiele", "efh_ohne_266.json"), "utf8"));
+    const fvMit = { ...fvDaten, dokument_eigenschaften: { Cockpit: "abc1234", "Konditionen-Version": "6" } };
+    const fa = await teile(await Packer.toBuffer(erstelleFoerdervergleich(fvDaten)));
+    const fb = await teile(await Packer.toBuffer(erstelleFoerdervergleich(fvMit)));
+    assert.strictEqual(fa.doc, fb.doc, "Fördervergleich: Dokumenttext unverändert");
+    assert(fb.custom.includes('name="Konditionen-Version"') && fb.custom.includes(VERSION), "Fördervergleich custom.xml");
+    // Server: /health und Kopfzeile
+    const { spawn } = require("child_process");
+    const port = 3900 + Math.floor(Math.random() * 90);
+    const srv = spawn(process.execPath, [path.join(__dirname, "..", "src", "server.js")], { env: { ...process.env, PORT: String(port) }, stdio: "ignore" });
+    try {
+      let r = null;
+      for (let i = 0; i < 50 && !r; i++) { try { r = await fetch(`http://127.0.0.1:${port}/health`); } catch { await new Promise(t => setTimeout(t, 100)); } }
+      assert(r, "Server startet");
+      assert.deepStrictEqual(await r.json(), { status: "ok", version: VERSION });
+      assert.strictEqual(r.headers.get("x-generator-version"), VERSION, "Kopfzeile /health");
+      const f = await fetch(`http://127.0.0.1:${port}/unbekannt`, { method: "POST" });
+      assert.strictEqual(f.headers.get("x-generator-version"), VERSION, "Kopfzeile auch bei 404");
+    } finally { srv.kill(); }
+  }
+  console.log(`OK – Versionsmeldung + Dokumenteigenschaften + WPB angekündigt (4 Fälle) + Bericht INIT (mit/ohne EH-Vergleich) + ${n} Beispiele + Referenzzahlen + Schutzprüfungen + Fachwerte mit/ohne + ${MODULE.length} Checklisten`);
 })().catch(e => { console.error("FEHLER:", e.message); process.exit(1); });

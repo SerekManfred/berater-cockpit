@@ -3,6 +3,7 @@
 const { Paragraph, PageBreak, TextRun, Table, TableRow, TableCell, WidthType, ShadingType, BorderStyle, VerticalAlign } = require("docx");
 const { C, F, W, eur, pct, datum, runs, P, H1, H2, bullet, leer, tabelle, box, logo, dokument, AlignmentType } = require("./ci");
 const FT_DATEI = require("./fachtexte");
+const { eigenschaften } = require("./version");
 
 // Fachwerte aus dem Konditionen-Snapshot (ab Konditionen-Version mit Abschnitt „fachwerte“);
 // alte Berichte ohne diesen Abschnitt nutzen wie bisher fachtexte.js.
@@ -350,7 +351,8 @@ function erstelleFoerdervergleich(d) {
   ch.push(leer(60));
   ch.push(box([P(FT.haftung, { size: 16, color: C.grau, after: 0 })], C.grauL, C.anth));
 
-  return dokument(ch, { kopfzeile: "Fördervergleich · " + objektzeile, titel: "Fördervergleich " + objektzeile });
+  return dokument(ch, { kopfzeile: "Fördervergleich · " + objektzeile, titel: "Fördervergleich " + objektzeile,
+    eigenschaften: eigenschaften(d.dokument_eigenschaften) });
 }
 
 module.exports = { erstelleFoerdervergleich };

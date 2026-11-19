@@ -49,7 +49,8 @@ SCHRITTE = (("checkliste", "Checkliste einlesen"), ("pruefen", "Angaben prüfen"
 FOSSIL = ("öl", "oel", "gas", "kohle", "koks", "nachtspeicher")
 # Hinweis auf eine nicht funktionstüchtige Heizung (Checkliste „Defekte Anlagentechnik“ oder Freitext) – KfW 458 Klimabonus nur beim
 # Austausch einer funktionstüchtigen fossilen Heizung (19.11.2026)
-DEFEKT = re.compile(r"defekte anlagentechnik|heizung\W+(?:\w+\W+){0,4}(?:defekt|kaputt|ausgefallen)|(?:defekt|kaputt|ausgefallen)\w*\W+"
+DEFEKT = re.compile(r"defekte anlagentechnik|(?:heizung|kessel|brenner|therme|w(?:ä|ae)rmeerzeuger)\w*\W+(?:\w+\W+){0,4}"
+                    r"(?:defekt|kaputt|ausgefallen)|(?:defekt|kaputt|ausgefallen)\w*\W+"
                     r"(?:\w+\W+){0,2}(?:heizung|kessel|brenner|therme|w(?:ä|ae)rmeerzeuger)|au(?:ß|ss)er betrieb|"
                     r"nicht (?:mehr )?funktions(?:f(?:ä|ae)hig|t(?:ü|ue)chtig)|funktionsunf(?:ä|ae)hig", re.IGNORECASE)
 HEIZUNG_FRAGE = ("Ist die bestehende Heizung funktionstüchtig? Der Klimabonus gilt nur beim Austausch einer funktionstüchtigen "
@@ -338,12 +339,28 @@ def antworten_anwenden(db: Session, e: BerichtEntwurf, p: Projekt, st: dict, ant
 
 # ---------- KI: alle Texte in einem Lauf ----------
 
+def klaerungen(e: BerichtEntwurf) -> dict | None:
+    """Antworten der Rückfrage, die die Texte bestimmen (init-4): Heizung funktionstüchtig ja/nein."""
+    hf = (e.schnellweg or {}).get("heizung_funktion")
+    return {"heizung_funktionstuechtig": hf["funktionstuechtig"]} if hf else None
+
+
+def widerspruch_hinweise(e: BerichtEntwurf, abschnitte: list[str]) -> list[str]:
+    """Sicherung: Text nennt die Heizung defekt, obwohl der Berater „funktionstüchtig“ geantwortet hat → Hinweis je Abschnitt."""
+    hf = (e.schnellweg or {}).get("heizung_funktion")
+    if not hf or not hf.get("funktionstuechtig"):
+        return []
+    return [f"{ki_texte.abschnitt_titel_kurz(a)}: Text beschreibt die Heizung als defekt, obwohl sie laut Berater funktionstüchtig ist "
+            "– bitte korrigieren." for a in abschnitte if a != "fotos"
+            and ki_texte.heizung_als_defekt(ki_texte.inhalt(a, e.daten, e.foto_zuordnung))]
+
+
 def _ki_inhalt(db: Session, e: BerichtEntwurf, p: Projekt, kond: dict, fotos: list[Datei], ph, cache: bool = False) -> list[dict]:
     d = e.daten or {}
     objekt = {**(d.get("objekt") or {}), "wohneinheiten": (d.get("foerder") or {}).get("we"),
               "davon_selbstgenutzt": (d.get("foerder") or {}).get("we_eigen"),
               "davon_vermietet": (d.get("foerder") or {}).get("we_verm")}
-    text = ki_texte.ki_eingabe(d, objekt, kond, [{"id": f.id} for f in fotos]).rsplit("\n\nErstelle jetzt", 1)[0]
+    text = ki_texte.ki_eingabe(d, objekt, kond, [{"id": f.id} for f in fotos], klaerungen(e)).rsplit("\n\nErstelle jetzt", 1)[0]
     inhalt = [{"typ": "text", "text": ph.ersetzen(text)}]
     for f in fotos:
         try:
@@ -430,6 +447,7 @@ def texte_schreiben(db: Session, e: BerichtEntwurf, p: Projekt, st: dict, ich: B
     e.status = "offen"
     e.bearbeitet_von_id, e.bearbeitet_am = ich.id, jetzt()
     _kosten_dazu(st, "texte", antwort.modell, antwort.nutzung)
+    ki_hinweise = widerspruch_hinweise(e, list(ki_texte.ABSCHNITTE)) + ki_hinweise
     st["ki_hinweise"] = ki_hinweise + list(st.get("ki_hinweise") or [])   # zuerst die der KI, dann die vom Einlesen
     st["texte_lauf"] = {"nr": nr, "modell": antwort.modell, "dauer_s": dauer, "prompt_version": prompt_version}
     protokollieren(db, request, "schnellweg_texte", ich.id, projekt_id=p.id, projektnummer=p.projektnummer, lauf=nr,
@@ -912,6 +930,7 @@ def schnellweg_korrektur(projekt_id: int, k: Korrektur, request: Request, ich: B
     e.bearbeitet_von_id, e.bearbeitet_am = ich.id, jetzt()
     if quelle == "manuell":
         protokollieren(db, request, "schnellweg_korrektur", ich.id, projekt_id=p.id, abschnitt=a, art="manuell")
+    hinweise += widerspruch_hinweise(e, [a])
     st["ki_hinweise"] = [h for h in st.get("ki_hinweise") or []
                          if not h.startswith(ki_texte.abschnitt_titel_kurz(a) + ":")] + hinweise
     st.setdefault("korrekturen", []).append({"abschnitt": a, "art": quelle, "von": ich.name, "am": jetzt().isoformat()})
