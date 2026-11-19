@@ -37,6 +37,7 @@ def _aus(b: Benutzer) -> dict:
         "zwei_faktor_eingerichtet": bool(b.totp_geheimnis), "muss_passwort_aendern": b.muss_passwort_aendern,
         "fehlversuche": b.fehlversuche, "gesperrt_bis": b.gesperrt_bis, "erstellt_am": b.erstellt_am,
         "letzter_login": b.letzter_login, "benachrichtigung_konditionen": bool(b.benachrichtigung_konditionen),
+        "technisch": bool(b.technisch),
     }
 
 
@@ -44,6 +45,8 @@ def _laden(db: Session, benutzer_id: int) -> Benutzer:
     b = db.get(Benutzer, benutzer_id)
     if b is None:
         raise HTTPException(404, "Benutzer nicht gefunden")
+    if b.technisch:  # alle Routen mit _laden ändern etwas – der technische Benutzer bleibt gesperrt und ohne Passwort
+        raise HTTPException(409, "Technischer Benutzer – nicht änderbar und nicht anmeldbar")
     return b
 
 

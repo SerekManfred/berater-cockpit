@@ -37,6 +37,7 @@ function Startpasswort({ info, onSchliessen }) {
 }
 
 function status(b) {
+  if (b.technisch) return "technisch – nicht anmeldbar";
   if (!b.aktiv) return "deaktiviert";
   if (b.gesperrt_bis && new Date(b.gesperrt_bis) > new Date()) return "gesperrt bis " + zeit(b.gesperrt_bis);
   return "aktiv";
@@ -102,7 +103,9 @@ export function Benutzerverwaltung({ ich }) {
                   <td>{status(b)}{b.muss_passwort_aendern && b.aktiv ? " · Startpasswort" : ""}</td>
                   <td>{b.zwei_faktor_eingerichtet ? "eingerichtet" : "offen"}</td>
                   <td>{zeit(b.letzter_login)}</td>
-                  <td><button className="btn2" aria-label={`${b.name} bearbeiten`} onClick={() => setAuswahl(b.id === auswahl ? null : b.id)}>{b.id === auswahl ? "Schließen" : "Bearbeiten"}</button></td>
+                  <td>{b.technisch
+                    ? <span className="klein">nicht änderbar (Berichte von Claude Code im Auftrag)</span>
+                    : <button className="btn2" aria-label={`${b.name} bearbeiten`} onClick={() => setAuswahl(b.id === auswahl ? null : b.id)}>{b.id === auswahl ? "Schließen" : "Bearbeiten"}</button>}</td>
                 </tr>
               ))}
             </tbody>

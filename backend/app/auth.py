@@ -56,7 +56,7 @@ def _sitzung_laden(request: Request, db: Session) -> tuple[Sitzung, Benutzer] | 
         protokollieren(db, request, "sitzung_abgelaufen", s.benutzer_id)
         db.commit()
         return None
-    if b is None or not b.aktiv:
+    if b is None or not b.aktiv or b.technisch:
         db.delete(s)
         db.commit()
         return None
@@ -182,6 +182,10 @@ def anmelden(daten: AnmeldungIn, request: Request, response: Response, db: Sessi
         protokollieren(db, request, "login_abgelehnt", b.id, grund="gesperrt_fehlversuche")
         db.commit()
         raise HTTPException(423, _sperrtext())
+    if b.technisch:  # technischer Benutzer: nie anmeldbar (kein gültiger Passwort-Hash, zusätzlich hier gesperrt)
+        protokollieren(db, request, "login_abgelehnt", b.id, grund="technischer_benutzer")
+        db.commit()
+        raise HTTPException(401, FALSCH)
     if not passwort_pruefen(b.passwort_hash, daten.passwort):
         _fehlversuch(db, request, b, "passwort")
         raise HTTPException(401, FALSCH)

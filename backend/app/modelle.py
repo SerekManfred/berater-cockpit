@@ -54,6 +54,8 @@ class Benutzer(Base):
     letzter_login: Mapped[datetime | None] = mapped_column(UTCZeit)
     # Migration 0009: „Erhält Benachrichtigungen Förderkonditionen“ (nur Admin setzt ihn)
     benachrichtigung_konditionen: Mapped[bool] = mapped_column(Boolean, nullable=False, default=False, server_default=text("false"))
+    # Migration 0015: technischer Benutzer („Claude Code (technisch)“) – nie anmeldbar, in der Verwaltung nicht änderbar
+    technisch: Mapped[bool] = mapped_column(Boolean, nullable=False, default=False, server_default=text("false"))
 
 
 class Sitzung(Base):

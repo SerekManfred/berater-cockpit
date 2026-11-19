@@ -11,7 +11,7 @@ from app.auth import aktueller_benutzer
 from app.db import get_db
 from app.modelle import Benutzer, Bericht, Projekt
 from app.parteien import berichtskunde
-from app.projekte_api import _bericht_laden, _namen, we_pruefung
+from app.projekte_api import _bericht_laden, we_pruefung
 from app.protokoll import protokollieren
 from app.rechnen import ANGEBOTE_BRUTTO_TEXT, kennzeichnung_nachtragen
 
@@ -25,6 +25,16 @@ TRANSPORT: httpx.BaseTransport | None = None  # nur für Tests austauschbar
 
 NICHT_ERREICHBAR = ("Der Word-Generator ist gerade nicht erreichbar. Bitte in einigen Minuten erneut versuchen; "
                     "besteht das Problem weiter, einen Admin informieren.")
+
+
+def berater_name(db: Session, b: Bericht, p: Projekt) -> str | None:
+    """Name für „Berater/Erstellt“ im Word: der Ersteller – außer beim technischen Benutzer (Claude Code), dann der
+    Zuständige des Projekts (nie „Claude Code (technisch)“ im Kundenbericht)."""
+    ersteller = db.get(Benutzer, b.erstellt_von_id) if b.erstellt_von_id else None
+    if ersteller is not None and ersteller.technisch:
+        zustaendig = db.get(Benutzer, p.zustaendig_id) if p.zustaendig_id else None
+        return zustaendig.name if zustaendig is not None and not zustaendig.technisch else None
+    return ersteller.name if ersteller is not None else None
 
 
 def generator_daten(b: Bericht, p: Projekt, ersteller: str | None) -> dict:
@@ -99,7 +109,7 @@ def bericht_word(bericht_id: int, request: Request, ich: Benutzer = Depends(aktu
         raise HTTPException(409, {"meldung": "Bitte zuerst die Hinweise zu den Wohneinheiten prüfen und bestätigen "
                                              "(„Wohneinheiten geprüft“): " + " ".join(x["text"] for x in offen),
                                   "wohneinheiten": offen})
-    ersteller = _namen(db, [b.erstellt_von_id]).get(b.erstellt_von_id)
+    ersteller = berater_name(db, b, p)
     from app import systeminfo
     daten = generator_daten(b, p, ersteller)
     daten["dokument_eigenschaften"] = systeminfo.dokument_eigenschaften(systeminfo.erzeugt_mit(None, None, b.konditionen_version))

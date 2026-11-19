@@ -160,6 +160,58 @@ def bericht_kennzeichnen(bericht_id: int, text: str, aufheben: bool = False) -> 
     return 0
 
 
+TECHNISCH_EMAIL = "claude-code@technisch.invalid"   # .invalid: nie zustellbar (RFC 2606)
+TECHNISCH_NAME = "Claude Code (technisch)"
+
+
+def technischer_benutzer(db) -> Benutzer:
+    """Technisches Konto für Arbeiten von Claude Code im Auftrag (Geschäftsführer 19.11.2026). Nie anmeldbar:
+    inaktiv, technisch=True (Anmeldung/Sitzung im Code gesperrt), Passwort-Hash ungültig. Rolle berater nur für die
+    Rechteprüfung beim Speichern. Wird beim ersten Gebrauch angelegt."""
+    b = db.scalar(select(Benutzer).where(Benutzer.email == TECHNISCH_EMAIL))
+    if b is None:
+        b = Benutzer(email=TECHNISCH_EMAIL, name=TECHNISCH_NAME, passwort_hash="!technisch-nicht-anmeldbar",
+                     rollen=["berater"], aktiv=False, technisch=True, muss_passwort_aendern=False)
+        db.add(b)
+        db.flush()
+        protokollieren(db, None, "benutzer_angelegt", None, benutzer=b.id, technisch=True)
+    return b
+
+
+def bericht_neue_version(basis_id: int, datei: str, auftrag: str, aktuelle_konditionen: bool = False) -> int:
+    """Neue Berichtsversion aus einem gespeicherten Bericht mit Eingaben aus DATEI.json – erzeugt durch Claude Code
+    (technischer Benutzer), gleicher Weg wie „Als neue Version bearbeiten“ (Rechnen im Backend, Pflichtregeln, Snapshot).
+    „Wohneinheiten geprüft“ setzt die Kommandozeile nie (bleibt beim Berater)."""
+    import json
+
+    from fastapi import HTTPException
+
+    from app import projekte_api as pa
+    auftrag = (auftrag or "").strip()
+    if not 3 <= len(auftrag) <= 200:
+        print("--auftrag bitte mit 3 bis 200 Zeichen (ohne Namen/Anschriften – steht im Protokoll).", file=sys.stderr)
+        return 1
+    with open(datei, encoding="utf-8") as f:
+        eingaben = json.load(f)
+    with SessionLocal() as db:
+        try:
+            b, _ = pa._bericht_laden(db, basis_id)
+            pa._nicht_ueber_entwurf(b.modul)
+            p = pa._projekt_laden(db, b.projekt_id, sperren=True)
+            kond = pa._kond_fuer_neu(b, aktuelle_konditionen, db)
+            ich = technischer_benutzer(db)
+            neu = pa._bericht_speichern(db, None, p, b.modul, eingaben, kond, ich, basis_bericht_id=b.id,
+                                        basis_versionsnummer=b.versionsnummer, aktuelle_konditionen=aktuelle_konditionen,
+                                        quelle="claude_code", auftrag=auftrag)
+            db.commit()
+        except HTTPException as fehler:
+            print(f"Abgelehnt ({fehler.status_code}): {fehler.detail}", file=sys.stderr)
+            return 1
+        print(f"Bericht {neu.id}: {p.projektnummer} {b.modul} V{neu.versionsnummer} (Konditionen {neu.konditionen_version}), "
+              f"erzeugt durch {TECHNISCH_NAME}.")
+    return 0
+
+
 def main(argv=None) -> int:
     parser = argparse.ArgumentParser(prog="python -m app.cli", description="Berater-Cockpit – Verwaltung")
     befehle = parser.add_subparsers(dest="befehl", required=True)
@@ -178,6 +230,11 @@ def main(argv=None) -> int:
     m.add_argument("bericht_id", type=int)
     m.add_argument("--text", default="Beispieldaten – nicht verwenden")
     m.add_argument("--aufheben", action="store_true")
+    n = befehle.add_parser("bericht-neue-version", help="Neue Berichtsversion durch Claude Code (technischer Benutzer)")
+    n.add_argument("basis_id", type=int)
+    n.add_argument("--eingaben", required=True, help="JSON-Datei mit den vollständigen Eingaben")
+    n.add_argument("--auftrag", required=True, help="kurzer Auftragsvermerk fürs Protokoll, ohne Personendaten")
+    n.add_argument("--aktuelle-konditionen", action="store_true", help="aktive statt eingefrorener Konditionen-Version")
     args = parser.parse_args(argv)
     if args.befehl == "admin-anlegen":
         return admin_anlegen()
@@ -187,6 +244,8 @@ def main(argv=None) -> int:
         return konditionen_aktivieren()
     if args.befehl == "konditionen-entwurf-ergaenzen":
         return konditionen_entwurf_ergaenzen(args.version, args.datei, args.notiz)
+    if args.befehl == "bericht-neue-version":
+        return bericht_neue_version(args.basis_id, args.eingaben, args.auftrag, args.aktuelle_konditionen)
     if args.befehl == "bericht-kennzeichnen":
         return bericht_kennzeichnen(args.bericht_id, args.text, aufheben=args.aufheben)
     return 2
