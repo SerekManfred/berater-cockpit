@@ -194,6 +194,14 @@ Ausführliches Fachkonzept: `docs/Konzept_Berater-Cockpit.docx` (falls abgelegt)
   Hinweis/Sperre in Editor und Freigabe-Ansicht (`FundstellenHinweis`). Version 7 war am 19.11.2026 bereits freigegeben (geplant) –
   die Sperre greift damit ab dem nächsten Entwurf. Noch nicht umgesetzt: Förderprüfung meldet geänderte Merkblätter per sha256.
   Tests: `tests/test_konditionen_quellen.py`, `KonditionenQuellen.test.jsx`.
+- **WPB-Kriterien** (Programm `wpb`, ab Entwurf Version 8, 19.11.2026): `energieausweis_klasse`, `energieausweis_arten`,
+  `baujahr_bis`, `anteil_aussenwand_unsaniert_min` (Anteil), optional `endenergie_min`, `hinweis`; alle optional, sobald ein
+  Kriterium gesetzt ist, sind `wpb.quelle`/`geprueft_am` Pflicht, Baujahr und Anteil nur zusammen. Nicht in der Förderprüfung
+  (`OHNE_PRUEFUNG`, erst nach Freigabe entscheiden). Generator 0.5.1 nimmt die Kriterien nur aus diesem Abschnitt.
+  Belegt (Prüfung 19.11.2026): BAFA-Infoblatt „förderfähige Maßnahmen und Leistungen“ Version 10.0 (07/2025), Abschnitt 1.6, S. 13 –
+  Klasse H (Bedarfs- oder Verbrauchsausweis) oder Baujahr ≤ 1957 und ≥ 75 % Außenwand unsaniert; Richtlinie BEG EM vom
+  17.07.2026 Nr. 3 x) (S. 7) verweist dafür auf das Infoblatt. „≥ 300 kWh/(m²a)“ nur in der BEG-FAQ (14.08.2026, S. 12).
+  Tests: `tests/test_wpb_kriterien.py`.
 - **Im Voraus freigeben – Status „geplant“** (Geschäftsführer 16.11.2026, Migration 0011): Freigabe mit „gültig ab“ nach heute
   (Europe/Berlin, `fristen.heute()`) → `geplant` statt `aktiv` (Vier-Augen-Prüfung erledigt, höchstens eine geplante Version per
   Teilindex `uq_konditionen_eine_geplante`). Am Stichtag `faellige_aktivieren()` (`app/rechnen.py`, eigene DB-Sitzung, Sperre,

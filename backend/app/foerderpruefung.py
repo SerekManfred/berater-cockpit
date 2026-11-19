@@ -45,7 +45,7 @@ BERLIN = ZoneInfo("Europe/Berlin")
 PROMPT_DATEI = Path(__file__).parent / "ki" / "prompts" / "foerderpruefung_v2.md"   # v2: auch leere Felder melden
 PROMPT_STAND_DATEI = Path(__file__).parent / "ki" / "prompts" / "foerderpruefung_stand_v1.md"
 VOR_ZEITLIMIT = 240.0                                       # Sekunden für Stufe 1
-OHNE_PRUEFUNG = ("allgemein", "fachwerte")                 # keine Förderwerte (Stand-Datum, Texte für den Bericht)
+OHNE_PRUEFUNG = ("allgemein", "fachwerte", "wpb")          # keine Förderwerte (Stand-Datum, Texte für den Bericht); wpb: erst nach Freigabe V8 entscheiden
 PRUEFBARE_TYPEN = ("prozent", "euro", "zahl", "datum", "janein", "auswahl", "mehrfach")
 STATUS = ("keine_abweichung", "offen", "entwurf_angelegt", "verworfen")
 # Listenpreise in US-Dollar je 1 Mio. Tokens (Eingabe, Ausgabe, Cache lesen), Stand 11/2026 – nur für die Kostenschätzung.

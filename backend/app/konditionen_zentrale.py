@@ -153,6 +153,21 @@ PROGRAMME = [
         F("steuer_35c.max_ermaessigung_objekt", "Max. Steuerermäßigung je Objekt", "euro", kern=True),
         frist("steuer_35c"),
     ]},
+    # WPB-Kriterien (Geschäftsführer 19.11.2026, ab Entwurf Version 8): nur mit Fundstelle; alle Felder optional, damit ältere
+    # Versionen gültig bleiben – sobald ein Kriterium gesetzt ist, sind Quelle und Prüfdatum Pflicht (Prüfregel unten).
+    # Der Generator (ab 0.5.1) schreibt die Kriterien nur aus diesem Abschnitt; das Cockpit prüft die Grundlage noch nicht dagegen.
+    {"id": "wpb", "titel": "Worst Performing Building (WPB) – Kriterien", "quelle_pflicht": False, "felder": [
+        F("wpb.quelle", "Quelle", "text", pflicht=False, kern=True),
+        F("wpb.geprueft_am", "Geprüft am", "datum", pflicht=False, kern=True),
+        F("wpb.energieausweis_klasse", "Energieausweis: Klasse, ab der ein Wohngebäude WPB ist", "auswahl", pflicht=False, kern=True,
+          optionen=[[k, k] for k in ("A+", "A", "B", "C", "D", "E", "F", "G", "H")]),
+        F("wpb.energieausweis_arten", "Energieausweis: zulässige Ausweisarten", "mehrfach", pflicht=False,
+          optionen=[["bedarf", "Bedarfsausweis"], ["verbrauch", "Verbrauchsausweis"]]),
+        F("wpb.baujahr_bis", "Baujahr bis einschließlich", "zahl", pflicht=False, kern=True),
+        F("wpb.anteil_aussenwand_unsaniert_min", "Mindestanteil energetisch unsanierte Außenwand", "prozent", pflicht=False, kern=True),
+        F("wpb.endenergie_min", "Jahres-Endenergiebedarf ab (kWh/(m²a)) – leer = kein Kriterium", "zahl", pflicht=False),
+        F("wpb.hinweis", "Hinweis zu den Kriterien", "text_lang", pflicht=False),
+    ]},
     {"id": "fachwerte", "titel": "Fachwerte für den Bericht", "quelle_pflicht": False, "felder": [
         *quelle("fachwerte.tma_em", kern=False, gruppe="U-Werte BEG EM (Technische Mindestanforderungen)"),
         F("fachwerte.tma_em.bauteile", "Anforderungen je Bauteil", "tabelle", gruppe="U-Werte BEG EM (Technische Mindestanforderungen)",
@@ -282,6 +297,16 @@ def pruefen(daten: dict, aenderungsnotiz: str | None = None) -> list[dict]:
             if _ist_zahl(t) and t > tmax:
                 f("beg_wg.tilgungszuschuss_max", f"Höchstsatz liegt unter dem Tilgungszuschuss {EH_TEXT[s]}")
                 break
+    kriterien = [p for p in ("wpb.energieausweis_klasse", "wpb.energieausweis_arten", "wpb.baujahr_bis",
+                             "wpb.anteil_aussenwand_unsaniert_min", "wpb.endenergie_min") if not _leer(lesen_pfad(daten, p))]
+    if kriterien:
+        for p in ("wpb.quelle", "wpb.geprueft_am"):
+            if _leer(lesen_pfad(daten, p)):
+                f(p, "Pflichtfeld, sobald ein WPB-Kriterium gesetzt ist")
+        bj, ant = lesen_pfad(daten, "wpb.baujahr_bis"), lesen_pfad(daten, "wpb.anteil_aussenwand_unsaniert_min")
+        if (bj is None) != (ant is None):
+            f("wpb.anteil_aussenwand_unsaniert_min" if ant is None else "wpb.baujahr_bis",
+              "Baujahr und Anteil unsanierte Außenwand nur zusammen angeben")
     if aenderungsnotiz is not None and not aenderungsnotiz.strip():
         f("aenderungsnotiz", "Bitte kurz beschreiben, was sich ändert und warum")
     return fehler
