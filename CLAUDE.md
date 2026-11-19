@@ -273,6 +273,12 @@ Ausführliches Fachkonzept: `docs/Konzept_Berater-Cockpit.docx` (falls abgelegt)
   Fachplanung aus A + C bzw. A + D. Das Feld schaltet die Angebote nie ab; Widerspruch → Hinweis im Formular/Ergebnis, Speichern 422.
 - **Kostenhinweis nur Zahl** (Befund V5 „300000“, 19.11.2026): `kostenhinweis_warnung()` in `app/rechnen.py` – weniger als drei
   Buchstaben → `kostenhinweis_warnung` im Ergebnis und Warnung am Feld (`kostenhinweisNurZahl`, gleiche Regel); sperrt nicht.
+- **Grundlage WPB** (Geschäftsführer 19.11.2026, Anzeigefeld `wpb_grundlage`, `WpbGrundlageIn`): Art `energieausweis` (Klasse
+  A+–H, `ausweis_datum` ISO-Text, `ausweis_art` bedarf/verbrauch) | `endenergiekennwert` (`kennwert` kWh/(m²a), `herkunft`) |
+  `baujahr_aussenwand` (`baujahr`, `anteil_unsaniert_prozent`); je Art vollständig, sonst 422. **Pflicht beim Speichern bei
+  WPB ja/nein** (sonst „unbekannt“ wählen); Rechnen frei. Kriterien/Schwellen prüft das Cockpit nicht (nur mit belegtem
+  Konditionen-Feld). `wpb_grundlage_text()` → Bericht (`wpb_grundlage_text` an den Generator, nur bei ja/nein) und Berichtsansicht.
+  Ältere Berichte ohne Grundlage bleiben unverändert (Generator wie bisher).
 - **Word:** bei Angeboten `angebote_hinweis` = `ANGEBOTE_BRUTTO_TEXT` („Alle Beträge inkl. 19 % MwSt.“) an den Generator (Kapitel 9).
 - **Referenzfall-Knopf:** nie in der Projektakte, nur Schnellrechnung, nur mit `BEISPIELDATEN_AKTIV` (Standard true, **Produktion
   false**; `/systeminfo` → `beispieldaten`). Rückfrage vor dem Ersetzen; füllt Angebote mit Vorlage + Standardbeträgen (Fachplanung 0).

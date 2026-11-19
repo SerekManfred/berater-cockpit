@@ -25,6 +25,8 @@ ANGEBOTE = {
 ABNAHME = {
     "we_nach_sanierung": 4, "we_neu": 2, "kfw266": True, "umbaukosten_neue_we": 200000, "kosten_isfp": 0, "isfp": False,
     "wpb_status": "nein", "angebote": ANGEBOTE,
+    # Pflicht seit 19.11.2026 bei WPB ja/nein (Testwert)
+    "wpb_grundlage": {"art": "endenergiekennwert", "kennwert": 180, "herkunft": "Testwert"},
     "massnahmen": [{"name": "WDVS", "kosten": 60000, "em_kategorie": "daemmung"},
                    {"name": "Fenster", "kosten": 40000, "em_kategorie": "fenster"}],
 }

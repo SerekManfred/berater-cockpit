@@ -128,6 +128,47 @@ export function kostenhinweisNurZahl(text) {
   return !!text && !!text.trim() && (text.match(/\p{L}/gu) || []).length < 3;
 }
 
+// Grundlage der WPB-Einstufung (19.11.2026) – Pflicht beim Speichern bei WPB ja/nein, Vollständigkeit prüft das Backend
+export const WPB_GRUNDLAGE_ARTEN = [["energieausweis", "Energieausweis"], ["endenergiekennwert", "Endenergiekennwert"],
+  ["baujahr_aussenwand", "Baujahr und unsanierte Außenwand"]];
+const KLASSEN = ["A+", "A", "B", "C", "D", "E", "F", "G", "H"];
+
+function WpbGrundlageFeld({ wert, onChange }) {
+  const g = wert || {};
+  const set = (k, v) => { const n = { ...g, [k]: v }; if (v === "" || v === null || v === undefined) delete n[k]; onChange(n); };
+  return (
+    <fieldset className="gruppe" style={{ marginTop: 14 }}>
+      <legend>Grundlage der WPB-Einstufung (Pflicht bei „ja“ oder „nein“)</legend>
+      <div className="felder">
+        <label>Art der Grundlage
+          <select value={g.art || ""} onChange={e => onChange(e.target.value ? { art: e.target.value } : null)}>
+            <option value="">– bitte wählen –</option>
+            {WPB_GRUNDLAGE_ARTEN.map(([k, t]) => <option key={k} value={k}>{t}</option>)}
+          </select></label>
+        {g.art === "energieausweis" && <>
+          <label>Effizienzklasse
+            <select value={g.klasse || ""} onChange={e => set("klasse", e.target.value)}>
+              <option value="">– bitte wählen –</option>{KLASSEN.map(k => <option key={k} value={k}>{k}</option>)}
+            </select></label>
+          <label>Ausgestellt am<input type="date" value={g.ausweis_datum || ""} onChange={e => set("ausweis_datum", e.target.value)} /></label>
+          <label>Ausweisart
+            <select value={g.ausweis_art || ""} onChange={e => set("ausweis_art", e.target.value)}>
+              <option value="">– bitte wählen –</option><option value="bedarf">Bedarfsausweis</option><option value="verbrauch">Verbrauchsausweis</option>
+            </select></label>
+        </>}
+        {g.art === "endenergiekennwert" && <>
+          <ZahlFeld label="Endenergiekennwert (kWh/(m²a))" wert={g.kennwert ?? null} onChange={v => set("kennwert", v)} />
+          <label>Herkunft<input maxLength={200} value={g.herkunft || ""} placeholder="z. B. Gebäudemodell vom …" onChange={e => set("herkunft", e.target.value)} /></label>
+        </>}
+        {g.art === "baujahr_aussenwand" && <>
+          <ZahlFeld label="Baujahr" ganzzahl wert={g.baujahr ?? null} onChange={v => set("baujahr", v)} />
+          <ZahlFeld label="Anteil unsanierte Außenwand (%)" wert={g.anteil_unsaniert_prozent ?? null} onChange={v => set("anteil_unsaniert_prozent", v)} />
+        </>}
+      </div>
+    </fieldset>
+  );
+}
+
 /** Pflicht beim Speichern in der Projektakte (19.11.2026): Angebote ODER „bewusst ohne Angebote“ mit Grund,
  *  kein Widerspruch zur externen Fachplanung. Das Backend prüft dasselbe (422). */
 export function speichernPruefen(d) {
@@ -136,6 +177,8 @@ export function speichernPruefen(d) {
   else if (!d.angebote) f.push("Angebote fehlen: bitte die Beträge A, C und D eintragen (bei KfW 266 auch B) oder „bewusst ohne Angebote“ mit Grund wählen");
   const w = fachplanungWiderspruch(d);
   if (w) f.push(w);
+  if (["ja", "nein"].includes(d.wpb_status) && !d.wpb_grundlage?.art)
+    f.push(`Grundlage WPB fehlt: bei „Worst Performing Building: ${d.wpb_status}“ bitte die Grundlage angeben (sonst „unbekannt“)`);
   return f;
 }
 
@@ -158,6 +201,8 @@ export function eingabenPruefen(d) {
     return m;
   });
   if (zahlUngueltig(d.we_vor_sanierung, true)) fehler.push("Wohneinheiten vor Sanierung: bitte eine ganze Zahl eingeben");
+  for (const [k, t] of [["kennwert", "Endenergiekennwert"], ["baujahr", "Baujahr"], ["anteil_unsaniert_prozent", "Anteil unsanierte Außenwand"]])
+    if (zahlUngueltig(d.wpb_grundlage?.[k])) fehler.push(`Grundlage WPB – ${t}: bitte als Zahl eingeben`);
   for (const [k] of ANGEBOTE) {
     const b = d.angebote?.[k]?.betrag;
     if (zahlUngueltig(b)) fehler.push(`Angebot ${k.toUpperCase()}: Betrag bitte als Zahl eingeben`);
@@ -382,6 +427,7 @@ export function Foerdervergleich({ titel = "Fördervergleich Einzelmaßnahmen / 
               </select>
             </label>
           </div>
+          {["ja", "nein"].includes(d.wpb_status) && <WpbGrundlageFeld wert={d.wpb_grundlage} onChange={g => setOpt("wpb_grundlage", g)} />}
           <label style={{ marginTop: 14 }}>Hinweis zu den Kosten (erscheint im Bericht unter „Kosten und Förderwege“)
             <textarea rows={2} maxLength={1000} value={d.kosten_hinweis ?? ""} onChange={e => setOpt("kosten_hinweis", e.target.value)}
               placeholder="z. B. Kosten laut Kostenschätzung Architekt vom …" aria-describedby={kostenhinweisNurZahl(d.kosten_hinweis) ? "kh-warnung" : undefined} />

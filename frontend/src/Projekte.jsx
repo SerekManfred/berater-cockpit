@@ -515,7 +515,8 @@ function BerichtAnsicht({ ich, id, onZurueck, onGehe }) {
           <dt>Wohneinheiten vor Sanierung</dt><dd>{e.we_vor_sanierung ?? "keine Angabe"}</dd>
           <dt>Bestandsheizung</dt><dd>{e.bestandsheizung?.replace(">=", "≥") || "keine Angabe"}</dd>
           <dt>Nutzung</dt><dd>{e.nutzung || "keine Angabe"}</dd>
-          <dt>Worst Performing Building</dt><dd>{e.wpb_status || "keine Angabe"}</dd>
+          <dt>Worst Performing Building</dt><dd>{e.wpb_status || "keine Angabe"}{b.wpb_grundlage_text ? ` – ${b.wpb_grundlage_text}` : ""}
+            {["ja", "nein"].includes(e.wpb_status) && !b.wpb_grundlage_text && <div className="klein">ohne erfasste Grundlage (vor dem 19.11.2026 gespeichert)</div>}</dd>
           <dt>Hinweis zu den Kosten</dt><dd className="notiz">{e.kosten_hinweis || "–"}</dd>
         </dl>
         <div className="tabelle" style={{ marginTop: 14 }}>

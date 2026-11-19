@@ -135,6 +135,17 @@ describe("Angebotsvorlagen (Abnahme 3)", () => {
     expect(screen.queryByText(/bisher: „Modellierung“/)).toBeNull();
   });
 
+  it("Grundlage WPB erscheint bei ja/nein und fragt je Art die Angaben ab", async () => {
+    render(<Foerdervergleich start={{ ...LEER, wpb_status: "ja" }} onSpeichern={() => {}} />);
+    await warten();
+    fireEvent.change(screen.getByLabelText("Art der Grundlage"), { target: { value: "energieausweis" } });
+    expect(screen.getByLabelText("Effizienzklasse")).toBeTruthy();
+    expect(screen.getByLabelText("Ausweisart")).toBeTruthy();
+    fireEvent.change(screen.getByLabelText("Art der Grundlage"), { target: { value: "baujahr_aussenwand" } });
+    expect(screen.queryByLabelText("Effizienzklasse")).toBeNull();
+    expect(screen.getByLabelText("Anteil unsanierte Außenwand (%)")).toBeTruthy();
+  });
+
   it("gespeicherte Angebote behalten ihren Text", () => {
     const f = angeboteFormular({ a: { betrag: 1, titel: "Alt A", leistungen: "alt" }, c: { betrag: 1 }, d: { betrag: 1 } }, VORLAGEN);
     expect([f.a.titel, f.a.leistungen, f.c.titel, f.c.leistungen]).toEqual(["Alt A", "alt", "BAFA Einzelmaßnahmen", ""]);

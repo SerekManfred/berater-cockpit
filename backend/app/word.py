@@ -13,7 +13,7 @@ from app.modelle import Benutzer, Bericht, Projekt
 from app.parteien import berichtskunde
 from app.projekte_api import _bericht_laden, we_pruefung
 from app.protokoll import protokollieren
-from app.rechnen import ANGEBOTE_BRUTTO_TEXT, kennzeichnung_nachtragen
+from app.rechnen import ANGEBOTE_BRUTTO_TEXT, kennzeichnung_nachtragen, wpb_grundlage_text
 
 router = APIRouter(tags=["Word-Berichte"])
 
@@ -54,6 +54,10 @@ def generator_daten(b: Bericht, p: Projekt, ersteller: str | None) -> dict:
         "kosten_hinweis": (b.eingaben or {}).get("kosten_hinweis") or None,
         # Angebotsbeträge sind brutto (Formular seit 14.11.2026 „Betrag brutto“); Ausweis ab Generator 0.5.0 in Kapitel 9
         **({"angebote_hinweis": ANGEBOTE_BRUTTO_TEXT} if (b.eingaben or {}).get("angebote") else {}),
+        # Grundlage der WPB-Einstufung (ab 19.11.2026, Generator 0.5.1): nur mit Grundlage stellt der Bericht den zutreffenden
+        # Weg voran; ältere Berichte ohne Grundlage bleiben unverändert
+        **({"wpb_grundlage_text": wpb_grundlage_text((b.eingaben or {}).get("wpb_grundlage"))}
+           if (b.eingaben or {}).get("wpb_grundlage") and (b.eingaben or {}).get("wpb_status") in ("ja", "nein") else {}),
     }
 
 

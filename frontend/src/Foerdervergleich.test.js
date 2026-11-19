@@ -119,3 +119,17 @@ describe("Kostenhinweis nur Zahl (Warnung)", () => {
     expect(["Kosten laut Architekt", "", null, "Ang"].map(kostenhinweisNurZahl)).toEqual([false, false, false, false]);
   });
 });
+
+import { eingabenPruefen as pruefen19, speichernPruefen as speichern19 } from "./Foerdervergleich.jsx";
+describe("Grundlage WPB (Pflicht bei ja/nein)", () => {
+  const ANG = { a: { betrag: 1 }, c: { betrag: 1 }, d: { betrag: 1 }, anrechnung_a_in_d: true };
+  it("ja/nein ohne Grundlage sperrt Speichern, unbekannt nicht", () => {
+    expect(speichern19({ angebote: ANG, wpb_status: "ja" }).join()).toContain("Grundlage WPB fehlt");
+    expect(speichern19({ angebote: ANG, wpb_status: "nein", wpb_grundlage: { art: "energieausweis" } })).toEqual([]);
+    expect(speichern19({ angebote: ANG, wpb_status: "unbekannt" })).toEqual([]);
+  });
+  it("ungültige Zahl in der Grundlage blockiert", () => {
+    const { fehler } = pruefen19({ ...LEER, massnahmen: [], wpb_grundlage: { art: "endenergiekennwert", kennwert: NaN } });
+    expect(fehler.join()).toContain("Endenergiekennwert");
+  });
+});

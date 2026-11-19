@@ -168,6 +168,57 @@ class AngeboteIn(BaseModel):
                         anrechnung_a_in_d=self.anrechnung_a_in_d)
 
 
+WPB_GRUNDLAGE_ARTEN = {"energieausweis": "Energieausweis", "endenergiekennwert": "Endenergiekennwert",
+                       "baujahr_aussenwand": "Baujahr und unsanierte Außenwand"}
+
+
+class WpbGrundlageIn(BaseModel):
+    """Grundlage der WPB-Einstufung (Geschäftsführer 19.11.2026), Anzeigefeld – der Rechenkern bekommt es nicht.
+    Pflicht beim Speichern, sobald wpb_status ja/nein ist. Kriterien/Schwellen prüft das Cockpit nicht (erst mit einem
+    belegten Konditionen-Feld, Entwurf Version 8)."""
+    art: Literal["energieausweis", "endenergiekennwert", "baujahr_aussenwand"]
+    klasse: Literal["A+", "A", "B", "C", "D", "E", "F", "G", "H"] | None = None
+    ausweis_datum: str | None = Field(None, pattern=r"^\d{4}-\d{2}-\d{2}$")   # ISO, als Text gespeichert (JSON)
+    ausweis_art: Literal["bedarf", "verbrauch"] | None = None
+    kennwert: float | None = Field(None, gt=0, lt=10000)          # kWh/(m²a)
+    herkunft: str | None = Field(None, max_length=200)
+    baujahr: int | None = Field(None, ge=1700, le=2100)
+    anteil_unsaniert_prozent: float | None = Field(None, ge=0, le=100)
+
+    @model_validator(mode="after")
+    def _vollstaendig(self):
+        fehlt = {"energieausweis": [("klasse", "Effizienzklasse"), ("ausweis_datum", "Ausstellungsdatum"), ("ausweis_art", "Bedarfs-/Verbrauchsausweis")],
+                 "endenergiekennwert": [("kennwert", "Endenergiekennwert"), ("herkunft", "Herkunft des Kennwerts")],
+                 "baujahr_aussenwand": [("baujahr", "Baujahr"), ("anteil_unsaniert_prozent", "Anteil unsanierte Außenwand")]}[self.art]
+        offen = [t for k, t in fehlt if getattr(self, k) in (None, "") or (isinstance(getattr(self, k), str) and not getattr(self, k).strip())]
+        if offen:
+            raise ValueError("Grundlage WPB unvollständig: " + ", ".join(offen))
+        if self.ausweis_datum:
+            from datetime import date
+            date.fromisoformat(self.ausweis_datum)   # ungültiges Datum → ValueError → 422
+        return self
+
+
+def _zahl_de(x: float) -> str:
+    return (f"{x:,.1f}".rstrip("0").rstrip(".") if x % 1 else f"{x:,.0f}").replace(",", "X").replace(".", ",").replace("X", ".")
+
+
+def wpb_grundlage_text(g: dict | None) -> str | None:
+    """Anzeigetext für Bericht und Oberfläche, z. B. „Energieausweis Klasse H (Bedarfsausweis vom 03.05.2024)“."""
+    if not g:
+        return None
+    if g.get("art") == "energieausweis":
+        d = str(g.get("ausweis_datum") or "")
+        datum = f"{d[8:10]}.{d[5:7]}.{d[:4]}" if len(d) >= 10 else d
+        art = {"bedarf": "Bedarfsausweis", "verbrauch": "Verbrauchsausweis"}.get(g.get("ausweis_art"), "Ausweis")
+        return f"Energieausweis Klasse {g.get('klasse')} ({art} vom {datum})"
+    if g.get("art") == "endenergiekennwert":
+        return f"Endenergiekennwert {_zahl_de(float(g.get('kennwert') or 0))} kWh/(m²a) ({(g.get('herkunft') or '').strip()})"
+    if g.get("art") == "baujahr_aussenwand":
+        return f"Baujahr {g.get('baujahr')}, unsanierte Außenwand {_zahl_de(float(g.get('anteil_unsaniert_prozent') or 0))} %"
+    return None
+
+
 class OhneAngeboteIn(BaseModel):
     """Ausdrückliche Entscheidung „bewusst ohne Angebote“ (Pflichtregel ab 19.11.2026), z. B. „Fachplanung extern beauftragt“."""
     grund: str = Field(min_length=3, max_length=300)
@@ -197,10 +248,11 @@ class FoerdervergleichEingaben(BaseModel):
     bestandsheizung: Literal["fossil, älter als 5 Jahre", "neu in den letzten 5 Jahren", "EE >= 65 % oder Wärmenetz"] | None = None
     nutzung: Literal["komplett vermietet", "teilweise selbstgenutzt", "komplett selbstgenutzt"] | None = None
     wpb_status: Literal["ja", "nein", "unbekannt"] | None = None
+    wpb_grundlage: WpbGrundlageIn | None = None   # Pflicht beim Speichern bei wpb_status ja/nein (wpb_entscheidung)
     kosten_hinweis: str | None = Field(None, max_length=1000)
 
 
-ANZEIGEFELDER = {"we_vor_sanierung", "bestandsheizung", "nutzung", "wpb_status", "kosten_hinweis"}
+ANZEIGEFELDER = {"we_vor_sanierung", "bestandsheizung", "nutzung", "wpb_status", "wpb_grundlage", "kosten_hinweis"}
 
 # Angebotsbeträge sind Bruttobeträge gegenüber dem Kunden (Geschäftsführer 19.11.2026); Ausweis im Word-Bericht
 ANGEBOTE_BRUTTO_TEXT = "Alle Beträge inkl. 19 % MwSt."
@@ -244,6 +296,10 @@ def angebote_entscheidung(eingaben: dict) -> None:
     widerspruch = fachplanung_widerspruch(daten)
     if widerspruch:
         raise HTTPException(422, widerspruch)
+    if daten.wpb_status in ("ja", "nein") and daten.wpb_grundlage is None:
+        raise HTTPException(422, f"Grundlage WPB fehlt: Bei „Worst Performing Building: {daten.wpb_status}“ bitte die Grundlage "
+                                 "angeben (Energieausweis, Endenergiekennwert oder Baujahr und unsanierte Außenwand) – sonst "
+                                 "„unbekannt“ wählen.")
 
 
 class FoerdervergleichIn(FoerdervergleichEingaben):

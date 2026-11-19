@@ -130,3 +130,58 @@ def test_kostenhinweis_warnung_im_ergebnis_speichern_bleibt_moeglich():
     assert speichern(c, {**ABNAHME, "kosten_hinweis": "300000"}).status_code == 201
     r = c.post("/module/foerderung-em-eh/berechnen", json={**ABNAHME, "kosten_hinweis": "Kosten laut Architekt"})
     assert "kostenhinweis_warnung" not in r.json()
+
+
+# ---------- Grundlage WPB (19.11.2026) ----------
+from app.rechnen import wpb_grundlage_text  # noqa: E402
+
+OHNE_G = {k: v for k, v in ABNAHME.items() if k != "wpb_grundlage"}
+AUSWEIS = {"art": "energieausweis", "klasse": "H", "ausweis_datum": "2024-05-03", "ausweis_art": "bedarf"}
+
+
+def test_wpb_ja_nein_ohne_grundlage_422_unbekannt_frei():
+    c = nutzer("berater")
+    for status in ("ja", "nein"):
+        r = speichern(c, {**OHNE_G, "wpb_status": status})
+        assert r.status_code == 422 and "Grundlage WPB fehlt" in r.text
+    assert speichern(c, {**OHNE_G, "wpb_status": "unbekannt"}).status_code == 201
+    assert c.post("/module/foerderung-em-eh/berechnen", json={**OHNE_G, "wpb_status": "ja"}).status_code == 200  # Rechnen frei
+
+
+@pytest.mark.parametrize("grundlage, text", [
+    (AUSWEIS, "Energieausweis Klasse H (Bedarfsausweis vom 03.05.2024)"),
+    ({"art": "endenergiekennwert", "kennwert": 312.5, "herkunft": "Gebäudemodell vom 01.10.2026"},
+     "Endenergiekennwert 312,5 kWh/(m²a) (Gebäudemodell vom 01.10.2026)"),
+    ({"art": "baujahr_aussenwand", "baujahr": 1955, "anteil_unsaniert_prozent": 80}, "Baujahr 1955, unsanierte Außenwand 80 %"),
+])
+def test_grundlage_gespeichert_text_an_generator(grundlage, text):
+    c = nutzer("berater")
+    r = speichern(c, {**ABNAHME, "wpb_status": "ja", "wpb_grundlage": grundlage})
+    assert r.status_code == 201, r.text
+    g = gespeichert(r.json()["id"])
+    assert g.eingaben["wpb_grundlage"]["art"] == grundlage["art"]
+    assert word.generator_daten(g, _projekt(g), "x")["wpb_grundlage_text"] == text
+    assert c.get(f"/berichte/{g.id}").json()["wpb_grundlage_text"] == text
+    ohne = c.post("/module/foerderung-em-eh/berechnen", json=ABNAHME).json()          # Anzeigefeld: Beträge unverändert
+    assert [s["summe_zuschuesse_gesamt"] for s in g.ergebnis["szenarien"]] == [s["summe_zuschuesse_gesamt"] for s in ohne["szenarien"]]
+
+
+@pytest.mark.parametrize("grundlage", [
+    {"art": "energieausweis", "klasse": "H"},                                   # Datum, Ausweisart fehlen
+    {**AUSWEIS, "ausweis_datum": "2024-13-40"},
+    {**AUSWEIS, "klasse": "I"},
+    {"art": "endenergiekennwert", "kennwert": 300},                             # Herkunft fehlt
+    {"art": "baujahr_aussenwand", "baujahr": 1955, "anteil_unsaniert_prozent": 120},
+    {"art": "sonstiges"},
+])
+def test_unvollstaendige_grundlage_422(grundlage):
+    r = speichern(nutzer("berater"), {**ABNAHME, "wpb_status": "ja", "wpb_grundlage": grundlage})
+    assert r.status_code == 422
+
+
+def test_alte_berichte_ohne_grundlage_unveraendert_an_generator():
+    c = nutzer("berater")
+    r = speichern(c, {**ABNAHME, "wpb_status": "unbekannt"})   # Grundlage ohne ja/nein geht nicht an den Bericht
+    g = gespeichert(r.json()["id"])
+    assert "wpb_grundlage_text" not in word.generator_daten(g, _projekt(g), "x")
+    assert wpb_grundlage_text(None) is None

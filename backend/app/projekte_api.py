@@ -25,7 +25,7 @@ from app.modelle import Benutzer, Bericht, Projekt, ProjektnummerZaehler, jetzt
 from app.parteien import berichtskunde
 from app.protokoll import protokollieren
 from app import wohneinheiten
-from app.rechnen import MIT_PROJEKT_WE, NUR_UEBER_ENTWURF, RECHNER, angebote_entscheidung, kennzeichnung_nachtragen, konditionen_stand, lade_konditionen
+from app.rechnen import MIT_PROJEKT_WE, NUR_UEBER_ENTWURF, RECHNER, angebote_entscheidung, kennzeichnung_nachtragen, wpb_grundlage_text, konditionen_stand, lade_konditionen
 
 router = APIRouter(tags=["Projektakte"])
 
@@ -436,6 +436,7 @@ def bericht_lesen(bericht_id: int, _: Benutzer = Depends(lesen), db: Session = D
     return {**_bericht_kurz(b, namen), "projektnummer": p.projektnummer, "eingaben": b.eingaben,
             "ergebnis": kennzeichnung_nachtragen(b.ergebnis, b.konditionen_snapshot), "aktuelle_konditionen_version": aktuell,
             "konditionen_stand": konditionen_stand(b.konditionen_snapshot),
+            "wpb_grundlage_text": wpb_grundlage_text((b.eingaben or {}).get("wpb_grundlage")),
             "wohneinheiten": {"hinweise": hinweise, "offen": offen,
                               "pruefungen": [{k: x.get(k) for k in ("von", "am", "texte")} for x in b.we_pruefungen or []]}}
 
