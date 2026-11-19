@@ -40,6 +40,16 @@ async function text(daten) {
   for (const z of ["Unsere Leistungen auf Ihrem Weg", "10  Empfohlenes Vorgehen", "Preis 15.000 € abzgl. Anrechnung A = 12.025 €",
     "Eigenanteil 1.487,50 €", "Ihr Eigenanteil 11.305 €", "Ihr Eigenanteil 15.830 €", "Empfehlung für Ihr Gebäude",
     "Angebote A + C", "Angebote A + D", "Fachplanung KfW 266 (Angebot B)", "Weg Einzelmaßnahmen: A + B + C", "Weg Effizienzhaus: A + B + D"]) assert(ta.includes(z), "Angebote: " + z);
+  // ab 0.5.0: Kapitel 8 mit 8.1–8.4 (nicht A–D), „Beide Varianten:“ in Kapitel 2, KfW-261-Bedingungen, Brutto-Hinweis
+  for (const z of ["8.1  Zuschüsse – nicht rückzahlbar", "8.2  Darlehen – zinsgünstig, rückzahlbar", "8.3  Zusätzlich: KfW 266", "8.4  Ergebnis",
+    "Beide Varianten: Oberste Geschossdecke", "Beide Varianten: KfW 266 – Umbaukosten der 4 neuen WE",
+    "EE-Klasse ist Pflicht. Kombination mit BEG EM: ausgeschlossen"]) assert(tr.includes(z), "0.5.0: " + z);
+  for (const z of ["A  Zuschüsse", "B  Darlehen", "C  Zusätzlich", "D  Ergebnis", "EE-Klasse ist Pflicht. ausgeschlossen"]) assert(!tr.includes(z), "0.5.0 alt: " + z);
+  const ohne266 = await text(JSON.parse(fs.readFileSync(path.join(dir, "efh_ohne_266.json"), "utf8")));
+  assert(ohne266.includes("8.3  Ergebnis") && !ohne266.includes("8.4") && !ohne266.includes("Beide Varianten: KfW 266"), "0.5.0 ohne KfW 266: 8.3 Ergebnis");
+  assert(!ta.includes("MwSt."), "ohne angebote_hinweis kein MwSt.-Satz (der Text kommt vom Cockpit)");
+  const brutto = await text({ ...mitA, angebote_hinweis: "Alle Beträge inkl. 19 % MwSt." });
+  assert(brutto.includes("Alle Beträge inkl. 19 % MwSt.") && brutto.indexOf("Alle Beträge inkl. 19 % MwSt.") > brutto.indexOf("Unsere Leistungen auf Ihrem Weg"), "Brutto-Hinweis in Kapitel 9");
   const ohneWpb = await text({ ...mitA, eingaben: { ...mitA.eingaben, wpb_status: "unbekannt" } });
   assert(!ohneWpb.includes("Empfehlung für Ihr Gebäude") && ohneWpb.includes("hängt von der WPB-Einstufung ab"), "Angebote ohne WPB-Status: keine Empfehlung");
   // Schutz: Konditionen-Version muss zum Ergebnis passen

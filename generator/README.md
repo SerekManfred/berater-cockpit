@@ -151,3 +151,15 @@ Ab 0.4.9 pflegt Claude Code den Generator im Cockpit (Regel des Geschäftsführe
   Version (`Generator`) als **benutzerdefinierte Dokumenteigenschaften** (`docProps/custom.xml`; Word: Datei → Informationen →
   Eigenschaften → Erweiterte Eigenschaften → Anpassen) – **nicht** in Text, Kopf- oder Fußzeile. Leere Werte entfallen.
 - Ohne das Feld steht nur `Generator` in den Eigenschaften; der Berichtsinhalt ist unverändert gegenüber 0.4.8.
+
+## Fördervergleich: Gliederung 8.1–8.4, „Beide Varianten“, Brutto-Hinweis (ab 0.5.0)
+Befund 2026-0004 V3 (Geschäftsführer 19.11.2026), Textvergleich gegen 0.4.9 nur an diesen Stellen:
+- **Kapitel 8:** Unterabschnitte der Tabelle heißen **8.1** Zuschüsse, **8.2** Darlehen, **8.3** Zusätzlich: KfW 266 (nur mit KfW 266),
+  **8.4** Ergebnis (ohne KfW 266: 8.3 Ergebnis). Bis 0.4.9 „A–D“ – Verwechslung mit unseren Angeboten A–D in Kapitel 9.
+- **Kapitel 2:** Die Zellen über beide Spalten (Maßnahmen, Umbauförderung) beginnen mit „Beide Varianten:“.
+- **Kapitel 3, KfW 261 „Bedingungen“:** „EE-Klasse ist Pflicht. Kombination mit BEG EM: <kombination_mit_beg_em>“ (bis 0.4.9 ohne
+  Bezeichnung: „EE-Klasse ist Pflicht. ausgeschlossen, …“). „EE- oder NH-Klasse“ erst, wenn es in den Konditionen belegt ist.
+- **Kapitel 9:** optionales Feld `angebote_hinweis` (oberste Ebene, Text vom Cockpit, z. B. „Alle Beträge inkl. 19 % MwSt.“) steht
+  unter der Einleitung. Der Generator rechnet und ergänzt nichts; ohne Feld kein Hinweis.
+- Kapitel 9 erscheint weiter nur mit `angebotsweg` im Ergebnis. Dass ein Bericht ohne Angebote nicht still entsteht, sichert das
+  Cockpit (Pflicht „Angebote oder bewusst ohne Angebote“ beim Speichern).

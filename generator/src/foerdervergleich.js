@@ -72,6 +72,8 @@ function angebotsweg(d, s, erg, e) {
   const ch = [];
   ch.push(P("Diese Übersicht zeigt, welche unserer Leistungen Sie auf welchem Weg brauchen und was Sie nach Abzug der Förderung selbst tragen. " +
     "Die Zuschüsse für Fachplanung und Baubegleitung sind in den Zahlen von Kapitel 8 bereits enthalten."));
+  // Ab 0.5.0: Angebotsbeträge sind brutto – Text kommt vom Cockpit (angebote_hinweis), der Generator setzt nur ein
+  if (d.angebote_hinweis) ch.push(P(d.angebote_hinweis, { size: 16, color: C.grau }));
   const BR = 6600;
   const A = p(em, "A");
   ch.push(kasten([absatz("**A  " + (txt.a?.titel || "Gebäudemodell und WPB-Prüfung") + "**", { size: 19 }), ...leistung("a"),
@@ -181,9 +183,9 @@ function erstelleFoerdervergleich(d) {
   // ---------- 2 Varianten ----------
   ch.push(H1("2  Untersuchte Varianten"));
   ch.push(tabelle([2600, 3802, 3802], ["", "Variante 1 – Einzelmaßnahmen", "Variante 2 – " + stufe.name], [
-    [{ t: "**Maßnahmen**", fill: C.grauL }, { t: (e.massnahmen || []).map(m => m.name).filter(Boolean).join(", ") || "–", span: 2 }],
+    [{ t: "**Maßnahmen**", fill: C.grauL }, { t: "Beide Varianten: " + ((e.massnahmen || []).map(m => m.name).filter(Boolean).join(", ") || "–"), span: 2 }],
     [{ t: "**Energetische Förderung**", fill: C.grauL }, "BEG EM (BAFA-Zuschuss)" + (e.isfp ? " + iSFP-Bonus" : ""), "BEG WG – KfW 261 Kredit mit Tilgungszuschuss"],
-    ...(mit266 ? [[{ t: "**Umbauförderung**", fill: C.grauL }, { t: `KfW 266 – Umbaukosten der ${e.we_neu || "neuen"} neuen WE`, span: 2 }]] : []),
+    ...(mit266 ? [[{ t: "**Umbauförderung**", fill: C.grauL }, { t: `Beide Varianten: KfW 266 – Umbaukosten der ${e.we_neu || "neuen"} neuen WE`, span: 2 }]] : []),
     [{ t: "**Energetisches Ziel**", fill: C.grauL }, "Bauteilanforderungen BEG EM" + (mit266 ? `; für KfW 266 zusätzlich Nachweis ${FT.eh_stufen[k266.mindeststufe]?.name || k266.mindeststufe}` : ""),
       `${stufe.name} (Qp ≤ ${stufe.qp} %, H′T ≤ ${stufe.ht} %)`],
   ]));
@@ -201,7 +203,7 @@ function erstelleFoerdervergleich(d) {
     [{ t: "**BAFA Energieberatung (iSFP)**" }, `${prozent(k.isfp_beratung.satz)} des Honorars, max. ${eur(k.isfp_beratung.efh_zfh_max)} (EFH/ZFH) bzw. ${eur(k.isfp_beratung.mfh_max)} (ab 3 WE)`, "Voraussetzung für den iSFP-Bonus"],
     [{ t: "**BEG WG – KfW 261**" }, `Kredit bis ${eur(wg.kredit_je_we)}/WE; Tilgungszuschuss: ` +
       Object.entries(wg.tilgungszuschuss).map(([st, v]) => `${FT.eh_stufen[st]?.name.replace("Effizienzhaus", "EH") || st} ${prozent(v)}`).join(", ") + `; WPB-Bonus +${prozent(wg.wpb_bonus)}`,
-     wg.ee_klasse_pflicht ? "EE-Klasse ist Pflicht. " + wg.kombination_mit_beg_em : wg.kombination_mit_beg_em],
+     (wg.ee_klasse_pflicht ? "EE-Klasse ist Pflicht. " : "") + "Kombination mit BEG EM: " + wg.kombination_mit_beg_em],
     [{ t: "**KfW 261 – Fachplanung/Baubegleitung**" }, `${prozent(bbW.satz)} Tilgungszuschuss; EFH/ZFH max. ${eur(bbW.efh_zfh_max)}, MFH ${eur(bbW.mfh_je_we)}/WE, max. ${eur(bbW.mfh_max)}`, "Pflicht im Programm 261"],
     [{ t: "**Ergänzungskredit " + em.ergaenzungskredit.programm.replace("KfW ", "") + "**" }, `Kredit bis ${eur(em.ergaenzungskredit.je_we)}/WE`, "Nur zusammen mit BEG-EM-Zuschuss"],
   ];
@@ -281,16 +283,17 @@ function erstelleFoerdervergleich(d) {
   const t9 = [
     [HD(""), HD("1  Einzelmaßnahmen", C.anth, 2), HD("2  " + stufe.name, C.anthD, 2)],
     [HD(""), HD("a) ohne WPB", C.grau), A ? HD("b) mit WPB¹", C.gold) : HD("b) mit WPB", C.grau), HD("a) ohne WPB", C.grau), HD("b) mit WPB", C.grau)],
-    SEC("A  Zuschüsse – nicht rückzahlbar"),
+    SEC("8.1  Zuschüsse – nicht rückzahlbar"),
     ...posten.map(([p, l]) => zeile(l, x => x.zuschuesse[p] !== undefined ? eur(x.zuschuesse[p]) : "–", { fussnote: p === "wpb_bonus" })),
     zeile("Summe Zuschüsse energetisch", x => eur(x.summe_zuschuesse_energetisch), { bold: true, markiere: !mit266, fussnote: true }),
-    SEC("B  Darlehen – zinsgünstig, rückzahlbar"),
+    SEC("8.2  Darlehen – zinsgünstig, rückzahlbar"),
     zeile("Förderkredit", x => x.kreditprogramm),
     zeile("Kreditrahmen", x => "bis " + eur(x.kreditrahmen)),
     zeile("Kreditaufnahme Pflicht?", x => x.kredit_pflicht ? "ja" : "nein, optional"),
   ];
-  if (mit266) t9.push(SEC("C  Zusätzlich: KfW 266 „Gewerbe zu Wohnen“"), zeile("Zuschuss Umbau neue WE", x => eur(x.zuschuss_266)));
-  t9.push(SEC((mit266 ? "D" : "C") + "  Ergebnis"),
+  // Unterabschnitte 8.1–8.4 (bis 0.4.9 „A–D“ – Verwechslung mit unseren Angeboten A–D in Kapitel 9)
+  if (mit266) t9.push(SEC("8.3  Zusätzlich: KfW 266 „Gewerbe zu Wohnen“"), zeile("Zuschuss Umbau neue WE", x => eur(x.zuschuss_266)));
+  t9.push(SEC((mit266 ? "8.4" : "8.3") + "  Ergebnis"),
     ...(mit266 ? [zeile("Zuschüsse gesamt inkl. KfW 266", x => eur(x.summe_zuschuesse_gesamt), { bold: true, markiere: true, fussnote: true })] : []),
     zeile("Eigenanteil energetische Maßnahmen", x => eur(x.eigenanteil_energetisch)),
     zeile("Förderquote energetisch", x => pct(x.foerderquote_energetisch)),
