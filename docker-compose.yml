@@ -44,6 +44,8 @@ services:
       SMTP_PASSWORT: ${SMTP_PASSWORT:-}
       SMTP_ABSENDER: ${SMTP_ABSENDER:-}
       SMTP_NUR_PROTOKOLL: ${SMTP_NUR_PROTOKOLL:-false}
+      SMTP_UMLEITUNG_AN: ${SMTP_UMLEITUNG_AN:-}
+      SMTP_BETREFF_PRAEFIX: ${SMTP_BETREFF_PRAEFIX:-}
       COCKPIT_URL: ${COCKPIT_URL:-https://cockpit.mybase-test.de}
     networks: [default, cockpit-intern]
     depends_on:

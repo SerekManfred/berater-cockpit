@@ -24,6 +24,19 @@ umask 077
 log() { echo "$(date '+%Y-%m-%d %H:%M:%S') $*"; }
 mkdir -p "$ZIEL/taeglich" "$ZIEL/woechentlich"
 
+# Jede Sicherung (Zeitplan und von Hand) steht in $LOGDATEI. Der Cron-Eintrag leitet die Ausgabe bereits dorthin um –
+# dann nicht doppelt schreiben; sonst Ausgabe (auch Fehler) zusätzlich anhängen und weiter im Terminal zeigen.
+LOGDATEI="${COCKPIT_SICHERUNG_LOG:-$ZIEL/sicherung.log}"
+touch "$LOGDATEI"
+if [[ "$(stat -L -c '%d:%i' /proc/$$/fd/1 2>/dev/null)" == "$(stat -L -c '%d:%i' "$LOGDATEI")" ]]; then
+  ANLASS="${COCKPIT_SICHERUNG_ANLASS:-Zeitplan}"
+else
+  ANLASS="${COCKPIT_SICHERUNG_ANLASS:-von Hand}"
+  exec > >(tee -a "$LOGDATEI") 2>&1
+fi
+# Abbruch durch set -e ebenfalls im Log vermerken
+trap 'rc=$?; log "FEHLER: Sicherung abgebrochen (Zeile $LINENO, Code $rc)"' ERR
+
 exec 9>"$ZIEL/.sperre"
 flock -n 9 || { log "FEHLER: Eine Sicherung läuft bereits."; exit 1; }
 
@@ -37,7 +50,7 @@ ARBEIT="$ZIEL/taeglich/.unfertig_$NAME"
 [[ ! -e "$ZIEL/taeglich/$NAME" && ! -e "$ZIEL/woechentlich/$NAME" ]] || { log "FEHLER: $NAME existiert bereits."; exit 1; }
 trap 'rm -rf "$ARBEIT"' EXIT
 rm -rf "$ARBEIT"; mkdir "$ARBEIT"
-log "Sicherung $NAME beginnt"
+log "Sicherung $NAME beginnt ($ANLASS, Benutzer $(id -un))"
 
 # 1. Datenbank im Custom-Format, danach Lesbarkeit prüfen
 docker exec "$DB_CONTAINER" pg_dump -U "$DB_BENUTZER" -d "$DB_NAME" -Fc > "$ARBEIT/datenbank.dump"

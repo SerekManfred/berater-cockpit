@@ -79,11 +79,12 @@ Verbindlich zusätzlich zu den unverhandelbaren Regeln; Einzelheiten in den Absc
 - **Honorare brutto:** Angebotsbeträge A–D und Standardbeträge der Angebotsvorlagen sind Bruttobeträge inkl. 19 % MwSt.
   (Kosten gegenüber dem Kunden); im Bericht „Alle Beträge inkl. 19 % MwSt.“.
 - **Kostenkennwerte ohne Vier-Augen-Prinzip, mit Protokoll** (Festlegung für den geplanten Maßnahmenkatalog, korrigiert
-  19.11.2026): interne Erfahrungswerte pflegen die **Mitarbeiter** direkt (nicht nur der Admin), ohne Vier-Augen-Prinzip; jede
-  Änderung wird mit alt/neu protokolliert, auffällige Werte bekommen eine **Plausibilitätswarnung** (blockiert nicht), und der
-  verwendete Kennwert wird **im Bericht eingefroren** (spätere Änderungen wirken nur auf neue Berichte bzw. neue Versionen). Sie sind
+  19.11.2026): interne Erfahrungswerte pflegen die **Rollen berater und verwaltung** direkt, ohne Vier-Augen-Prinzip; jede
+  Änderung wird mit alt/neu protokolliert. **Plausibilitätswarnung** bei mehr als **±30 % Abweichung** zum bisherigen Wert und bei
+  **0 oder leer**; Speichern dann nur mit **Bestätigung und Grund** (Grund im Protokoll), **keine Sperre**. Der verwendete
+  Kennwert wird **im Bericht eingefroren** (spätere Änderungen wirken nur auf neue Berichte bzw. neue Versionen). Sie sind
   keine Förderkonditionen und stehen nicht in `konditionen_versionen`. Kosten im Fördervergleich bleiben Vorschlag, bis der Berater
-  bestätigt. Offen: welche Rollen genau („Mitarbeiter“ = berater, verwaltung?) und die Regel der Plausibilitätswarnung.
+  bestätigt.
 - **Umgebungen:** Der Hostinger-Server (`cockpit.mybase-test.de`, `/home/dev/berater-cockpit`) ist **ausschließlich Testsystem**
   (nur Testdaten) und wird **nie „Produktion“** genannt. **Produktion = HostEurope, noch nicht eingerichtet.** „Produktion“ in
   dieser Datei meint immer HostEurope.
@@ -108,10 +109,12 @@ Verbindlich zusätzlich zu den unverhandelbaren Regeln; Einzelheiten in den Absc
     Generator; **NH-Stufen im Fördervergleich** (seit 18.11.2026 offen).
   - **Förderprüfung der WPB-Kriterien** nach Freigabe von V8 (Vorschlag, keine automatische Aktivierung).
   - **Maßnahmenkatalog** (Bauteil, Standardtext, Kostenkennwert) – Vorschlag gemacht; festgelegt: Kostenkennwerte ohne Vier-Augen
-    (Pflege durch Mitarbeiter) mit Protokoll alt/neu, Plausibilitätswarnung, Einfrieren im Bericht; offen: Startbestand,
+    (Pflege durch berater/verwaltung) mit Protokoll alt/neu, Warnung > ±30 % bzw. 0/leer mit Grund, Einfrieren im Bericht;
+    offen: Startbestand,
     Standardtext im Word, INIT.
   - **Mailversand im Testsystem:** Benachrichtigung Förderkonditionen nur noch bei Konto 1 (Konto 2 und 3 seit 16.11.2026 ohne
-    Haken). Vorschlag Umleitung aller Mails an eine feste Testadresse mit Betreff-Präfix „[TEST]“ (`.env`) – nicht umgesetzt.
+    Haken). Umleitung umgesetzt (`SMTP_UMLEITUNG_AN`, `SMTP_BETREFF_PRAEFIX`, siehe „Förderprüfung … E-Mail“); im Testsystem
+    noch einzutragen, sobald der Geschäftsführer die Testadresse nennt.
   - Abnahmen offen: Phasen 2b, 2d, 2e, 2g, 2h.
   - Produktiv-Checkliste („Vor Produktivstart“), u. a. Geheimnisse neu, 2FA, Basic Auth, AVV, Kopie außer Haus, API-Logs dauerhaft,
     `BEISPIELDATEN_AKTIV=false`, Word einfrieren ab dem ersten Bericht.
@@ -189,7 +192,8 @@ Verbindlich zusätzlich zu den unverhandelbaren Regeln; Einzelheiten in den Absc
 - **Datensicherung:** `scripts/sicherung.sh` per Cron (Benutzer dev) täglich **01:45 UTC** (02:45 MEZ / 03:45 MESZ, 15 Min. nach dem
   IR-Planer). Ablage `/home/dev/backups/cockpit/taeglich|woechentlich/cockpit_JJJJ-MM-TT_HHMMSS/` mit `datenbank.dump` (pg_dump -Fc),
   `dateien.tar.gz`, `kennzahlen.txt` (Anzahl + md5 je Tabelle), `pruefsummen.sha256`. Aufbewahrung 14 tägliche, 8 wöchentliche.
-  Log: `/home/dev/backups/cockpit/sicherung.log`. Prüfen/Wiederherstellen: `scripts/wiederherstellen.sh` (README „Datensicherung“).
+  Log: `/home/dev/backups/cockpit/sicherung.log` – **jede** Sicherung, auch von Hand (Anlass „Zeitplan“/„von Hand“, Benutzer,
+  „Sicherung fertig“ bzw. „FEHLER: …“; das Skript schreibt selbst hinein und erkennt die Cron-Umleitung, nie doppelt). Prüfen/Wiederherstellen: `scripts/wiederherstellen.sh` (README „Datensicherung“).
   Neue Tabellen mit wichtigen Daten auch in `scripts/kennzahlen.sh` aufnehmen.
 - **Offener Punkt: Kopie außer Haus.** Noch keine. Ziel wird gesondert geklärt. Vorbereitet: ein ausführbares
   `scripts/sicherung-ausser-haus.sh` (nicht im Repository angelegt) wird nach jeder Sicherung mit deren Pfad aufgerufen.
@@ -476,6 +480,10 @@ Verbindlich zusätzlich zu den unverhandelbaren Regeln; Einzelheiten in den Absc
   `COCKPIT_URL`), keine Mail bei „keine Abweichung“. (2) Einreichen eines Entwurfs → „Konditionen-Version N wartet auf Freigabe“
   (Hintergrund, nicht an den Einreicher). Fehler werfen nie: Ergebnis in `benachrichtigung`, Protokoll `mail_versendet` /
   `mail_fehlgeschlagen` (nur Art, Anzahl, Benutzer-IDs). `SMTP_NUR_PROTOKOLL=true`: nur Log (Tests).
+  **Testsystem-Umleitung** (19.11.2026): `SMTP_UMLEITUNG_AN` (eine feste Adresse; leer = keine Umleitung, Produktion) schickt jede
+  Mail dorthin statt an den Empfänger, oben im Text „Umgeleitet (Testsystem) – ursprünglich an: Konto N (Name)“, Protokoll mit
+  `umgeleitet: true`; `SMTP_BETREFF_PRAEFIX` (Testsystem `[TEST]`) vor jedem Betreff. Beide in `.env` und `docker-compose.yml`.
+  Tests: `tests/test_mail_umleitung.py`.
 - API-Fehler (`_status_fehler` in `app/ki/anthropic_anbieter.py`): Abbruch mitten im Strom kommt als HTTP 200 mit Fehlertyp im
   Inhalt – Meldung nennt den Typ; leeres Guthaben → „Guthaben des KI-Zugangs ist aufgebraucht“ (Abnahme 16.11.2026).
 - Protokoll: `foerderpruefung_lauf` (Status, Abweichungen, Suchen, Kosten, Dauer), `foerderpruefung_fehlgeschlagen`,

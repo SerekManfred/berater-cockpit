@@ -126,6 +126,10 @@ Eine Kopie außer Haus gibt es noch nicht (offener Punkt, siehe CLAUDE.md).
 
 **Sofort sichern:** `scripts/sicherung.sh`
 
+Jede Sicherung – Zeitplan **und** von Hand – steht in `/home/dev/backups/cockpit/sicherung.log` (Beginn mit Anlass
+„Zeitplan“ bzw. „von Hand“ und Benutzer, „Sicherung fertig“ oder „FEHLER: …“). Von Hand erscheint die Ausgabe zusätzlich
+im Terminal; beim Cron-Lauf erkennt das Skript die Umleitung in dieselbe Datei und schreibt nicht doppelt.
+
 **Sicherung prüfen (gefahrlos, empfohlen monatlich und nach jeder größeren Änderung):**
 ```bash
 scripts/wiederherstellen.sh pruefen                      # neueste Sicherung
