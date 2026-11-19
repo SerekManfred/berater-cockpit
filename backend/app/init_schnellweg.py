@@ -13,6 +13,7 @@ Namen an die KI, Werte der KI bleiben Vorschlag bis zur Freigabe durch einen Ber
 """
 import copy
 import json
+import re
 import threading
 import time
 import traceback
@@ -46,6 +47,22 @@ SCHRITTE = (("checkliste", "Checkliste einlesen"), ("pruefen", "Angaben prüfen"
             ("texte", "Fotos zuordnen und Texte schreiben"), ("foerderung", "Förderung rechnen"),
             ("word", "Word erzeugen"), ("vorschau", "Vorschau (PDF)"))
 FOSSIL = ("öl", "oel", "gas", "kohle", "koks", "nachtspeicher")
+# Hinweis auf eine nicht funktionstüchtige Heizung (Checkliste „Defekte Anlagentechnik“ oder Freitext) – KfW 458 Klimabonus nur beim
+# Austausch einer funktionstüchtigen fossilen Heizung (19.11.2026)
+DEFEKT = re.compile(r"defekte anlagentechnik|heizung\W+(?:\w+\W+){0,4}(?:defekt|kaputt|ausgefallen)|(?:defekt|kaputt|ausgefallen)\w*\W+"
+                    r"(?:\w+\W+){0,2}(?:heizung|kessel|brenner|therme|w(?:ä|ae)rmeerzeuger)|au(?:ß|ss)er betrieb|"
+                    r"nicht (?:mehr )?funktions(?:f(?:ä|ae)hig|t(?:ü|ue)chtig)|funktionsunf(?:ä|ae)hig", re.IGNORECASE)
+HEIZUNG_FRAGE = ("Ist die bestehende Heizung funktionstüchtig? Der Klimabonus gilt nur beim Austausch einer funktionstüchtigen "
+                 "fossilen Heizung.")
+
+
+def defekt_hinweis(d: dict) -> str | None:
+    """Fundstelle eines Hinweises auf defekte Heizung/Anlagentechnik in Checkliste und Notizen (für Rückfrage und Hinweis)."""
+    c = d.get("checkliste") or {}
+    for quelle in (c.get("auffaelligkeiten"), c.get("anlagentechnik"), d.get("notizen"), (d.get("objekt") or {}).get("weiteres")):
+        if quelle and (m := DEFEKT.search(str(quelle))):
+            return m.group(0)
+    return None
 
 
 # ---------- Ablage der Vorschau (nicht in „dateien“: erst die Freigabe erzeugt eine Berichtsversion) ----------
@@ -188,6 +205,11 @@ def rueckfragen(db: Session, e: BerichtEntwurf, p: Projekt, st: dict) -> list[di
         dazu({"id": "klimabonus", "pfad": "foerder.klimabonus", "art": "frage", "weglassen_erlaubt": False,
               "label": "KfW 458 – Klimageschwindigkeitsbonus: wird eine funktionstüchtige fossile Heizung ersetzt?",
               "vorschlag": "", "hinweis": f"Energieträger laut Angaben: {traeger}."})
+    if ((d.get("foerder") or {}).get("klimabonus") and "heizung_funktion" not in st.get("beantwortet", [])
+            and (fund := defekt_hinweis(d))):
+        dazu({"id": "heizung_funktion", "pfad": "foerder.klimabonus", "art": "frage", "typ": "janein", "weglassen_erlaubt": False,
+              "label": HEIZUNG_FRAGE, "vorschlag": "",
+              "hinweis": f"Klimageschwindigkeitsbonus ist gewählt, die Angaben nennen aber „{fund}“. „nein“ nimmt den Klimabonus heraus."})
     f = d.get("foerder") or {}
     if f.get("kosten_effizienzhaus") is not None and not f.get("eh_stufe") and not f.get("eh_kein_vergleich"):
         dazu({"id": "eh_ziel", "pfad": "foerder.eh_stufe", "art": "frage", "weglassen_erlaubt": False,
@@ -299,6 +321,8 @@ def antworten_anwenden(db: Session, e: BerichtEntwurf, p: Projekt, st: dict, ant
                             "rueckfrage": True}
         if z["art"] == "wohneinheiten":
             we_bestaetigen = True
+        if i == "heizung_funktion":
+            st["heizung_funktion"] = {"funktionstuechtig": a.wert.strip().lower() == "ja", "fund": defekt_hinweis(daten) or ""}
     daten["bewusst_leer"] = bewusst
     e.daten = bi.EntwurfDaten.model_validate(daten).model_dump()
     e.checkliste_import = {**imp, "markierungen": marken, "konflikte": konflikte}
@@ -366,7 +390,8 @@ def texte_schreiben(db: Session, e: BerichtEntwurf, p: Projekt, st: dict, ich: B
     vorschlag = ki_texte.antwort_bereinigen(roh)
     for a, (_, pfade) in ki_texte.ABSCHNITTE.items():
         for pfad in pfade:
-            vorschlag[pfad] = ki_texte.kundentext_saeubern(vorschlag[pfad], ki_texte.abschnitt_titel_kurz(a), hinweise)
+            vorschlag[pfad] = ki_texte.zahlen_formatieren(
+                ki_texte.kundentext_saeubern(vorschlag[pfad], ki_texte.abschnitt_titel_kurz(a), hinweise))
     vorschlag = ph.zuruecksetzen(vorschlag)
     ki_hinweise = [ph.zuruecksetzen(h) for h in hinweise + ki_texte.hinweise_bereinigen(roh.get("hinweise"), 20)]
     # Texte und Fotos übernehmen (alle Abschnitte; Schnellweg = ein Vorschlag für den ganzen Bericht)
@@ -449,6 +474,10 @@ def _hinweise_sammeln(e: BerichtEntwurf, st: dict, db: Session, p: Projekt) -> l
     if not f.get("eh_stufe") and not f.get("eh_kein_vergleich"):
         aus.append("7.5/Anhang: Kein Effizienzhaus-Ziel gewählt – Weg B ohne Tilgungszuschuss („—“). Stufe in der Detailbearbeitung "
                    "(Förderung) wählbar.")
+    if hf := st.get("heizung_funktion"):
+        aus.append("KfW 458: Hinweis auf defekte Heizung/Anlagentechnik („" + hf.get("fund", "") + "“) – "
+                   + ("Heizung laut Berater funktionstüchtig, Klimabonus beibehalten."
+                      if hf.get("funktionstuechtig") else "Heizung laut Berater nicht funktionstüchtig, Klimabonus herausgenommen."))
     aus += list(st.get("rk_hinweise") or [])
     aus += list(st.get("ki_hinweise") or [])
     aus += [f"Checkliste: {h}" for h in (e.checkliste_import or {}).get("hinweise") or []]
@@ -806,7 +835,8 @@ def _korrektur_ki(db: Session, e: BerichtEntwurf, p: Projekt, st: dict, abschnit
         neu = {"fotos": ph.zuruecksetzen(voll["fotos"])}
     else:
         voll = ki_texte.antwort_bereinigen({**{k: None for k in ki_texte.SCHEMA["properties"]}, **roh})
-        neu = {pfad: ph.zuruecksetzen(ki_texte.kundentext_saeubern(voll[pfad], ki_texte.abschnitt_titel_kurz(abschnitt), hinweise))
+        neu = {pfad: ph.zuruecksetzen(ki_texte.zahlen_formatieren(
+                   ki_texte.kundentext_saeubern(voll[pfad], ki_texte.abschnitt_titel_kurz(abschnitt), hinweise)))
                for pfad in ki_texte.ABSCHNITTE[abschnitt][1]}
     hinweise += [ph.zuruecksetzen(h) for h in ki_texte.hinweise_bereinigen(roh.get("hinweise"), 5)]
     nr = _lauf_eintragen(e, {"zeit": jetzt().isoformat(), "tag": datetime.now(bi.BERLIN).date().isoformat(), "benutzer_id": ich.id,

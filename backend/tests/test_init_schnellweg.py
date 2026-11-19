@@ -585,6 +585,57 @@ def test_detailbearbeitung_hinweis_schnellweg(ki_an, v3_aktiv, generator, pdf, o
     assert berater.get(f"/projekte/{p['id']}/bericht-init/entwurf").json()["schnellweg_aktiv"] is True
 
 
+# ---------- Klimabonus nur bei funktionstüchtiger Heizung (19.11.2026) ----------
+
+@pytest.mark.parametrize("antwort, klimabonus, hinweis", [("nein", False, "herausgenommen"), ("ja", True, "beibehalten")])
+def test_defekte_heizung_mit_klimabonus_fragt_nach(ki_an, v3_aktiv, generator, pdf, ohne_abgleich, monkeypatch,
+                                                   antwort, klimabonus, hinweis):
+    _bogen_mit(monkeypatch, "Brenner defekt, Heizung seit Oktober außer Betrieb.")   # Testbogen: Klimabonus angekreuzt
+    berater = konto("berater")
+    p = efh(berater)
+    cid, ids = unterlagen(berater, p, ki_an, fotos=1)
+    r = starten(berater, p, cid, ids)
+    z = r["schnellweg"]["rueckfragen"]
+    assert [x["id"] for x in z] == ["heizung_funktion"] and z[0]["typ"] == "janein" and not z[0]["weglassen_erlaubt"]
+    assert z[0]["label"].startswith("Ist die bestehende Heizung funktionstüchtig?") and "defekt" in z[0]["hinweis"]
+    r = berater.post(PFAD.format(p["id"]) + "/antworten", json={"revision": r["revision"],
+                                                                "antworten": [{"id": "heizung_funktion", "wert": antwort}]})
+    s = r.json()["schnellweg"]
+    assert s["status"] == "fertig" and s["rueckfragen"] == []                       # nicht noch einmal gefragt
+    assert berater.get(f"/projekte/{p['id']}/bericht-init/entwurf").json()["daten"]["foerder"]["klimabonus"] is klimabonus
+    assert generator[-1]["daten"]["foerderung"]["kfw458"]["klimageschwindigkeit"] == ("ja" if klimabonus else "nein")
+    assert any(h.startswith("KfW 458: Hinweis auf defekte Heizung") and hinweis in h for h in s["hinweise"])
+
+
+def test_keine_heizungsfrage_ohne_klimabonus_oder_ohne_hinweis(ki_an, v3_aktiv, generator, pdf, ohne_abgleich, monkeypatch):
+    berater = konto("berater")
+    p = efh(berater)
+    cid, ids = unterlagen(berater, p, ki_an, fotos=1)
+    assert starten(berater, p, cid, ids)["schnellweg"]["status"] == "fertig"     # Klimabonus, aber kein Defekt-Hinweis
+    from app import init_schnellweg as sw
+    assert sw.defekt_hinweis({"checkliste": {"auffaelligkeiten": "- Feuchte Stellen\n- Defekte Anlagentechnik"}}) == "Defekte Anlagentechnik"
+    assert sw.defekt_hinweis({"notizen": "Ölkessel funktioniert, Brenner neu 2020"}) is None
+    assert sw.defekt_hinweis({"checkliste": {"anlagentechnik": "Heizung: Kessel nicht mehr funktionsfähig"}}) == "nicht mehr funktionsfähig"
+    assert sw.defekt_hinweis({"checkliste": {"auffaelligkeiten": "- Defekte Hüllbauteile"}}) is None   # Hülle, nicht Heizung
+
+
+@pytest.mark.parametrize("roh, erwartet", [
+    ("Verbrauch 2500 l Heizöl und 3800 kWh Strom", "Verbrauch 2.500 l Heizöl und 3.800 kWh Strom"),
+    ("Kredit bis 150000 € je Wohneinheit", "Kredit bis 150.000 € je Wohneinheit"),
+    ("Baujahr 1998, 89352 Ellzee, 9,8 kWp, bereits 2.500 l", "Baujahr 1998, 89352 Ellzee, 9,8 kWp, bereits 2.500 l"),
+    ("18000 kWh/a", "18.000 kWh/a"),
+])
+def test_tausenderpunkt_nur_vor_einheit(roh, erwartet):
+    assert ki_texte.tausenderpunkte(roh) == erwartet
+
+
+def test_prompt_init3_ee_oder_nh_und_zahlen():
+    version, text = ki_texte.systemprompt(ki_texte.PROMPT_SCHNELL)
+    assert version == "init-3" and text.startswith("Sie schreiben die Texte")
+    assert "Alternativen" in text and "nh_bonus" in text and "nie „nur mit EE-Klasse“" in text
+    assert "2.500 l Heizöl" in text and "Ein früher Heizungstausch lohnt sich daher besonders." in text
+
+
 # ---------- echter Generator (nur mit GENERATOR_TEST_URL) ----------
 
 @pytest.mark.skipif(not os.environ.get("GENERATOR_TEST_URL"), reason="kein Generator-Container (läuft mit scripts/test-postgres.sh)")

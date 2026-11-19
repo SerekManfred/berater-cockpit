@@ -436,8 +436,13 @@ Ausführliches Fachkonzept: `docs/Konzept_Berater-Cockpit.docx` (falls abgelegt)
 - Ablauf (Hintergrund-Thread, Oberfläche fragt `GET …/bericht-init/schnellweg` ab): Checkliste einlesen (Kern aus 2g:
   `bi.checkliste_lesen`/`checkliste_uebernehmen`) → Notizen anhängen → **Rückfrage-Liste** (`rueckfragen()`: fehlende Pflicht,
   unsichere Lesewerte, Abweichungen, Klimabonus bei fossilem Energieträger, Wohneinheiten-Warnung; „weglassen“ = `bewusst_leer`,
-  Wohneinheiten nie weglassbar; beantwortet = bestätigt) → **ein** KI-Lauf für alle Texte + Fotos (Prompt `init_v2.md`,
-  `PROMPT-VERSION: init-2`, Schema `ki_texte.SCHEMA_SCHNELL` mit `hinweise`) → `bi.word_bauen` → Vorschau.
+  Wohneinheiten nie weglassbar; beantwortet = bestätigt; **Klimabonus gewählt + Hinweis auf defekte Heizung** (`defekt_hinweis()`:
+  „Defekte Anlagentechnik“, „defekt“, „außer Betrieb“ … in Checkliste/Notizen) → Rückfrage „Ist die bestehende Heizung
+  funktionstüchtig? …“, „nein“ = Klimabonus aus, Antwort auch in „Hinweise der KI“, 19.11.2026) → **ein** KI-Lauf für alle Texte +
+  Fotos (Prompt `init_v3.md`, `PROMPT-VERSION: init-3` seit 19.11.2026: KfW 261 EE- **oder** NH-Klasse als Alternativen, NH-Aufschlag
+  nur aus `beg_wg.nh_bonus`, Tausenderpunkt, sauberes Deutsch; `init_v2.md` bleibt liegen; Schema `ki_texte.SCHEMA_SCHNELL` mit
+  `hinweise`; `ki_texte.tausenderpunkte()` setzt in KI-Texten den Punkt vor Einheiten, Jahreszahlen/PLZ unberührt) →
+  `bi.word_bauen` → Vorschau.
 - Weicht die Checkliste nur von der **Vorbelegung aus dem Projekt** ab, gilt der Bogen (Hinweis statt Rückfrage).
   Investitionskosten: optionale Felder auf der Unterlagen-Seite (Zahlen des Beraters), sonst Rückfrage.
 - **Keine Prüfmarken im Kundentext:** `kundentext_saeubern()` entfernt „[PRÜFEN …]“ und macht daraus Hinweise; „Hinweise der KI“
@@ -483,7 +488,8 @@ Ausführliches Fachkonzept: `docs/Konzept_Berater-Cockpit.docx` (falls abgelegt)
   „Zusammenfassung Weg A – Einzelmaßnahmen“. **Generator 0.4.6** (18.11.2026): reine Zahlen bekommen im INIT-Bericht ihre Einheit
   (m², kWp, kWh/a, ct/kWh, Jahre, l/kWh je Energieträger, €), Fußzeile mit eigenem Absatzformat (Seitenzahl auch in der PDF-Vorschau
   klein), Herleitung ohne Boni ohne doppeltes „= x %“ („5 % (Effizienzhaus 55 EE) von 150.000 € = 7.500 €“). **Generator 0.4.7**
-  (18.11.2026): hängende Einzüge in 8.2 (Sanierungsreihenfolge) und 5.1/5.2 (Maßnahmentitel).
+  (18.11.2026): hängende Einzüge in 8.2 (Sanierungsreihenfolge) und 5.1/5.2 (Maßnahmentitel). **Generator 0.4.8** (19.11.2026):
+  leere Einleitungen in 5.1/5.2 entfallen, „(„—“ = noch offen)“ nur, wenn ein Wert fehlt.
 - Messung 17.11.2026 (echte API, Kopie der DB, Testbogen Word + 6 Fotos): ohne Rückfrage, **94–112 s** bis Word + PDF, Texte Opus
   **0,26–0,30 $**, Korrektur 13–18 s, 0,03–0,08 $. Vergleich mit dem Original-Skill (gleiche Daten): Gliederung (31), Bilder,
   Förderbeträge identisch. Tests: `tests/test_init_schnellweg.py`, `frontend/src/Schnellweg.test.jsx`.
@@ -492,7 +498,8 @@ Ausführliches Fachkonzept: `docs/Konzept_Berater-Cockpit.docx` (falls abgelegt)
 - `app/ki/` = austauschbare Schnittstelle (Regel 7; `anthropic` umgesetzt, `langdock` meldet „noch nicht angebunden“), offizielles SDK
   `anthropic`, strukturierte Ausgabe per JSON-Schema (`ki_texte.SCHEMA`). Fachlogik in `app/ki_texte.py`; Systemprompt versioniert als
   Datei `app/ki/prompts/init_v1.md` (erste Zeile `PROMPT-VERSION: init-1`, Detailbearbeitung) und `app/ki/prompts/init_v2.md`
-  (`PROMPT-VERSION: init-2`, Schnellweg: Kundentext ohne Prüfmarken, Hinweise der KI); bei Änderung neue Datei/Version, nicht still ändern.
+  (`PROMPT-VERSION: init-2`, Schnellweg bis 18.11.2026) bzw. `init_v3.md` (`init-3`, Schnellweg seit 19.11.2026: Kundentext ohne
+  Prüfmarken, Hinweise der KI, EE/NH, Tausenderpunkt); bei Änderung neue Datei/Version, nicht still ändern.
 - `.env`: `KI_AKTIV` (Standard **aus**), `KI_MODELL` (Standard `claude-sonnet-5-5`), `KI_ANBIETER`, `ANTHROPIC_API_KEY`
   (Tageslimit seit Phase 2h je Benutzer in den KI-Einstellungen). Zeitlimit 180 s, höchstens 20 Fotos (1024 px) je Lauf. Fehler kommen als Meldung, nie als Absturz.
 - **An die KI gehen nur:** Objekt-/Checklisten-/PV-/Verbrauchsangaben, Notizen, Förderwahl, die Programm-Abschnitte der aktiven

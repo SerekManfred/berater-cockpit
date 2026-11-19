@@ -581,7 +581,7 @@ bodyText(D.zwischenfazit).forEach(p => children.push(p));
 children.push(h1("5. Besprochene und empfehlenswerte Maßnahmen"));
 
 children.push(h2("5.1 Stufe 1 – Quick Wins / gering investive Maßnahmen"));
-bodyText(D.massnahmen_stufe1_intro, { keep: true }).forEach(p => children.push(p));
+if (has(D.massnahmen_stufe1_intro)) bodyText(D.massnahmen_stufe1_intro, { keep: true }).forEach(p => children.push(p));
 const _m1 = D.massnahmen_stufe1 || [];
 _m1.forEach((m, idx) => {
   const last = idx === _m1.length - 1;
@@ -596,7 +596,7 @@ _m1.forEach((m, idx) => {
 });
 
 children.push(h2("5.2 Stufe 2 – Übergreifende Sanierungsmaßnahmen"));
-bodyText(D.massnahmen_stufe2_intro, { keep: true }).forEach(p => children.push(p));
+if (has(D.massnahmen_stufe2_intro)) bodyText(D.massnahmen_stufe2_intro, { keep: true }).forEach(p => children.push(p));
 const _m2 = D.massnahmen_stufe2 || [];
 _m2.forEach((m, idx) => {
   const last = idx === _m2.length - 1;
@@ -914,7 +914,8 @@ const anhang = D.anhang_fotos || [];
       { k: "Umsetzung", a: "schrittweise", b: "gebündelt (EH-Standard)" },
     ]));
     children.push(spacer(60));
-    children.push(noteBox("Investitionskosten und Eigenanteil sind vom Berater einzutragen (\u201e\u2014\u201c = noch offen). "
+    const _offen = nA === null || nB === null || ehFoerder === null;
+    children.push(noteBox((_offen ? "Investitionskosten und Eigenanteil sind vom Berater einzutragen (\u201e\u2014\u201c = noch offen). " : "Investitionskosten nach Angabe des Beraters (grobe Schätzung). ")
       + "Die KfW-261-Förderung ist ein Tilgungszuschuss auf einen Förderkredit, die Einzelmaßnahmen-Zuschüsse werden "
       + "direkt ausgezahlt. Welcher Weg wirtschaftlicher ist, hängt von den konkreten Kosten, der Finanzierung und – "
       + "gerade bei vermieteten Einheiten – von der steuerlichen Situation ab."));

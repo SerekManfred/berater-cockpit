@@ -137,3 +137,7 @@ Datenvertrag: `docs/Datenvertrag_Generator_EH_Vergleich.md` (Cockpit, 18.11.2026
 ## Hängende Einzüge (ab 0.4.7)
 - 8.2 Sanierungsreihenfolge: Nummer mit Tabulator und hängendem Einzug – Folgezeilen stehen bündig unter dem Text.
 - 5.1/5.2 Maßnahmentitel („• Titel“): ebenso hängender Einzug; Beschreibung bündig darunter.
+
+## Kleinigkeiten (ab 0.4.8)
+- 5.1/5.2: leere Einleitungen werden weggelassen (kein „(keine Angabe)“ unter der Überschrift).
+- Gegenüberstellung: Der Satz „(„—“ = noch offen)“ erscheint nur, wenn tatsächlich ein Wert fehlt.

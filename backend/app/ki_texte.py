@@ -13,7 +13,7 @@ from datetime import date
 from pathlib import Path
 
 PROMPT_DATEI = Path(__file__).parent / "ki" / "prompts" / "init_v1.md"        # Detailbearbeitung (Vorschläge mit [PRÜFEN])
-PROMPT_SCHNELL = Path(__file__).parent / "ki" / "prompts" / "init_v2.md"      # Schnellweg (Phase 2h): Kundentext + Hinweise
+PROMPT_SCHNELL = Path(__file__).parent / "ki" / "prompts" / "init_v3.md"      # Schnellweg: Kundentext + Hinweise (init-3, 19.11.2026)
 
 
 def systemprompt(datei: Path = PROMPT_DATEI) -> tuple[str, str]:
@@ -364,3 +364,25 @@ def hinweise_bereinigen(roh, grenze: int = MAX_HINWEISE) -> list[str]:
 
 def abschnitt_titel_kurz(abschnitt: str) -> str:
     return ABSCHNITTE[abschnitt][0].split(" ", 1)[0] if abschnitt != "fotos" else "Fotos"
+
+
+# Tausenderpunkt im Kundentext (19.11.2026): nur vor einer Einheit – Jahreszahlen („1998“) und Postleitzahlen bleiben unberührt
+_VIER_EINHEIT = re.compile(r"(?<![\d.,])(\d{4,})(?![\d,]|\.\d)(?=\s*(?:l|Liter|kWh|MWh|kg|t|m²|m³|Euro|EUR|rm)\b|\s*€)")
+
+
+def tausenderpunkte(text: str) -> str:
+    def punkt(m):
+        z = m.group(1)
+        return f"{int(z):,}".replace(",", ".")
+    return _VIER_EINHEIT.sub(punkt, text)
+
+
+def zahlen_formatieren(wert):
+    """Rekursiv alle Texte eines Abschnitts: deutscher Tausenderpunkt (die KI setzt ihn nicht immer)."""
+    if isinstance(wert, str):
+        return tausenderpunkte(wert)
+    if isinstance(wert, list):
+        return [zahlen_formatieren(x) for x in wert]
+    if isinstance(wert, dict):
+        return {k: zahlen_formatieren(v) for k, v in wert.items()}
+    return wert
