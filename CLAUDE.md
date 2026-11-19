@@ -38,7 +38,8 @@ Ausführliches Fachkonzept: `docs/Konzept_Berater-Cockpit.docx` (falls abgelegt)
   **PDF-Sichtprüfung** (`cockpit-pdf`). **Fachliche Änderungen an Berichtsinhalten** (Förderlogik, Texte zu Programmen, Kapitelaufbau)
   **vorher kurz im Chat ankündigen**; reine Darstellung (Einheiten, Einzüge, Formatierung) direkt umsetzen. Push nur nach Freigabe.
 - Später: Redis + Worker für lange Jobs (KI, Word-Erzeugung)
-- Betrieb mit Docker Compose. Test: `cockpit.mybase-test.de` (Hostinger-VServer, Ordner `/home/dev/berater-cockpit`). TLS und Weiterleitung macht der zentrale Caddy der Schulungsplattform (`/opt/schulung`) über das Netz `cockpit-proxy` an `cockpit-web:80`. Änderungen unter `/opt/schulung` nur mit ausdrücklicher Freigabe; freigegeben (11.11.2026) sind nur der Site-Block `cockpit.mybase-test.de` im Caddyfile und der Anschluss von `schulung-caddy-1` an das Netz `cockpit-proxy` – immer per `docker network connect`, Anhängen, `caddy validate` und `caddy reload`, nie `docker compose up` oder Neustart des Caddy (siehe README Schritt 5). Produktion später: HostEurope.
+- Betrieb mit Docker Compose. Test: `cockpit.mybase-test.de` (Hostinger-VServer, Ordner `/home/dev/berater-cockpit`). TLS und Weiterleitung macht der zentrale Caddy der Schulungsplattform (`/opt/schulung`) über das Netz `cockpit-proxy` an `cockpit-web:80`. Änderungen unter `/opt/schulung` nur mit ausdrücklicher Freigabe; freigegeben (11.11.2026) sind nur der Site-Block `cockpit.mybase-test.de` im Caddyfile und der Anschluss von `schulung-caddy-1` an das Netz `cockpit-proxy` – immer per `docker network connect`, Anhängen, `caddy validate` und `caddy reload`, nie `docker compose up` oder Neustart des Caddy (siehe README Schritt 5). Dieser Server ist ausschließlich **Testsystem**
+  (nur Testdaten, nie „Produktion“ nennen). Produktion: HostEurope, noch nicht eingerichtet.
 
 ## Unverhandelbare Regeln
 1. **Förderzahlen nur aus dem Rechenkern.** Keine Förderbeträge im Frontend berechnen, keine Sätze im Code hart verdrahten.
@@ -67,7 +68,8 @@ Verbindlich zusätzlich zu den unverhandelbaren Regeln; Einzelheiten in den Absc
   Berichte bzw. neue Versionen.
 - **Vier-Augen-Prinzip Konditionen:** Entwürfe legt admin (oder die Kommandozeile) an; freigeben oder zurückweisen darf nur
   Rolle `pruefer`/admin, nie Ersteller, Bearbeiter oder Einreicher. Prüfer im Testbetrieb: **bmayer** (Rollen berater, pruefer,
-  verwaltung; hat Version 4–7 freigegeben). Nie automatisch aktivieren (auch nicht aus der Förderprüfung).
+  verwaltung; hat Version 4–7 freigegeben) – bleibt Prüfer im Testbetrieb; **für die Produktion ist eine zweite Prüfperson
+  vorgesehen** (noch nicht benannt). Nie automatisch aktivieren (auch nicht aus der Förderprüfung).
 - **Fundstellen-Pflicht ab Version 7** (`FUNDSTELLEN_PFLICHT_AB = 7`): jedes gegenüber der Kopiervorlage geänderte Feld braucht
   eine Fundstelle (Quelldokument + Seite/Abschnitt), sonst sind Einreichen und Freigabe gesperrt; bis Version 6 nur Hinweis.
 - **Technischer Benutzer „Claude Code (technisch)“:** erzeugt Berichte im Auftrag (Kommandozeile, Protokoll `quelle: claude_code`),
@@ -76,9 +78,15 @@ Verbindlich zusätzlich zu den unverhandelbaren Regeln; Einzelheiten in den Absc
   „Kommandozeile“. „Wohneinheiten geprüft“ setzt nur ein Berater.
 - **Honorare brutto:** Angebotsbeträge A–D und Standardbeträge der Angebotsvorlagen sind Bruttobeträge inkl. 19 % MwSt.
   (Kosten gegenüber dem Kunden); im Bericht „Alle Beträge inkl. 19 % MwSt.“.
-- **Kostenkennwerte ohne Vier-Augen-Prinzip, mit Protokoll** (Festlegung für den geplanten Maßnahmenkatalog): interne
-  Erfahrungswerte pflegt der Admin direkt (wie die Angebotsvorlagen), jede Änderung wird mit alt/neu protokolliert; sie sind keine
-  Förderkonditionen und stehen nicht in `konditionen_versionen`. Kosten im Fördervergleich bleiben Vorschlag, bis der Berater bestätigt.
+- **Kostenkennwerte ohne Vier-Augen-Prinzip, mit Protokoll** (Festlegung für den geplanten Maßnahmenkatalog, korrigiert
+  19.11.2026): interne Erfahrungswerte pflegen die **Mitarbeiter** direkt (nicht nur der Admin), ohne Vier-Augen-Prinzip; jede
+  Änderung wird mit alt/neu protokolliert, auffällige Werte bekommen eine **Plausibilitätswarnung** (blockiert nicht), und der
+  verwendete Kennwert wird **im Bericht eingefroren** (spätere Änderungen wirken nur auf neue Berichte bzw. neue Versionen). Sie sind
+  keine Förderkonditionen und stehen nicht in `konditionen_versionen`. Kosten im Fördervergleich bleiben Vorschlag, bis der Berater
+  bestätigt. Offen: welche Rollen genau („Mitarbeiter“ = berater, verwaltung?) und die Regel der Plausibilitätswarnung.
+- **Umgebungen:** Der Hostinger-Server (`cockpit.mybase-test.de`, `/home/dev/berater-cockpit`) ist **ausschließlich Testsystem**
+  (nur Testdaten) und wird **nie „Produktion“** genannt. **Produktion = HostEurope, noch nicht eingerichtet.** „Produktion“ in
+  dieser Datei meint immer HostEurope.
 - **Aufträge unter `docs/auftraege/`:** jeder neue Auftrag wird zuerst dort abgelegt und eingecheckt; Patches/Zips nicht einchecken.
 - **Nur Testdaten**, bis die Produktiv-Checkliste („Vor Produktivstart“) abgearbeitet ist; KI mit echten Kundendaten erst mit AVV
   und Freigabe des Geschäftsführers.
@@ -100,7 +108,10 @@ Verbindlich zusätzlich zu den unverhandelbaren Regeln; Einzelheiten in den Absc
     Generator; **NH-Stufen im Fördervergleich** (seit 18.11.2026 offen).
   - **Förderprüfung der WPB-Kriterien** nach Freigabe von V8 (Vorschlag, keine automatische Aktivierung).
   - **Maßnahmenkatalog** (Bauteil, Standardtext, Kostenkennwert) – Vorschlag gemacht; festgelegt: Kostenkennwerte ohne Vier-Augen
-    mit Protokoll; offen: Startbestand, Standardtext im Word, INIT.
+    (Pflege durch Mitarbeiter) mit Protokoll alt/neu, Plausibilitätswarnung, Einfrieren im Bericht; offen: Startbestand,
+    Standardtext im Word, INIT.
+  - **Mailversand im Testsystem:** Benachrichtigung Förderkonditionen nur noch bei Konto 1 (Konto 2 und 3 seit 16.11.2026 ohne
+    Haken). Vorschlag Umleitung aller Mails an eine feste Testadresse mit Betreff-Präfix „[TEST]“ (`.env`) – nicht umgesetzt.
   - Abnahmen offen: Phasen 2b, 2d, 2e, 2g, 2h.
   - Produktiv-Checkliste („Vor Produktivstart“), u. a. Geheimnisse neu, 2FA, Basic Auth, AVV, Kopie außer Haus, API-Logs dauerhaft,
     `BEISPIELDATEN_AKTIV=false`, Word einfrieren ab dem ersten Bericht.
