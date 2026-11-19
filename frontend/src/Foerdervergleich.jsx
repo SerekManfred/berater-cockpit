@@ -66,6 +66,19 @@ export function angeboteFormular(a, vorlagen = null, mitStandard = false, ohne =
   return f;
 }
 
+// Neue Version (19.11.2026): zu kurze gespeicherte Leistungstexte (z. B. „Bafa“) durch den Text der Angebotsvorlage
+// ersetzen – nur im Formular, mit Hinweis und „Bisherigen Text behalten“. Titel und Beträge bleiben unverändert.
+export const LEISTUNG_MIN_ZEICHEN = 20;
+export function kurzeLeistungenErsetzen(f, vorlagen) {
+  const vorlage = Object.fromEntries((vorlagen || []).map(v => [v.kennung, v]));
+  const neu = { ...f }, ersetzt = {};
+  for (const [k] of ANGEBOTE) {
+    const alt = (f[k]?.leistungen || "").trim(), text = (vorlage[k]?.leistungen || "").trim();
+    if (alt.length < LEISTUNG_MIN_ZEICHEN && text && text !== alt) { neu[k] = { ...f[k], leistungen: text }; ersetzt[k] = alt; }
+  }
+  return { f: neu, ersetzt };
+}
+
 // Felder, die die Plausibilität der Wohneinheiten braucht (Regeln im Backend): leere/ungültige Zahlen → null
 export function weFelder(d) {
   const zahl = v => (typeof v === "number" && Number.isFinite(v) ? v : null);
@@ -172,7 +185,13 @@ export function Foerdervergleich({ titel = "Fördervergleich Einzelmaßnahmen / 
   const [vorlagen, setVorlagen] = useState([]);
   useEffect(() => { api("/angebotsvorlagen").then(v => setVorlagen(Array.isArray(v) ? v : [])).catch(() => setVorlagen([])); }, []);
   // Ohne gespeicherte Entscheidung: Vorlage samt Standardbetrag als Vorschlag (änderbar)
+  const [leistungErsetzt, setLeistungErsetzt] = useState({});
   useEffect(() => {
+    if (start.angebote && !angBeruehrt && vorlagen.length) {   // neue Version: zu kurze Leistungstexte aus der Vorlage
+      const { f, ersetzt } = kurzeLeistungenErsetzen(ang, vorlagen);
+      if (Object.keys(ersetzt).length) { setAng(f); setLeistungErsetzt(ersetzt); setD(n => mitAngeboten(n, f)); }
+      return;
+    }
     if (start.angebote || start.ohne_angebote || angBeruehrt || !vorlagen.length) return;
     const f = angeboteFormular(null, vorlagen, true);
     setAng(f); setD(n => mitAngeboten(n, f));
@@ -315,6 +334,13 @@ export function Foerdervergleich({ titel = "Fördervergleich Einzelmaßnahmen / 
               <label style={{ gridColumn: "1 / -1" }}>Leistungen
                 <input type="text" maxLength={300} value={ang[k].leistungen} placeholder={beispiel} onChange={e => setA(k, "leistungen", e.target.value)} />
               </label>
+              {k in leistungErsetzt && <div className="warnung" role="status" style={{ gridColumn: "1 / -1", marginTop: 0 }}>
+                Leistungen aus der Angebotsvorlage übernommen (bisher: „{leistungErsetzt[k] || "leer"}“ – kürzer als {LEISTUNG_MIN_ZEICHEN} Zeichen).{" "}
+                <button type="button" className="btn2" onClick={() => {
+                  setA(k, "leistungen", leistungErsetzt[k]);
+                  setLeistungErsetzt(({ [k]: _, ...rest }) => rest);
+                }}>Bisherigen Text behalten</button>
+              </div>}
             </div>
           </fieldset>
         ))}

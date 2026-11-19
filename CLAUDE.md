@@ -264,6 +264,18 @@ Ausführliches Fachkonzept: `docs/Konzept_Berater-Cockpit.docx` (falls abgelegt)
   Kombination mit BEG EM: …“. **„EE- oder NH-Klasse“ offen:** das Merkblatt 261 liegt nicht auf dem Server; V6 nennt es nur als
   Quelle und führt `ee_klasse_pflicht: true` – erst mit Beleg (z. B. eigenes Feld in den Konditionen) ändern.
   Tests: `tests/test_angebote_pflicht.py`, `Foerdervergleich.test.js`.
+- **Technischer Benutzer „Claude Code (technisch)“** (Migration 0015, `benutzer.technisch`; Geschäftsführer 19.11.2026): Berichte, die
+  Claude Code im Auftrag erzeugt, laufen nie unter einem persönlichen Konto. Nur per
+  `python -m app.cli bericht-neue-version BASIS_ID --eingaben DATEI.json --auftrag "…" [--aktuelle-konditionen]` (gleicher Weg wie
+  „Als neue Version bearbeiten“, alle Pflichtregeln; Protokoll `bericht_gespeichert` mit `quelle: claude_code`, `auftrag`).
+  Konto wird beim ersten Gebrauch angelegt (`claude-code@technisch.invalid`, inaktiv, ungültiger Passwort-Hash, Rolle berater);
+  Anmeldung und Sitzung im Code gesperrt (`login_abgelehnt` `technischer_benutzer`), Benutzerverwaltung → 409.
+  Im Word steht als Berater der **Zuständige des Projekts** (`word.berater_name`), nie der technische Name.
+  „Wohneinheiten geprüft“ setzt die Kommandozeile nie. Tests: `tests/test_technischer_benutzer.py`.
+- **Neue Version – kurze Leistungstexte** (19.11.2026): gespeicherte Leistungen kürzer als `LEISTUNG_MIN_ZEICHEN` (20) ersetzt das
+  Formular durch den Text der Angebotsvorlage, Hinweis „Leistungen aus der Angebotsvorlage übernommen (bisher: …)“ mit Knopf
+  „Bisherigen Text behalten“ (`kurzeLeistungenErsetzen` in `Foerdervergleich.jsx`). Titel und Beträge bleiben; gespeichert erst mit
+  „Speichern“, gespeicherte Berichte unverändert.
 
 ## Zahlenfelder in der Oberfläche (Stand 14.11.2026)
 - **Alle Zahlenfelder** über `ZahlFeld`/`ZahlEingabe` (`frontend/src/ZahlFeld.jsx`) und `frontend/src/zahl.js` – kein `type="number"`,

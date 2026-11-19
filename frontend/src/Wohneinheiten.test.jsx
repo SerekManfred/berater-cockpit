@@ -119,6 +119,22 @@ describe("Angebotsvorlagen (Abnahme 3)", () => {
     expect(screen.queryByRole("button", { name: /Referenzfall/ })).toBeNull();
   });
 
+  it("neue Version: zu kurze Leistungstexte aus der Vorlage, mit Hinweis und „Bisherigen Text behalten“", async () => {
+    const start = { ...LEER, angebote: { a: { betrag: 2975, titel: "Modellierung Gebäude", leistungen: "Modellierung" },
+      c: { betrag: 2975, titel: "BAFA Einzelmaßnahmen", leistungen: "Fachplanung, BzA, Baubegleitung, Nachweis" },
+      d: { betrag: 15000, titel: "KfW Effizienzhaus 261", leistungen: "" }, anrechnung_a_in_d: true } };
+    render(<Foerdervergleich start={start} />);
+    await warten();
+    const werte = () => screen.getAllByLabelText("Leistungen").map(x => x.value);
+    expect(werte()).toEqual([VORLAGEN[0].leistungen, "Fachplanung, BzA, Baubegleitung, Nachweis", VORLAGEN[3].leistungen]);
+    expect(screen.getByText(/bisher: „Modellierung“/)).toBeTruthy();
+    expect(screen.getAllByLabelText("Titel")[0].value).toBe("Modellierung Gebäude");           // Titel unverändert
+    expect(screen.getAllByLabelText("Betrag brutto inkl. 19 % MwSt. (€)")[0].value).toBe("2.975"); // Betrag unverändert
+    fireEvent.click(screen.getAllByRole("button", { name: "Bisherigen Text behalten" })[0]);
+    expect(werte()[0]).toBe("Modellierung");
+    expect(screen.queryByText(/bisher: „Modellierung“/)).toBeNull();
+  });
+
   it("gespeicherte Angebote behalten ihren Text", () => {
     const f = angeboteFormular({ a: { betrag: 1, titel: "Alt A", leistungen: "alt" }, c: { betrag: 1 }, d: { betrag: 1 } }, VORLAGEN);
     expect([f.a.titel, f.a.leistungen, f.c.titel, f.c.leistungen]).toEqual(["Alt A", "alt", "BAFA Einzelmaßnahmen", ""]);
