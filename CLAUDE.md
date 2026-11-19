@@ -288,6 +288,11 @@ Ausführliches Fachkonzept: `docs/Konzept_Berater-Cockpit.docx` (falls abgelegt)
   Kombination mit BEG EM: …“. **„EE- oder NH-Klasse“ offen:** das Merkblatt 261 liegt nicht auf dem Server; V6 nennt es nur als
   Quelle und führt `ee_klasse_pflicht: true` – erst mit Beleg (z. B. eigenes Feld in den Konditionen) ändern.
   Tests: `tests/test_angebote_pflicht.py`, `Foerdervergleich.test.js`.
+- **Generator 0.5.1** (19.11.2026): mit `wpb_grundlage_text` und WPB ja/nein – Kopfzeile „Worst Performing Building“, Kurzfazit mit
+  dem zutreffenden Weg („Empfohlen: …“), anderer Fall grau „Nicht zutreffend: …“; Kapitel 8 nicht zutreffende Spalten grau,
+  keine „beste Wahl“ dort, zutreffende Entscheidungszeile hervorgehoben. Ohne Grundlage wie 0.5.0. WPB-Kriterien im Text nur aus
+  `konditionen.wpb` (ab Entwurf V8), sonst ohne Zahlen – **„Klasse H bzw. ≥ 300 kWh/(m²a)“ entfernt** (nicht in Richtlinie BEG EM
+  17.07.2026 / BAFA-Infoblatt 10.0 belegt, nur in der BEG-FAQ 14.08.2026 S. 12).
 - **Technischer Benutzer „Claude Code (technisch)“** (Migration 0015, `benutzer.technisch`; Geschäftsführer 19.11.2026): Berichte, die
   Claude Code im Auftrag erzeugt, laufen nie unter einem persönlichen Konto. Nur per
   `python -m app.cli bericht-neue-version BASIS_ID --eingaben DATEI.json --auftrag "…" [--aktuelle-konditionen]` (gleicher Weg wie

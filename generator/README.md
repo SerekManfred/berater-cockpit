@@ -163,3 +163,17 @@ Befund 2026-0004 V3 (Geschäftsführer 19.11.2026), Textvergleich gegen 0.4.9 nu
   unter der Einleitung. Der Generator rechnet und ergänzt nichts; ohne Feld kein Hinweis.
 - Kapitel 9 erscheint weiter nur mit `angebotsweg` im Ergebnis. Dass ein Bericht ohne Angebote nicht still entsteht, sichert das
   Cockpit (Pflicht „Angebote oder bewusst ohne Angebote“ beim Speichern).
+
+## Fördervergleich: zutreffender WPB-Fall, Kriterien nur aus den Konditionen (ab 0.5.1)
+Geschäftsführer 19.11.2026. Neues optionales Feld `wpb_grundlage_text` (oberste Ebene, Text vom Cockpit, z. B. „Energieausweis
+Klasse H (Bedarfsausweis vom 03.05.2024)“). Nur wenn `eingaben.wpb_status` „ja“ oder „nein“ ist **und** der Text vorliegt:
+- **Kopf:** Zeile „Worst Performing Building: ja/nein – Grundlage: …“.
+- **Kurzfazit:** beginnt mit dem zutreffenden Fall („Ihr Gebäude ist (kein) Worst Performing Building (Grundlage: …)“,
+  „Empfohlen: …“); der andere Fall nur als grauer Hinweis „Nicht zutreffend: …“.
+- **Kapitel 8:** nicht zutreffende Spalten grau, im Kopf „– nicht zutreffend“, dort keine „beste Wahl“ und keine Markierung;
+  „So treffen Sie die Entscheidung“ hebt die zutreffende Zeile hervor („– trifft zu“).
+- Ohne Grundlage (ältere Berichte, „unbekannt“): Aufbau wie 0.5.0.
+- **WPB-Kriterien** stehen nur noch aus den Konditionen im Text (Abschnitt `konditionen.wpb`: `energieausweis_klasse`,
+  `baujahr_bis`, `anteil_aussenwand_unsaniert_min`, optional `endenergie_min`). Ohne den Abschnitt: „Kriterien laut BEG-Infoblatt:
+  Energieausweis oder Baujahr und Sanierungszustand der Außenwand“ – **„Klasse H bzw. ≥ 300 kWh/(m²a)“ ist entfallen** (nicht in
+  Richtlinie BEG EM 17.07.2026 bzw. Infoblatt 10.0 belegt; ändert auch den Download älterer Berichte an dieser Stelle).

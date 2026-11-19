@@ -50,6 +50,21 @@ async function text(daten) {
   assert(!ta.includes("MwSt."), "ohne angebote_hinweis kein MwSt.-Satz (der Text kommt vom Cockpit)");
   const brutto = await text({ ...mitA, angebote_hinweis: "Alle Beträge inkl. 19 % MwSt." });
   assert(brutto.includes("Alle Beträge inkl. 19 % MwSt.") && brutto.indexOf("Alle Beträge inkl. 19 % MwSt.") > brutto.indexOf("Unsere Leistungen auf Ihrem Weg"), "Brutto-Hinweis in Kapitel 9");
+  // ab 0.5.1: zutreffender WPB-Fall nur mit Grundlage; Kriterien ohne „300 kWh“, nur aus konditionen.wpb
+  const G = "Energieausweis Klasse H (Bedarfsausweis vom 03.05.2024)";
+  for (const z of ["300 kWh", "Klasse H bzw."]) assert(!tr.includes(z), "0.5.1: unbelegte Schwelle entfernt: " + z);
+  assert(tr.includes("Kriterien laut BEG-Infoblatt"), "0.5.1: Kriterien ohne Zahlen ohne konditionen.wpb");
+  const wpbJa = await text({ ...ref, eingaben: { ...ref.eingaben, wpb_status: "ja" }, wpb_grundlage_text: G });
+  for (const z of ["Ihr Gebäude ist als Worst Performing Building eingestuft – Grundlage: " + G, "Empfohlen:", "Nicht zutreffend: Ohne WPB-Einstufung",
+    "a) ohne WPB – nicht zutreffend", "Gebäude ist WPB – trifft zu", "ja – Grundlage: " + G]) assert(wpbJa.includes(z), "0.5.1 WPB ja: " + z);
+  assert(!wpbJa.includes("beste Wahl ohne WPB") && wpbJa.includes("beste Wahl mit WPB"), "0.5.1: keine beste Wahl in nicht zutreffenden Spalten");
+  const wpbNein = await text({ ...ref, eingaben: { ...ref.eingaben, wpb_status: "nein" }, wpb_grundlage_text: G });
+  assert(wpbNein.includes("Ihr Gebäude ist kein Worst Performing Building") && wpbNein.includes("b) mit WPB – nicht zutreffend")
+    && wpbNein.includes("beste Wahl ohne WPB") && !wpbNein.includes("beste Wahl mit WPB"), "0.5.1 WPB nein");
+  const ohneGrundlage = await text({ ...ref, eingaben: { ...ref.eingaben, wpb_status: "ja" } });
+  assert(ohneGrundlage.includes("maßgeblich ist die zweite Zeile") && !ohneGrundlage.includes("nicht zutreffend"), "0.5.1: ohne Grundlage wie 0.5.0");
+  const mitKw = await text({ ...ref, konditionen: { ...ref.konditionen, wpb: { energieausweis_klasse: "H", baujahr_bis: 1957, anteil_aussenwand_unsaniert_min: 0.75 } } });
+  assert(mitKw.includes("Energieausweis Klasse H oder Baujahr bis 1957 und mindestens 75 % der Außenwand unsaniert"), "0.5.1: Kriterien aus konditionen.wpb");
   const ohneWpb = await text({ ...mitA, eingaben: { ...mitA.eingaben, wpb_status: "unbekannt" } });
   assert(!ohneWpb.includes("Empfehlung für Ihr Gebäude") && ohneWpb.includes("hängt von der WPB-Einstufung ab"), "Angebote ohne WPB-Status: keine Empfehlung");
   // Schutz: Konditionen-Version muss zum Ergebnis passen
