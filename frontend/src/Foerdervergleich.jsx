@@ -53,14 +53,16 @@ const leer = x => x === null || x === undefined;
 
 // Angebote → Formularzustand (Betrag: Zahl, null = nicht ausgefüllt, NaN = ungültig).
 // Gespeicherte Angebote (a) behalten ihren Text. Neue Fördervergleiche (ohne a) übernehmen Titel und Leistungen aus den
-// Angebotsvorlagen (Liste aus GET /angebotsvorlagen); den Standardbetrag nicht – er wird nur als Knopf angeboten.
-export function angeboteFormular(a, vorlagen = null) {
-  const f = { anrechnung_a_in_d: a?.anrechnung_a_in_d ?? true };
+// Angebotsvorlagen (Liste aus GET /angebotsvorlagen). Mit mitStandard übernimmt ein NEUER Fördervergleich auch den
+// Standardbetrag als Vorschlag (änderbar, Geschäftsführer 19.11.2026). ohne = „bewusst ohne Angebote“ mit grund.
+export function angeboteFormular(a, vorlagen = null, mitStandard = false, ohne = null) {
+  const f = { anrechnung_a_in_d: a?.anrechnung_a_in_d ?? true, ohne: !!ohne, grund: ohne?.grund ?? "" };
   const vorlage = Object.fromEntries((vorlagen || []).map(v => [v.kennung, v]));
   for (const [k, titel] of ANGEBOTE)
     f[k] = a
       ? { betrag: a[k]?.betrag ?? null, titel: a[k]?.titel ?? titel, leistungen: a[k]?.leistungen ?? "" }
-      : { betrag: null, titel: vorlage[k]?.titel ?? titel, leistungen: vorlage[k]?.leistungen ?? "" };
+      : { betrag: mitStandard ? vorlage[k]?.standardbetrag ?? null : null, titel: vorlage[k]?.titel ?? titel,
+          leistungen: vorlage[k]?.leistungen ?? "" };
   return f;
 }
 
@@ -87,18 +89,41 @@ export function angeboteDaten(f, kfw266) {
   return r;
 }
 
-// Eingaben mit den Angeboten aus dem Formular; mit Angeboten gibt es keine pauschalen Kosten Baubegleitung
-function mitAngeboten(n, f) {
-  const a = angeboteDaten(f, n.kfw266);
+// Eingaben mit den Angeboten aus dem Formular. Die externe Fachplanung bleibt unberührt (kein stilles Abschalten,
+// 19.11.2026) – ein Widerspruch wird angezeigt (speichernPruefen) und beim Speichern vom Backend abgelehnt.
+export function mitAngeboten(n, f) {
   const r = { ...n };
-  if (a) { r.angebote = a; r.kosten_baubegleitung = 0; } else delete r.angebote;
+  delete r.angebote; delete r.ohne_angebote;
+  if (f.ohne) { r.ohne_angebote = { grund: f.grund }; return r; }
+  const a = angeboteDaten(f, n.kfw266);
+  if (a) r.angebote = a;
   return r;
+}
+
+/** Widerspruch Angebote / externe Fachplanung (gleicher Sinn wie rechnen.fachplanung_widerspruch im Backend). */
+export function fachplanungWiderspruch(d) {
+  return d.angebote && typeof d.kosten_baubegleitung === "number" && d.kosten_baubegleitung > 0
+    ? `Widerspruch: Unsere Angebote sind erfasst, zusätzlich ${eur(d.kosten_baubegleitung)} externe Fachplanung. ` +
+      "Mit Angeboten ergibt sich die Fachplanung aus A + C bzw. A + D – der externe Betrag wird nicht gerechnet. " +
+      "Bitte das Feld auf 0 setzen oder „bewusst ohne Angebote“ wählen."
+    : null;
+}
+
+/** Pflicht beim Speichern in der Projektakte (19.11.2026): Angebote ODER „bewusst ohne Angebote“ mit Grund,
+ *  kein Widerspruch zur externen Fachplanung. Das Backend prüft dasselbe (422). */
+export function speichernPruefen(d) {
+  const f = [];
+  if (d.ohne_angebote) { if ((d.ohne_angebote.grund || "").trim().length < 3) f.push("Bewusst ohne Angebote: bitte einen Grund angeben"); }
+  else if (!d.angebote) f.push("Angebote fehlen: bitte die Beträge A, C und D eintragen (bei KfW 266 auch B) oder „bewusst ohne Angebote“ mit Grund wählen");
+  const w = fachplanungWiderspruch(d);
+  if (w) f.push(w);
+  return f;
 }
 
 // Zahlenfelder der Eckparameter: leer → 0, außer Wohneinheiten nach Sanierung (Pflicht)
 const ZAHLFELDER = [
   ["we_nach_sanierung", "Wohneinheiten nach Sanierung", { pflicht: true, ganzzahl: true }],
-  ["kosten_baubegleitung", "Kosten Fachplanung/Baubegleitung"],
+  ["kosten_baubegleitung", "Kosten externe Fachplanung/Baubegleitung"],
   ["kosten_isfp", "Honorar iSFP"],
   ["we_neu", "Davon neue WE (Umnutzung)", { ganzzahl: true }],
   ["umbaukosten_neue_we", "Umbaukosten neue WE"],
@@ -130,7 +155,7 @@ const mitProjekt = projektId => projektId ? `?projekt_id=${projektId}` : "";
  * Mit onSpeichern erscheint nach „Berechnen“ der Button „Speichern“ – gespeichert werden genau die berechneten Eingaben.
  */
 export function Foerdervergleich({ titel = "Fördervergleich Einzelmaßnahmen / Effizienzhaus", untertitel, start = LEER,
-  rechnen = schnellrechnung, rechenSchluessel = "", zusatz = null, onSpeichern, onAbbrechen, projektId = null }) {
+  rechnen = schnellrechnung, rechenSchluessel = "", zusatz = null, onSpeichern, onAbbrechen, projektId = null, beispiel = false }) {
   const [d, setD] = useState(start);
   const [erg, setErg] = useState(null);
   const [berechnetMit, setBerechnetMit] = useState(null);
@@ -139,14 +164,29 @@ export function Foerdervergleich({ titel = "Fördervergleich Einzelmaßnahmen / 
   const set = (k, v) => setD({ ...d, [k]: v });
   const setOpt = (k, v) => { const n = { ...d }; if (v === "" || v === null || v === undefined) delete n[k]; else n[k] = v; setD(n); };
   const setM = (i, k, v) => set("massnahmen", d.massnahmen.map((m, j) => j === i ? { ...m, [k]: v } : m));
-  const [ang, setAng] = useState(() => angeboteFormular(start.angebote));
+  const [ang, setAng] = useState(() => angeboteFormular(start.angebote, null, false, start.ohne_angebote));
   const [angBeruehrt, setAngBeruehrt] = useState(false);
   const setA = (k, feld, v) => { const f = { ...ang, [k]: { ...ang[k], [feld]: v } }; setAng(f); setAngBeruehrt(true); setD(mitAngeboten(d, f)); };
   const setAnrechnung = v => { const f = { ...ang, anrechnung_a_in_d: v }; setAng(f); setAngBeruehrt(true); setD(mitAngeboten(d, f)); };
   // Angebotsvorlagen: Titel und Leistungen für NEUE Fördervergleiche vorbelegen (gespeicherte behalten ihren Text)
   const [vorlagen, setVorlagen] = useState([]);
   useEffect(() => { api("/angebotsvorlagen").then(v => setVorlagen(Array.isArray(v) ? v : [])).catch(() => setVorlagen([])); }, []);
-  useEffect(() => { if (!start.angebote && !angBeruehrt && vorlagen.length) setAng(angeboteFormular(null, vorlagen)); }, [vorlagen]);
+  // Ohne gespeicherte Entscheidung: Vorlage samt Standardbetrag als Vorschlag (änderbar)
+  useEffect(() => {
+    if (start.angebote || start.ohne_angebote || angBeruehrt || !vorlagen.length) return;
+    const f = angeboteFormular(null, vorlagen, true);
+    setAng(f); setD(n => mitAngeboten(n, f));
+  }, [vorlagen]);
+  // Knopf „Referenzfall laden“ nur in der Schnellrechnung und nur, wenn BEISPIELDATEN_AKTIV (Systeminfo)
+  const [beispielAn, setBeispielAn] = useState(false);
+  useEffect(() => { if (beispiel) api("/systeminfo").then(x => setBeispielAn(!!x?.beispieldaten)).catch(() => setBeispielAn(false)); }, [beispiel]);
+  function beispielLaden() {
+    if (!window.confirm("Alle Eingaben und Angebote werden durch den Referenzfall MFH-Umnutzung (6 WE) ersetzt. Fortfahren?")) return;
+    const f = angeboteFormular(null, vorlagen, true);
+    // Mit Angeboten keine externe Fachplanung (sonst Widerspruch)
+    setD(mitAngeboten({ ...BEISPIEL_REFERENZFALL, kosten_baubegleitung: 0 }, f)); setAng(f); setAngBeruehrt(false); setErg(null);
+  }
+  const setOhne = (ohne, grund = ang.grund) => { const f = { ...ang, ohne, grund }; setAng(f); setAngBeruehrt(true); setD(mitAngeboten(d, f)); };
   const standardbetrag = k => vorlagen.find(v => v.kennung === k)?.standardbetrag ?? null;
   // Plausibilität der Wohneinheiten: Regeln im Backend (app/wohneinheiten.py), Anzeige schon vor dem Rechnen
   const [weHinweise, setWeHinweise] = useState([]);
@@ -164,6 +204,8 @@ export function Foerdervergleich({ titel = "Fördervergleich Einzelmaßnahmen / 
   useEffect(() => { setErg(null); setBerechnetMit(null); }, [rechenSchluessel]);
   const geprueft = eingabenPruefen(d);
   const aktuell = erg && !geprueft.fehler.length && berechnetMit === JSON.stringify(geprueft.werte);
+  const speicherFehler = onSpeichern ? speichernPruefen(d) : [];
+  const widerspruch = fachplanungWiderspruch(d);
   const [fristen, setFristen] = useState([]);
   useEffect(() => { api("/konditionen/fristen").then(f => setFristen(f.fristen)).catch(() => setFristen([])); }, []);
   // Vorschau mit der geplanten Version (16.11.2026): eigener Zustand, nie an „Speichern“ übergeben
@@ -210,12 +252,10 @@ export function Foerdervergleich({ titel = "Fördervergleich Einzelmaßnahmen / 
         <h2>Eckparameter</h2>
         <div className="felder">
           <ZahlFeld label="Wohneinheiten nach Sanierung" ganzzahl wert={d.we_nach_sanierung} onChange={v => set("we_nach_sanierung", v)} />
-          {d.angebote
-            ? <label>Kosten Fachplanung/Baubegleitung (€)
-                <input type="text" value="aus den Angeboten" disabled aria-describedby="bb-aus-angeboten" />
-                <span id="bb-aus-angeboten" className="klein" style={{ fontWeight: "normal" }}>wird aus den Angeboten berechnet (je Weg)</span>
-              </label>
-            : <ZahlFeld label="Kosten Fachplanung/Baubegleitung (€)" wert={d.kosten_baubegleitung} onChange={v => set("kosten_baubegleitung", v)} />}
+          <div>
+            <ZahlFeld label="Kosten externe Fachplanung/Baubegleitung (€)" wert={d.kosten_baubegleitung} onChange={v => set("kosten_baubegleitung", v)} />
+            <span className="klein">Nur, wenn die Fachplanung nicht durch uns erfolgt. Mit unseren Angeboten ergibt sie sich aus A + C bzw. A + D.</span>
+          </div>
           <ZahlFeld label="Honorar iSFP (€)" wert={d.kosten_isfp} onChange={v => set("kosten_isfp", v)} />
           <label>Effizienzhaus-Stufe
             <select value={d.eh_stufe} onChange={e => set("eh_stufe", e.target.value)}>
@@ -241,21 +281,30 @@ export function Foerdervergleich({ titel = "Fördervergleich Einzelmaßnahmen / 
             <ZahlFeld label="Umbaukosten neue WE, nicht energetisch (€)" wert={d.umbaukosten_neue_we} onChange={v => set("umbaukosten_neue_we", v)} />
           </div>
         )}
+        {widerspruch && <div className="warnung" role="alert" style={{ marginTop: 12 }}>{widerspruch}</div>}
         <WeHinweise hinweise={weHinweise} onUebernehmen={projektId ? w => set("we_nach_sanierung", w) : undefined} />
       </section>
 
-      <details className="karte programm-form" open={!!start.angebote}>
-        <summary><h2>Unsere Angebote (optional)</h2>{d.angebote && <span className="okzahl">wird berechnet</span>}</summary>
-        <p className="klein">Mit Angeboten rechnet der Fördervergleich die Kosten Fachplanung/Baubegleitung je Weg
-          (Einzelmaßnahmen: A + C, Effizienzhaus: A + D; B nur bei KfW 266, nicht gefördert) und zeigt im Word-Bericht
-          das Kapitel „Unsere Leistungen auf Ihrem Weg“. Sobald ein Betrag eingetragen ist, sind A, C und D Pflicht, B bleibt optional.
-          Ohne Betrag bleiben die Angebote unberücksichtigt.</p>
-        {ANGEBOTE.filter(([k]) => k !== "b" || d.kfw266).map(([k, , hinweis, beispiel]) => (
+      <details className="karte programm-form" open={!!onSpeichern || !!start.angebote}>
+        <summary><h2>Unsere Angebote {onSpeichern ? "(Pflicht)" : "(optional)"}</h2>
+          {d.angebote && <span className="okzahl">wird berechnet</span>}{d.ohne_angebote && <span className="okzahl">bewusst ohne</span>}</summary>
+        <p className="klein">Alle Beträge brutto inkl. 19 % MwSt. (Kosten gegenüber dem Kunden). Mit Angeboten rechnet der
+          Fördervergleich die Kosten Fachplanung/Baubegleitung je Weg (Einzelmaßnahmen: A + C, Effizienzhaus: A + D; B nur bei
+          KfW 266, nicht gefördert) und zeigt im Word-Bericht das Kapitel „Unsere Leistungen auf Ihrem Weg“. A, C und D sind
+          Pflicht, B bleibt optional. Vorgeschlagen ist der Standardbetrag der Angebotsvorlage.
+          {onSpeichern && " Ohne Angebote nur mit „bewusst ohne Angebote“ und Grund – sonst fehlt das Kapitel im Bericht."}</p>
+        {onSpeichern && <div className="schalter" style={{ marginTop: 0 }}>
+          <label><input type="checkbox" checked={ang.ohne} onChange={e => setOhne(e.target.checked)} /> Bewusst ohne Angebote</label>
+        </div>}
+        {ang.ohne && <label>Grund (erscheint nicht im Bericht)
+          <input type="text" maxLength={300} value={ang.grund} placeholder="z. B. Fachplanung extern beauftragt" onChange={e => setOhne(true, e.target.value)} />
+        </label>}
+        {!ang.ohne && ANGEBOTE.filter(([k]) => k !== "b" || d.kfw266).map(([k, , hinweis, beispiel]) => (
           <fieldset key={k} className="gruppe">
             <legend>Angebot {k.toUpperCase()} <span style={{ fontWeight: "normal" }}>({hinweis})</span></legend>
             <div className="felder">
               <div>
-                <ZahlFeld label="Betrag brutto (€)" wert={ang[k].betrag} onChange={v => setA(k, "betrag", v)} />
+                <ZahlFeld label="Betrag brutto inkl. 19 % MwSt. (€)" wert={ang[k].betrag} onChange={v => setA(k, "betrag", v)} />
                 {ang[k].betrag == null && standardbetrag(k) != null &&
                   <button type="button" className="btn2" onClick={() => setA(k, "betrag", standardbetrag(k))}>
                     Standardbetrag übernehmen ({eur(standardbetrag(k))})</button>}
@@ -269,10 +318,10 @@ export function Foerdervergleich({ titel = "Fördervergleich Einzelmaßnahmen / 
             </div>
           </fieldset>
         ))}
-        <div className="schalter">
+        {!ang.ohne && <div className="schalter">
           <label><input type="checkbox" checked={ang.anrechnung_a_in_d} onChange={e => setAnrechnung(e.target.checked)} />
             A ist in D enthalten (wird angerechnet)</label>
-        </div>
+        </div>}
         {d.angebote && ang.anrechnung_a_in_d && <p className="klein">Im Weg Effizienzhaus wird D abzüglich A berechnet – A wird nur einmal bezahlt.</p>}
       </details>
 
@@ -328,13 +377,14 @@ export function Foerdervergleich({ titel = "Fördervergleich Einzelmaßnahmen / 
         </div>
         <div className="aktionen">
           <button className="btn2" onClick={() => set("massnahmen", [...d.massnahmen, { name: "", kosten: 0, em_kategorie: "daemmung", eh_foerderfaehig: true }])}>Maßnahme hinzufügen</button>
-          <button className="btn2" onClick={() => { setD(BEISPIEL_REFERENZFALL); setAng(angeboteFormular(null, vorlagen)); setAngBeruehrt(false); setErg(null); }}>Referenzfall MFH-Umnutzung (6 WE) laden</button>
+          {beispielAn && <button className="btn2" onClick={beispielLaden}>Referenzfall MFH-Umnutzung (6 WE) laden</button>}
           <button className="btn" onClick={berechnen}>Berechnen</button>
           {geplant && <button className="btn2" onClick={vorschauRechnen}>Vorschau mit Konditionen ab {geplant.gueltig_ab.split("-").reverse().join(".")}</button>}
         </div>
         {fehler && <div className="fehler">{fehler}</div>}
       </section>
 
+      {erg?.fachplanung_hinweis && <div className="warnung karte" role="alert">{erg.fachplanung_hinweis}</div>}
       {erg && <Ergebnis erg={erg} />}
       {vorschau && <Vorschau erg={vorschau} />}
       {erg && berechnetMit && <Angebotsweg erg={erg} eingaben={JSON.parse(berechnetMit)} />}
@@ -342,12 +392,13 @@ export function Foerdervergleich({ titel = "Fördervergleich Einzelmaßnahmen / 
         <section className="karte speichern-leiste">
           {erg && !aktuell && <div className="info" role="status">Die Eingaben wurden nach der Berechnung geändert. Bitte neu berechnen, bevor Sie speichern.</div>}
           {!erg && <p className="klein">Erst berechnen, dann speichern. Gespeicherte Berichte werden nie überschrieben.</p>}
+          {erg && speicherFehler.length > 0 && <div className="fehler" role="alert">Speichern erst möglich, wenn: {speicherFehler.join(" · ")}</div>}
           {aktuell && weWarnungen.length > 0 && <div className="schalter" style={{ marginTop: 0 }}>
             <label><input type="checkbox" checked={weGeprueft} onChange={e => setWeGeprueft(e.target.checked)} />
               Wohneinheiten geprüft (die Hinweise oben) – sonst vor dem Word-Bericht bestätigen</label>
           </div>}
           <div className="aktionen">
-            <button className="btn" onClick={speichern} disabled={!aktuell || speichert}>{speichert ? "Speichere …" : "Speichern"}</button>
+            <button className="btn" onClick={speichern} disabled={!aktuell || speichert || speicherFehler.length > 0}>{speichert ? "Speichere …" : "Speichern"}</button>
             {onAbbrechen && <button className="btn2" onClick={onAbbrechen}>Abbrechen</button>}
           </div>
         </section>
@@ -400,16 +451,16 @@ export function Ergebnis({ erg }) {
             <tr><th></th>{reihe.map(r => kopf(r, (r.endsWith("ohne_WPB") ? "a) ohne" : "b) mit") + " WPB"))}</tr>
           </thead>
           <tbody>
-            <tr className="abschnitt"><td colSpan="5">A Zuschüsse – nicht rückzahlbar</td></tr>
+            <tr className="abschnitt"><td colSpan="5">Zuschüsse – nicht rückzahlbar</td></tr>
             {posten.map(([k, t]) => <tr key={k}><td>{t}</td>{z(k, x => x.zuschuesse[k] !== undefined ? eur(x.zuschuesse[k]) : "–")}</tr>)}
             <tr className="summe"><td>Summe Zuschüsse energetisch</td>{z("summe", x => eur(x.summe_zuschuesse_energetisch))}</tr>
-            <tr className="abschnitt"><td colSpan="5">B Darlehen – zinsgünstig, rückzahlbar</td></tr>
+            <tr className="abschnitt"><td colSpan="5">Darlehen – zinsgünstig, rückzahlbar</td></tr>
             <tr><td>Förderkredit</td>{z("k", x => x.kreditprogramm)}</tr>
             <tr><td>Kreditrahmen</td>{z("k", x => "bis " + eur(x.kreditrahmen))}</tr>
             <tr><td>Kredit Pflicht?</td>{z("k", x => x.kredit_pflicht ? "ja" : "nein")}</tr>
-            <tr className="abschnitt"><td colSpan="5">C KfW 266 „Gewerbe zu Wohnen“</td></tr>
+            <tr className="abschnitt"><td colSpan="5">KfW 266 „Gewerbe zu Wohnen“</td></tr>
             <tr><td>Zuschuss Umbau neue WE</td>{z("k", x => eur(x.zuschuss_266))}</tr>
-            <tr className="abschnitt"><td colSpan="5">D Ergebnis</td></tr>
+            <tr className="abschnitt"><td colSpan="5">Ergebnis</td></tr>
             <tr className="summe"><td>Zuschüsse gesamt</td>{z("summe", x => eur(x.summe_zuschuesse_gesamt))}</tr>
             <tr><td>Eigenanteil energetisch</td>{z("k", x => eur(x.eigenanteil_energetisch))}</tr>
             <tr><td>Förderquote energetisch</td>{z("k", x => pct(x.foerderquote_energetisch))}</tr>

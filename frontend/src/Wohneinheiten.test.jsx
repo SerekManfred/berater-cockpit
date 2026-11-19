@@ -101,15 +101,22 @@ describe("Fördervergleich: Plausibilität vor dem Rechnen (Abnahme 1)", () => {
 });
 
 describe("Angebotsvorlagen (Abnahme 3)", () => {
-  it("neuer Fördervergleich: Titel und Leistungen A–D aus den Vorlagen, Standardbetrag nur als Knopf", async () => {
+  it("neuer Fördervergleich: Titel, Leistungen und Standardbetrag als Vorschlag (19.11.2026)", async () => {
     render(<Foerdervergleich start={LEER} />);
     await warten();
     const leistungen = screen.getAllByLabelText("Leistungen").map(x => x.value);
     expect(leistungen).toEqual([VORLAGEN[0].leistungen, VORLAGEN[2].leistungen, VORLAGEN[3].leistungen]); // B nur mit KfW 266
     expect(screen.getAllByLabelText("Titel").map(x => x.value)).toEqual(["Modellierung Gebäude", "BAFA Einzelmaßnahmen", "KfW Effizienzhaus 261"]);
-    expect(screen.getAllByLabelText("Betrag brutto (€)").map(x => x.value)).toEqual(["", "", ""]); // keine Angebote ohne Zutun
-    fireEvent.click(screen.getByRole("button", { name: "Standardbetrag übernehmen (2.975 €)" }));
-    expect(screen.getAllByLabelText("Betrag brutto (€)")[0].value).toBe("2.975");
+    const betraege = () => screen.getAllByLabelText("Betrag brutto inkl. 19 % MwSt. (€)").map(x => x.value);
+    expect(betraege()).toEqual(["2.975", "", ""]);                         // Standardbetrag vorgeschlagen, wo hinterlegt
+    fireEvent.change(screen.getAllByLabelText("Betrag brutto inkl. 19 % MwSt. (€)")[0], { target: { value: "3000" } });
+    expect(betraege()[0]).toBe("3000");                                    // änderbar
+  });
+
+  it("Referenzfall-Knopf nur mit beispiel (Schnellrechnung), nie in der Projektakte", async () => {
+    render(<Foerdervergleich start={LEER} onSpeichern={() => {}} />);
+    await warten();
+    expect(screen.queryByRole("button", { name: /Referenzfall/ })).toBeNull();
   });
 
   it("gespeicherte Angebote behalten ihren Text", () => {

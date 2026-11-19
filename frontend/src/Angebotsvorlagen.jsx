@@ -66,7 +66,7 @@ function Vorlage({ start, darf, onGespeichert }) {
           <label>Titel
             <input type="text" maxLength={80} value={v.titel} onChange={e => setV({ ...v, titel: e.target.value })} />
           </label>
-          <ZahlFeld label="Standardbetrag brutto (€, optional)" wert={v.standardbetrag} onChange={w => setV({ ...v, standardbetrag: w })} />
+          <ZahlFeld label="Standardbetrag brutto inkl. 19 % MwSt. (€, optional)" wert={v.standardbetrag} onChange={w => setV({ ...v, standardbetrag: w })} />
           <label style={{ gridColumn: "1 / -1" }}>Leistungen ({v.leistungen.length}/300 Zeichen)
             <textarea rows={2} maxLength={300} value={v.leistungen} onChange={e => setV({ ...v, leistungen: e.target.value })} />
           </label>
@@ -77,7 +77,7 @@ function Vorlage({ start, darf, onGespeichert }) {
       </> : <dl className="daten">
         <dt>Titel</dt><dd>{start.titel}</dd>
         <dt>Leistungen</dt><dd>{start.leistungen || "–"}</dd>
-        <dt>Standardbetrag</dt><dd>{start.standardbetrag != null ? eur(start.standardbetrag) : "keiner (Preis hängt vom Objekt ab)"}</dd>
+        <dt>Standardbetrag (brutto inkl. 19 % MwSt.)</dt><dd>{start.standardbetrag != null ? eur(start.standardbetrag) : "keiner (Preis hängt vom Objekt ab)"}</dd>
       </dl>}
       <p className="klein">Zuletzt geändert {zeit(start.geaendert_am)}{start.geaendert_von ? ` von ${start.geaendert_von}` : ""}</p>
       {fehler && <div className="fehler" role="alert">{fehler}</div>}

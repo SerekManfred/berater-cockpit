@@ -413,7 +413,7 @@ function ProjektAkte({ ich, id, onZurueck, onGehe }) {
               <tbody>
                 {p.berichte.map(b => (
                   <tr key={b.id}>
-                    <td>{MODULE[b.modul] || b.modul}</td><td>V{b.versionsnummer}</td><td>{zeit(b.erstellt_am)}</td>
+                    <td>{MODULE[b.modul] || b.modul}{b.kennzeichnung && <div className="marke-warnung">{b.kennzeichnung.text}</div>}</td><td>V{b.versionsnummer}</td><td>{zeit(b.erstellt_am)}</td>
                     <td>{b.erstellt_von || "–"}</td><td>Version {b.konditionen_version}
                       <div className="klein erzeugt-mit">{b.erzeugt_mit ? erzeugtMitText(b.erzeugt_mit)
                         : "Word wird beim Herunterladen mit dem laufenden Generator erzeugt"}</div></td><td>{BERICHT_STATUS[b.status] || b.status}</td>
@@ -486,6 +486,11 @@ function BerichtAnsicht({ ich, id, onZurueck, onGehe }) {
       <h1>{MODULE[b.modul] || b.modul} · V{b.versionsnummer}</h1>
       <p className="hinweis">Projekt {b.projektnummer} · gespeichert {zeit(b.erstellt_am)} von {b.erstellt_von || "–"} ·
         {b.konditionen_stand || `Konditionen-Version ${b.konditionen_version}`} (eingefroren) ·{BERICHT_STATUS[b.status] || b.status} · nur lesen</p>
+      {b.kennzeichnung && <div className="fehler" role="alert"><strong>{b.kennzeichnung.text}</strong></div>}
+      {b.modul === "foerderung-em-eh" && !e.angebote && (e.ohne_angebote
+        ? <div className="info" role="status">Bewusst ohne Angebote – Grund: {e.ohne_angebote.grund}</div>
+        : <div className="warnung" role="alert">Dieser Bericht enthält keine Angebote – das Kapitel „Unsere Leistungen auf Ihrem Weg“
+            fehlt im Word. Über „Als neue Version bearbeiten“ lassen sich die Angebote ergänzen.</div>)}
       <WeBestaetigung we={b.wohneinheiten} darf={hatRolle(ich, "berater")}
         onBestaetigen={async () => setB(await api(`/berichte/${b.id}/wohneinheiten-geprueft`, { method: "POST" }))} />
       <div className="aktionen" style={{ marginTop: 0, marginBottom: 18 }}>
@@ -497,10 +502,10 @@ function BerichtAnsicht({ ich, id, onZurueck, onGehe }) {
         <h2>Eingaben</h2>
         <dl className="daten">
           <dt>Wohneinheiten nach Sanierung</dt><dd>{e.we_nach_sanierung}</dd>
-          <dt>Fachplanung/Baubegleitung</dt><dd>{e.angebote ? "aus den Angeboten berechnet" : eur(e.kosten_baubegleitung)}</dd>
+          <dt>Fachplanung/Baubegleitung</dt><dd>{e.angebote ? "aus den Angeboten berechnet" : `${eur(e.kosten_baubegleitung)} (extern)`}</dd>
           {e.angebote && <><dt>Unsere Angebote</dt><dd>{ANGEBOTE.filter(([k]) => e.angebote[k]).map(([k, titel]) =>
             <div key={k}>{k.toUpperCase()} {e.angebote[k].titel || titel}: {eur(e.angebote[k].betrag)}{e.angebote[k].leistungen ? ` – ${e.angebote[k].leistungen}` : ""}</div>)}
-            <div className="klein">{e.angebote.anrechnung_a_in_d ? "A ist in D enthalten (angerechnet)" : "A wird nicht auf D angerechnet"}</div></dd></>}
+            <div className="klein">Beträge brutto inkl. 19 % MwSt. · {e.angebote.anrechnung_a_in_d ? "A ist in D enthalten (angerechnet)" : "A wird nicht auf D angerechnet"}</div></dd></>}
           <dt>Honorar iSFP</dt><dd>{eur(e.kosten_isfp)}</dd>
           <dt>Effizienzhaus-Stufe</dt><dd>{e.eh_stufe}</dd>
           <dt>iSFP wird erstellt</dt><dd>{e.isfp ? "ja" : "nein"}</dd>

@@ -77,3 +77,37 @@ describe("eingabenPruefen – Zahlen erst beim Rechnen umwandeln", () => {
       "Umbaukosten neue WE: bitte eine Zahl eingeben", "Angebot A: Betrag bitte als Zahl eingeben"]);
   });
 });
+
+// ---------- Pflichtregel Angebote und Fachplanung (19.11.2026) ----------
+import { angeboteFormular as formular19, fachplanungWiderspruch, mitAngeboten, speichernPruefen } from "./Foerdervergleich.jsx";
+
+describe("Pflicht Angebote / externe Fachplanung", () => {
+  const ANG = { a: { betrag: 2975 }, c: { betrag: 2975 }, d: { betrag: 15000 }, anrechnung_a_in_d: true };
+  it("ohne Entscheidung: Speichern gesperrt", () => {
+    expect(speichernPruefen({ kosten_baubegleitung: 0 })[0]).toContain("Angebote fehlen");
+  });
+  it("bewusst ohne braucht Grund", () => {
+    expect(speichernPruefen({ ohne_angebote: { grund: " " } })).toEqual(["Bewusst ohne Angebote: bitte einen Grund angeben"]);
+    expect(speichernPruefen({ ohne_angebote: { grund: "extern beauftragt" }, kosten_baubegleitung: 20000 })).toEqual([]);
+  });
+  it("Widerspruch Angebote + externe Fachplanung sichtbar, Angebote bleiben", () => {
+    const d = { angebote: ANG, kosten_baubegleitung: 20000 };
+    expect(fachplanungWiderspruch(d)).toContain("20.000 €");
+    expect(speichernPruefen(d)).toHaveLength(1);
+    expect(fachplanungWiderspruch({ angebote: ANG, kosten_baubegleitung: 0 })).toBeNull();
+  });
+  it("mitAngeboten schaltet die externe Fachplanung nicht still ab", () => {
+    const f = formular19({ ...ANG }, null);
+    const r = mitAngeboten({ kfw266: false, kosten_baubegleitung: 20000 }, f);
+    expect(r.kosten_baubegleitung).toBe(20000);
+    expect(r.angebote.a.betrag).toBe(2975);
+    const ohne = mitAngeboten({ kfw266: false, angebote: ANG }, { ...f, ohne: true, grund: "extern" });
+    expect(ohne.angebote).toBeUndefined();
+    expect(ohne.ohne_angebote).toEqual({ grund: "extern" });
+  });
+  it("Vorlage: Standardbetrag nur mit mitStandard", () => {
+    const V = [{ kennung: "a", titel: "A", leistungen: "", standardbetrag: 2975 }, { kennung: "d", titel: "D", leistungen: "", standardbetrag: 15000 }];
+    expect(formular19(null, V).a.betrag).toBeNull();
+    expect([formular19(null, V, true).a.betrag, formular19(null, V, true).d.betrag]).toEqual([2975, 15000]);
+  });
+});

@@ -100,7 +100,7 @@ function Cockpit({ ich, onAbmelden }) {
           {ansicht === "start" && <Start ich={ich} onOpen={gehe} onProjekt={projektOeffnen} onKonditionen={konditionenOeffnen} darfRechnen={hatRolle(ich, "berater")} />}
           {ansicht === "projekte" && <Projekte key={projektZiel.n} ich={ich} startProjekt={projektZiel.id} />}
           {ansicht === "handschrift" && <><h1>KI-Einstellungen</h1><KiEinstellungen /><KiReferenz /></>}
-          {ansicht === "schnell" && <Foerdervergleich titel="Schnellrechnung Fördervergleich EM/EH"
+          {ansicht === "schnell" && <Foerdervergleich titel="Schnellrechnung Fördervergleich EM/EH" beispiel
             untertitel="Freie Berechnung ohne Projekt und ohne Speichern. Für einen gespeicherten Bericht den Fördervergleich aus der Projektakte starten." />}
           {ansicht === "konditionen" && <Konditionen key={konditionenZiel.n} ich={ich} startVersion={konditionenZiel.id} />}
           {ansicht === "vorlagen" && <Angebotsvorlagen ich={ich} />}
