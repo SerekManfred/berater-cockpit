@@ -206,6 +206,17 @@ ANZEIGEFELDER = {"we_vor_sanierung", "bestandsheizung", "nutzung", "wpb_status",
 ANGEBOTE_BRUTTO_TEXT = "Alle Beträge inkl. 19 % MwSt."
 
 
+KOSTENHINWEIS_WARNUNG = ("Der Kostenhinweis enthält nur eine Zahl – bitte als Satz formulieren (z. B. „Kosten laut "
+                         "Kostenschätzung Architekt vom …“). Er erscheint so im Bericht unter „Kosten und Förderwege“.")
+
+
+def kostenhinweis_warnung(text: str | None) -> str | None:
+    """Befund 2026-0004 V5: „300000“ als Kostenhinweis. Text = mindestens drei Buchstaben; sonst Warnung (sperrt nicht)."""
+    if not text or not text.strip():
+        return None
+    return KOSTENHINWEIS_WARNUNG if sum(z.isalpha() for z in text) < 3 else None
+
+
 def fachplanung_widerspruch(daten: "FoerdervergleichEingaben") -> str | None:
     """Angebote A–D und zusätzlich externe Fachplanung: Die Kosten Fachplanung/Baubegleitung ergeben sich aus den
     Angeboten, der externe Betrag würde nicht gerechnet. Text für den Hinweis (Rechnen) bzw. die 422 (Speichern)."""
@@ -256,6 +267,9 @@ def foerdervergleich_rechnen(daten: FoerdervergleichEingaben, kond: dict, projek
     e = Eingaben(**werte, massnahmen=[Massnahme(**m.model_dump()) for m in daten.massnahmen],
                  angebote=daten.angebote.fuer_rechenkern() if daten.angebote else None)
     erg = {**vergleich(e, kond), "hinweise": hinweise, "konditionen_stand": konditionen_stand(kond)}
+    kh = kostenhinweis_warnung(daten.kosten_hinweis)
+    if kh:
+        erg["kostenhinweis_warnung"] = kh   # sichtbar in Formular/Ergebnis, sperrt nicht
     widerspruch = fachplanung_widerspruch(daten)
     if widerspruch:
         erg["fachplanung_hinweis"] = widerspruch  # sichtbar in der Oberfläche; Speichern lehnt ab (angebote_entscheidung)

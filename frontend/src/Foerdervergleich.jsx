@@ -122,6 +122,12 @@ export function fachplanungWiderspruch(d) {
     : null;
 }
 
+/** Kostenhinweis nur eine Zahl (Befund 2026-0004 V5): gleiche Regel wie rechnen.kostenhinweis_warnung im Backend –
+ *  Text = mindestens drei Buchstaben. Warnung, sperrt nicht. */
+export function kostenhinweisNurZahl(text) {
+  return !!text && !!text.trim() && (text.match(/\p{L}/gu) || []).length < 3;
+}
+
 /** Pflicht beim Speichern in der Projektakte (19.11.2026): Angebote ODER „bewusst ohne Angebote“ mit Grund,
  *  kein Widerspruch zur externen Fachplanung. Das Backend prüft dasselbe (422). */
 export function speichernPruefen(d) {
@@ -378,8 +384,10 @@ export function Foerdervergleich({ titel = "Fördervergleich Einzelmaßnahmen / 
           </div>
           <label style={{ marginTop: 14 }}>Hinweis zu den Kosten (erscheint im Bericht unter „Kosten und Förderwege“)
             <textarea rows={2} maxLength={1000} value={d.kosten_hinweis ?? ""} onChange={e => setOpt("kosten_hinweis", e.target.value)}
-              placeholder="z. B. Kosten laut Kostenschätzung Architekt vom …" />
+              placeholder="z. B. Kosten laut Kostenschätzung Architekt vom …" aria-describedby={kostenhinweisNurZahl(d.kosten_hinweis) ? "kh-warnung" : undefined} />
           </label>
+          {kostenhinweisNurZahl(d.kosten_hinweis) && <div id="kh-warnung" className="warnung" role="status">Der Kostenhinweis enthält nur eine Zahl –
+            bitte als Satz formulieren (z. B. „Kosten laut Kostenschätzung Architekt vom …“). Er erscheint so im Bericht unter „Kosten und Förderwege“.</div>}
         </section>
       )}
 

@@ -107,3 +107,26 @@ def test_kennzeichnung_per_cli_aendert_nur_die_markierung():
 
 def test_systeminfo_beispieldaten_schalter():
     assert nutzer("berater").get("/systeminfo").json()["beispieldaten"] is True
+
+
+# ---------- Kostenhinweis nur Zahl (Befund 2026-0004 V5, 19.11.2026) ----------
+import pytest  # noqa: E402
+
+from app.rechnen import kostenhinweis_warnung  # noqa: E402
+
+
+@pytest.mark.parametrize("text, warnung", [
+    ("300000", True), ("300.000 €", True), (" 300 000 EU ", True), ("ca. 3", True),
+    ("Kosten laut Kostenschätzung Architekt vom 01.10.2026", False), ("", False), (None, False), ("Ang", False),
+])
+def test_kostenhinweis_warnung(text, warnung):
+    assert bool(kostenhinweis_warnung(text)) is warnung
+
+
+def test_kostenhinweis_warnung_im_ergebnis_speichern_bleibt_moeglich():
+    c = nutzer("berater")
+    r = c.post("/module/foerderung-em-eh/berechnen", json={**ABNAHME, "kosten_hinweis": "300000"})
+    assert "nur eine Zahl" in r.json()["kostenhinweis_warnung"]
+    assert speichern(c, {**ABNAHME, "kosten_hinweis": "300000"}).status_code == 201
+    r = c.post("/module/foerderung-em-eh/berechnen", json={**ABNAHME, "kosten_hinweis": "Kosten laut Architekt"})
+    assert "kostenhinweis_warnung" not in r.json()

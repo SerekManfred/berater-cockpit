@@ -271,6 +271,8 @@ Ausführliches Fachkonzept: `docs/Konzept_Berater-Cockpit.docx` (falls abgelegt)
   Schnellrechnung und „Berechnen“ bleiben frei. Gespeicherte Berichte ohne Angebote: Warnung in der Berichtsansicht.
 - **`kosten_baubegleitung` = nur externe Fachplanung** („Kosten externe Fachplanung/Baubegleitung“); mit Angeboten ergibt sich die
   Fachplanung aus A + C bzw. A + D. Das Feld schaltet die Angebote nie ab; Widerspruch → Hinweis im Formular/Ergebnis, Speichern 422.
+- **Kostenhinweis nur Zahl** (Befund V5 „300000“, 19.11.2026): `kostenhinweis_warnung()` in `app/rechnen.py` – weniger als drei
+  Buchstaben → `kostenhinweis_warnung` im Ergebnis und Warnung am Feld (`kostenhinweisNurZahl`, gleiche Regel); sperrt nicht.
 - **Word:** bei Angeboten `angebote_hinweis` = `ANGEBOTE_BRUTTO_TEXT` („Alle Beträge inkl. 19 % MwSt.“) an den Generator (Kapitel 9).
 - **Referenzfall-Knopf:** nie in der Projektakte, nur Schnellrechnung, nur mit `BEISPIELDATEN_AKTIV` (Standard true, **Produktion
   false**; `/systeminfo` → `beispieldaten`). Rückfrage vor dem Ersetzen; füllt Angebote mit Vorlage + Standardbeträgen (Fachplanung 0).

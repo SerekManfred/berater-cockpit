@@ -111,3 +111,11 @@ describe("Pflicht Angebote / externe Fachplanung", () => {
     expect([formular19(null, V, true).a.betrag, formular19(null, V, true).d.betrag]).toEqual([2975, 15000]);
   });
 });
+
+import { kostenhinweisNurZahl } from "./Foerdervergleich.jsx";
+describe("Kostenhinweis nur Zahl (Warnung)", () => {
+  it("wie im Backend: weniger als drei Buchstaben", () => {
+    expect(["300000", "300.000 €", "ca. 3"].map(kostenhinweisNurZahl)).toEqual([true, true, true]);
+    expect(["Kosten laut Architekt", "", null, "Ang"].map(kostenhinweisNurZahl)).toEqual([false, false, false, false]);
+  });
+});
