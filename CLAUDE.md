@@ -209,7 +209,18 @@ Ausführliches Fachkonzept: `docs/Konzept_Berater-Cockpit.docx` (falls abgelegt)
   Belegt (Prüfung 19.11.2026): BAFA-Infoblatt „förderfähige Maßnahmen und Leistungen“ Version 10.0 (07/2025), Abschnitt 1.6, S. 13 –
   Klasse H (Bedarfs- oder Verbrauchsausweis) oder Baujahr ≤ 1957 und ≥ 75 % Außenwand unsaniert; Richtlinie BEG EM vom
   17.07.2026 Nr. 3 x) (S. 7) verweist dafür auf das Infoblatt. „≥ 300 kWh/(m²a)“ nur in der BEG-FAQ (14.08.2026, S. 12).
+  **Neu belegt nach Infoblatt 11.1** (11/2026, in Kraft 01.11.2026; Nr. 1.6 geändert mit 10.1 vom 21.07.2026; 11.0 selbst nicht
+  mehr abrufbar, Quelle 5): Wohngebäude WPB bei Jahres-Endenergiebedarf nach DIN V 18599 ≥ 300 kWh/(m²a) **oder** gültigem
+  **Energiebedarfs**ausweis Klasse H (kein Verbrauchsausweis mehr), höchstens 1 Jahr alt; Baujahr-Regel nur für NWG und WG mit
+  mehr als 5 WE und zentraler TWW: Baujahr ≤ 1957 und Hülle im Wesentlichen unsaniert (ab 1984 sanierte Anteile < 20 %); die
+  75-%-Außenwand-Regel (10.0) entfällt. Deckt sich jetzt mit der FAQ. Neue Felder `nachweis_max_alter_jahre`,
+  `huelle_saniert_ab_1984_max`, `baujahr_regel_we_ab`, `baujahr_regel_zentrale_tww`. **Offen vor Freigabe V8:** Generator 0.5.2
+  (Kriterientext aus den neuen Feldern) und Anpassung „Grundlage WPB“ im Fördervergleich (Verbrauchsausweis, Außenwand-%).
+  **Förderprüfung der WPB-Kriterien:** erst nach Freigabe von V8 aus `OHNE_PRUEFUNG` nehmen (Vorschlag, nie automatisch).
   Tests: `tests/test_wpb_kriterien.py`.
+- **KfW-Merkblatt 261** (Stand 09/2026, gültig ab 24.09.2026, Quelle 4): S. 3 „Effizienzhaus 70 EE oder 70 NH … 55 EE oder 55 NH …
+  40 EE oder 40 NH“ (auch Denkmal, 85), S. 9 NH-Klasse +5 Prozentpunkte, WPB-Bonus kumulierbar mit NH und SerSan. Vorschlag (nicht
+  umgesetzt): Konditionen-Feld `beg_wg.klassen` (Mehrfach EE/NH) mit Fundstelle → dann „EE- oder NH-Klasse ist Pflicht“ im Generator.
 - **Im Voraus freigeben – Status „geplant“** (Geschäftsführer 16.11.2026, Migration 0011): Freigabe mit „gültig ab“ nach heute
   (Europe/Berlin, `fristen.heute()`) → `geplant` statt `aktiv` (Vier-Augen-Prüfung erledigt, höchstens eine geplante Version per
   Teilindex `uq_konditionen_eine_geplante`). Am Stichtag `faellige_aktivieren()` (`app/rechnen.py`, eigene DB-Sitzung, Sperre,
