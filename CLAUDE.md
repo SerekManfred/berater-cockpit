@@ -249,7 +249,10 @@ Ausführliches Fachkonzept: `docs/Konzept_Berater-Cockpit.docx` (falls abgelegt)
 ## Pflicht Angebote, externe Fachplanung, Beispieldaten (Stand 19.11.2026, Befund 2026-0004 V3)
 - **Ursache Befund:** V3 war der Knopf „Referenzfall laden“ (Beispiel mit 20.000 € Fachplanung, Angebote leer) statt „neue Version“
   aus V2 – ohne `angebotsweg` ließ der Generator Kapitel 9 still weg. V3 (Bericht 7) ist mit „Beispieldaten – nicht verwenden“
-  gekennzeichnet (nicht gelöscht); V4 = neue Version aus V2 mit den Vorlagen-Standardbeträgen und Konditionen V6.
+  gekennzeichnet (nicht gelöscht); V4 = neue Version aus V2 mit den Vorlagen-Standardbeträgen und Konditionen V6 (unter dem Konto
+  des Geschäftsführers erzeugt, gekennzeichnet „Ersetzt durch V5“). **V5** (Bericht 9, 19.11.2026) = neue Version aus V4 durch
+  „Claude Code (technisch)“: Leistungstexte aus der Vorlage, WE vor Sanierung 2 (vorher 1, aus V2 übernommen); Projektakte 2026-0004
+  auf 6 WE (Entscheidung GF). Beträge wie V4 – „WE vor Sanierung“ ist nur Anzeige; keine WE-Warnung mehr offen.
 - **Speichern in der Projektakte** (`angebote_entscheidung()` in `app/rechnen.py`, auch „neue Version“): Angebote A, C, D (B bei
   KfW 266 optional) **oder** `ohne_angebote: {grund}` (3–300 Zeichen, erscheint nicht im Bericht); weder noch / beides → 422.
   Schnellrechnung und „Berechnen“ bleiben frei. Gespeicherte Berichte ohne Angebote: Warnung in der Berichtsansicht.
