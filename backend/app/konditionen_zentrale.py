@@ -163,9 +163,14 @@ PROGRAMME = [
           optionen=[[k, k] for k in ("A+", "A", "B", "C", "D", "E", "F", "G", "H")]),
         F("wpb.energieausweis_arten", "Energieausweis: zulässige Ausweisarten", "mehrfach", pflicht=False,
           optionen=[["bedarf", "Bedarfsausweis"], ["verbrauch", "Verbrauchsausweis"]]),
-        F("wpb.baujahr_bis", "Baujahr bis einschließlich", "zahl", pflicht=False, kern=True),
-        F("wpb.anteil_aussenwand_unsaniert_min", "Mindestanteil energetisch unsanierte Außenwand", "prozent", pflicht=False, kern=True),
-        F("wpb.endenergie_min", "Jahres-Endenergiebedarf ab (kWh/(m²a)) – leer = kein Kriterium", "zahl", pflicht=False),
+        F("wpb.endenergie_min", "Jahres-Endenergiebedarf nach DIN V 18599 ab (kWh/(m²a)) – leer = kein Kriterium", "zahl", pflicht=False),
+        F("wpb.nachweis_max_alter_jahre", "Energiebedarfsberechnung/-ausweis höchstens … Jahre alt (leer = keine Frist)", "zahl", pflicht=False),
+        F("wpb.baujahr_bis", "Baujahr-Regel: Baujahr bis einschließlich", "zahl", pflicht=False, kern=True),
+        F("wpb.anteil_aussenwand_unsaniert_min", "Baujahr-Regel: Mindestanteil unsanierte Außenwand (Infoblatt bis 10.0)", "prozent", pflicht=False),
+        F("wpb.huelle_saniert_ab_1984_max", "Baujahr-Regel: höchstens sanierter Anteil der Gebäudehülle ab 01.01.1984 (ohne Fenster/Türen)",
+          "prozent", pflicht=False),
+        F("wpb.baujahr_regel_we_ab", "Baujahr-Regel nur für Wohngebäude ab … Wohneinheiten (leer = alle)", "zahl", pflicht=False),
+        F("wpb.baujahr_regel_zentrale_tww", "Baujahr-Regel nur mit zentraler Trinkwarmwasserbereitung (Wohngebäude)", "janein", pflicht=False),
         F("wpb.hinweis", "Hinweis zu den Kriterien", "text_lang", pflicht=False),
     ]},
     {"id": "fachwerte", "titel": "Fachwerte für den Bericht", "quelle_pflicht": False, "felder": [
@@ -298,15 +303,19 @@ def pruefen(daten: dict, aenderungsnotiz: str | None = None) -> list[dict]:
                 f("beg_wg.tilgungszuschuss_max", f"Höchstsatz liegt unter dem Tilgungszuschuss {EH_TEXT[s]}")
                 break
     kriterien = [p for p in ("wpb.energieausweis_klasse", "wpb.energieausweis_arten", "wpb.baujahr_bis",
-                             "wpb.anteil_aussenwand_unsaniert_min", "wpb.endenergie_min") if not _leer(lesen_pfad(daten, p))]
+                             "wpb.anteil_aussenwand_unsaniert_min", "wpb.huelle_saniert_ab_1984_max", "wpb.endenergie_min",
+                             "wpb.nachweis_max_alter_jahre", "wpb.baujahr_regel_we_ab") if not _leer(lesen_pfad(daten, p))]
     if kriterien:
         for p in ("wpb.quelle", "wpb.geprueft_am"):
             if _leer(lesen_pfad(daten, p)):
                 f(p, "Pflichtfeld, sobald ein WPB-Kriterium gesetzt ist")
-        bj, ant = lesen_pfad(daten, "wpb.baujahr_bis"), lesen_pfad(daten, "wpb.anteil_aussenwand_unsaniert_min")
-        if (bj is None) != (ant is None):
-            f("wpb.anteil_aussenwand_unsaniert_min" if ant is None else "wpb.baujahr_bis",
-              "Baujahr und Anteil unsanierte Außenwand nur zusammen angeben")
+        # Baujahr-Regel nur mit Sanierungszustand: Außenwand (Infoblatt ≤ 10.0) oder Gebäudehülle ab 1984 (ab 10.1)
+        bj = lesen_pfad(daten, "wpb.baujahr_bis")
+        zustand = [p for p in ("wpb.anteil_aussenwand_unsaniert_min", "wpb.huelle_saniert_ab_1984_max") if lesen_pfad(daten, p) is not None]
+        if bj is None and zustand:
+            f("wpb.baujahr_bis", "Sanierungszustand nur zusammen mit dem Baujahr angeben")
+        elif bj is not None and not zustand:
+            f("wpb.huelle_saniert_ab_1984_max", "Zum Baujahr bitte den Sanierungszustand angeben (Gebäudehülle oder Außenwand)")
     if aenderungsnotiz is not None and not aenderungsnotiz.strip():
         f("aenderungsnotiz", "Bitte kurz beschreiben, was sich ändert und warum")
     return fehler
