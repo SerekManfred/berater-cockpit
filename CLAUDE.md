@@ -274,6 +274,10 @@ Ausführliches Fachkonzept: `docs/Konzept_Berater-Cockpit.docx` (falls abgelegt)
   des Geschäftsführers erzeugt, gekennzeichnet „Ersetzt durch V5“). **V5** (Bericht 9, 19.11.2026) = neue Version aus V4 durch
   „Claude Code (technisch)“: Leistungstexte aus der Vorlage, WE vor Sanierung 2 (vorher 1, aus V2 übernommen); Projektakte 2026-0004
   auf 6 WE (Entscheidung GF). Beträge wie V4 – „WE vor Sanierung“ ist nur Anzeige; keine WE-Warnung mehr offen.
+  **V6** (Bericht 11, 19.11.2026, technischer Benutzer) = V5 ohne Kostenhinweis, Grundlage WPB Energieausweis Klasse H,
+  Bedarfsausweis vom 03.05.2024 (Testwert); V5 „Ersetzt durch V6“. **Konditionen-Entwurf Version 8** (Kopie der geplanten V7,
+  Ersteller Kommandozeile) = Programm `wpb` aus `wpb_v8`-Werten mit Fundstellen; Quelldokumente 1–3 (Richtlinie BEG EM 17.07.2026,
+  BAFA-Infoblatt 10.0, BEG-FAQ 14.08.2026) vom technischen Benutzer hinterlegt. **Nicht eingereicht** (Vier-Augen offen).
 - **Speichern in der Projektakte** (`angebote_entscheidung()` in `app/rechnen.py`, auch „neue Version“): Angebote A, C, D (B bei
   KfW 266 optional) **oder** `ohne_angebote: {grund}` (3–300 Zeichen, erscheint nicht im Bericht); weder noch / beides → 422.
   Schnellrechnung und „Berechnen“ bleiben frei. Gespeicherte Berichte ohne Angebote: Warnung in der Berichtsansicht.
