@@ -17,7 +17,7 @@ from sqlalchemy import func, select
 from sqlalchemy.orm import Session
 
 from app import fristen
-from app.auth import aktueller_benutzer, rolle
+from app.auth import aktueller_benutzer, nicht_technisch, rolle
 from app.db import get_db
 from app.modelle import Benutzer, KonditionenQuelle, KonditionenVersion, jetzt
 from app.protokoll import protokollieren
@@ -632,6 +632,7 @@ def entwurf_anlegen(db: Session, request: Request | None, ersteller_id: int | No
 
 @router.post("/konditionen/versionen", status_code=201)
 def entwurf_neu(daten: EntwurfNeu, request: Request, ich: Benutzer = Depends(nur_admin), db: Session = Depends(get_db)):
+    nicht_technisch(ich)
     if daten.basis_id is None:
         basis = standard_basis(db)
     else:
@@ -646,6 +647,7 @@ def entwurf_neu(daten: EntwurfNeu, request: Request, ich: Benutzer = Depends(nur
 @router.put("/konditionen/versionen/{versions_id}")
 def entwurf_speichern(versions_id: int, daten: EntwurfAenderung, request: Request, ich: Benutzer = Depends(nur_admin),
                       db: Session = Depends(get_db)):
+    nicht_technisch(ich)
     v = _laden(db, versions_id, ich, sperren=True)
     if v.status != "entwurf":
         raise HTTPException(409, "Nur Entwürfe können bearbeitet werden")
@@ -679,6 +681,7 @@ def entwurf_speichern(versions_id: int, daten: EntwurfAenderung, request: Reques
 @router.post("/konditionen/versionen/{versions_id}/einreichen")
 def einreichen(versions_id: int, request: Request, hintergrund: BackgroundTasks, ich: Benutzer = Depends(nur_admin),
                db: Session = Depends(get_db)):
+    nicht_technisch(ich)
     v = _laden(db, versions_id, ich, sperren=True)
     if v.status != "entwurf":
         raise HTTPException(409, "Nur Entwürfe können zur Prüfung gesendet werden")
@@ -699,6 +702,7 @@ def einreichen(versions_id: int, request: Request, hintergrund: BackgroundTasks,
 
 @router.post("/konditionen/versionen/{versions_id}/zurueckziehen")
 def zurueckziehen(versions_id: int, request: Request, ich: Benutzer = Depends(nur_admin), db: Session = Depends(get_db)):
+    nicht_technisch(ich)
     v = _laden(db, versions_id, ich, sperren=True)
     if v.status != "zur_pruefung":
         raise HTTPException(409, "Nur Versionen in Prüfung können zurückgezogen werden")
@@ -718,6 +722,7 @@ def _pruefen_erlaubt(v: KonditionenVersion, ich: Benutzer):
 @router.post("/konditionen/versionen/{versions_id}/freigeben")
 def freigeben(versions_id: int, daten: Pruefung, request: Request, ich: Benutzer = Depends(pruefer),
               db: Session = Depends(get_db)):
+    nicht_technisch(ich)
     v = _laden(db, versions_id, ich, sperren=True)
     _pruefen_erlaubt(v, ich)
     fehler = pruefen(v.daten)
@@ -798,6 +803,7 @@ def korrektur_fuer_geplant(db: Session, v: KonditionenVersion) -> dict | None:
 
 @router.post("/konditionen/versionen/{versions_id}/korrektur-in-geplante", status_code=201)
 def korrektur_in_geplante(versions_id: int, request: Request, ich: Benutzer = Depends(nur_admin), db: Session = Depends(get_db)):
+    nicht_technisch(ich)
     """„Entwurf aus geplanter Version + Korrektur“: Kopie der geplanten Version mit den Werten der Korrektur. Gilt ab dem Datum der
     geplanten Version und durchläuft die Vier-Augen-Freigabe; bei Freigabe ersetzt er die bisherige Planung."""
     v = _laden(db, versions_id, ich)
@@ -828,6 +834,7 @@ def korrektur_in_geplante(versions_id: int, request: Request, ich: Benutzer = De
 @router.post("/konditionen/versionen/{versions_id}/planung-aufheben")
 def planung_aufheben(versions_id: int, daten: Zurueckweisung, request: Request, ich: Benutzer = Depends(pruefer),
                      db: Session = Depends(get_db)):
+    nicht_technisch(ich)
     """Eine geplante Version vor dem Stichtag zurücknehmen (Prüfer oder Admin, Begründung Pflicht). Sie wird nie aktiv."""
     v = _laden(db, versions_id, ich, sperren=True)
     if v.status != "geplant":
@@ -842,6 +849,7 @@ def planung_aufheben(versions_id: int, daten: Zurueckweisung, request: Request, 
 @router.post("/konditionen/versionen/{versions_id}/zurueckweisen")
 def zurueckweisen(versions_id: int, daten: Zurueckweisung, request: Request, ich: Benutzer = Depends(pruefer),
                   db: Session = Depends(get_db)):
+    nicht_technisch(ich)
     v = _laden(db, versions_id, ich, sperren=True)
     _pruefen_erlaubt(v, ich)
     v.status, v.geprueft_von_id, v.geprueft_am, v.pruefnotiz = "zurueckgewiesen", ich.id, jetzt(), daten.begruendung.strip()

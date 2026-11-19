@@ -10,7 +10,7 @@ from sqlalchemy import select
 from sqlalchemy.orm import Session
 
 from app import config, dateien
-from app.auth import aktueller_benutzer, rolle
+from app.auth import aktueller_benutzer, nicht_technisch, rolle
 from app.db import get_db
 from app.modelle import Benutzer, KonditionenQuelle, KonditionenVersion, jetzt
 from app.protokoll import protokollieren
@@ -35,7 +35,7 @@ def _aus(db: Session, q: KonditionenQuelle) -> dict:
     von = db.get(Benutzer, q.hochgeladen_von_id) if q.hochgeladen_von_id else None
     return {"id": q.id, "titel": q.titel, "herausgeber": q.herausgeber, "stand": q.stand, "url": q.url,
             "abgerufen_am": q.abgerufen_am, "groesse": q.groesse, "sha256": q.sha256, "hochgeladen_am": q.hochgeladen_am,
-            "hochgeladen_von": von.name if von else None, "verwendet_in": verwendet_in(db, q.id)}
+            "hochgeladen_von": von.name if von else "Kommandozeile", "verwendet_in": verwendet_in(db, q.id)}
 
 
 class QuelleMeta(BaseModel):
@@ -44,6 +44,30 @@ class QuelleMeta(BaseModel):
     stand: str = Field(min_length=2, max_length=40)
     url: str | None = Field(None, max_length=500, pattern=r"^https://")
     abgerufen_am: date
+
+
+def quelle_aus_datei(db: Session, pfad_pdf, meta: "QuelleMeta", auftrag: str) -> KonditionenQuelle:
+    """Kommandozeile (`python -m app.cli konditionen-quelle-hochladen`): gleiche Prüfungen wie der Upload (nur PDF am Inhalt,
+    Duplikat per sha256), hochgeladen von „Kommandozeile“ (kein Konto – nie der technische Benutzer), Protokoll mit Auftrag."""
+    import hashlib
+    import shutil
+    from pathlib import Path
+    pfad_pdf = Path(pfad_pdf)
+    typ = dateien.typ_erkennen(pfad_pdf)
+    if typ is None or typ.schluessel != "pdf":
+        raise HTTPException(415, "Quelldokumente bitte als PDF hinterlegen.")
+    sha = hashlib.sha256(pfad_pdf.read_bytes()).hexdigest()
+    doppelt = db.scalar(select(KonditionenQuelle).where(KonditionenQuelle.sha256 == sha))
+    if doppelt is not None:
+        raise HTTPException(409, f"Dieses Dokument ist schon hinterlegt: „{doppelt.titel}“ (Stand {doppelt.stand}), Quelle {doppelt.id}.")
+    q = KonditionenQuelle(**meta.model_dump(), speichername=dateien.neuer_speichername(), groesse=pfad_pdf.stat().st_size,
+                          sha256=sha, hochgeladen_von_id=None, hochgeladen_am=jetzt())
+    shutil.copyfile(pfad_pdf, pfad(q))
+    db.add(q)
+    db.flush()
+    protokollieren(db, None, "konditionen_quelle_hochgeladen", None, quelle_id=q.id, titel=q.titel, stand=q.stand,
+                   groesse=q.groesse, sha256=sha, quelle="kommandozeile", auftrag=auftrag)
+    return q
 
 
 @router.get("/konditionen/quellen")
@@ -56,6 +80,7 @@ async def quelle_hochladen(request: Request, titel: str, stand: str, abgerufen_a
                            herausgeber: str | None = None, url: str | None = None,
                            ich: Benutzer = Depends(hochladen), db: Session = Depends(get_db)):
     """Ein PDF als roher Anfrage-Inhalt, Angaben als Parameter (wie der Upload der Unterlagen)."""
+    nicht_technisch(ich)
     try:
         meta = QuelleMeta(titel=titel.strip(), herausgeber=(herausgeber or "").strip() or None, stand=stand.strip(),
                           url=(url or "").strip() or None, abgerufen_am=abgerufen_am)
@@ -103,6 +128,7 @@ def quelle_pdf(quelle_id: int, _: Benutzer = Depends(lesen), db: Session = Depen
 
 @router.delete("/konditionen/quellen/{quelle_id}")
 def quelle_loeschen(quelle_id: int, request: Request, ich: Benutzer = Depends(nur_admin), db: Session = Depends(get_db)):
+    nicht_technisch(ich)
     q = db.get(KonditionenQuelle, quelle_id)
     if q is None:
         raise HTTPException(404, "Quelldokument nicht gefunden")

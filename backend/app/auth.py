@@ -89,9 +89,18 @@ def aktueller_benutzer(benutzer: Benutzer = Depends(angemeldet)) -> Benutzer:
     return benutzer
 
 
+def nicht_technisch(benutzer: Benutzer):
+    """Der technische Benutzer („Claude Code (technisch)“, Migration 0015) darf nie über Rollen-Routen handeln – insbesondere
+    Konditionen weder bearbeiten, einreichen, freigeben noch Quelldokumente verwalten (Geschäftsführer 19.11.2026).
+    Er kann sich ohnehin nicht anmelden; die Prüfung gilt zusätzlich bei direktem Aufruf der Funktionen."""
+    if getattr(benutzer, "technisch", False):
+        raise HTTPException(403, "Technischer Benutzer – für diese Funktion nicht zugelassen")
+
+
 def rolle(*erlaubt: str):
     """Rollenprüfung im Backend. Admin darf alles."""
     def pruefen(benutzer: Benutzer = Depends(aktueller_benutzer)) -> Benutzer:
+        nicht_technisch(benutzer)
         if "admin" in benutzer.rollen or any(r in benutzer.rollen for r in erlaubt):
             return benutzer
         raise HTTPException(403, "Keine Berechtigung für diese Funktion")

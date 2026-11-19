@@ -212,6 +212,62 @@ def bericht_neue_version(basis_id: int, datei: str, auftrag: str, aktuelle_kondi
     return 0
 
 
+def konditionen_quelle_hochladen(datei: str, titel: str, stand: str, abgerufen_am: str, herausgeber: str | None,
+                                 url: str | None, auftrag: str) -> int:
+    """Quelldokument (PDF) per Kommandozeile hinterlegen – Ersteller „Kommandozeile“, nie der technische Benutzer."""
+    from datetime import date
+
+    from fastapi import HTTPException
+    from pydantic import ValidationError
+
+    from app.konditionen_quellen import QuelleMeta, quelle_aus_datei
+    try:
+        meta = QuelleMeta(titel=titel, herausgeber=herausgeber, stand=stand, url=url, abgerufen_am=date.fromisoformat(abgerufen_am))
+    except (ValidationError, ValueError) as fehler:
+        print(f"Ungültige Angaben: {fehler}", file=sys.stderr)
+        return 1
+    with SessionLocal() as db:
+        try:
+            q = quelle_aus_datei(db, datei, meta, auftrag)
+            db.commit()
+        except HTTPException as fehler:
+            print(f"Abgelehnt ({fehler.status_code}): {fehler.detail}", file=sys.stderr)
+            return 1
+        print(f"Quelle {q.id}: „{q.titel}“ (Stand {q.stand}), sha256 {q.sha256[:12]}…")
+    return 0
+
+
+def konditionen_fundstellen(version: int, datei: str, notiz: str) -> int:
+    """Fundstellen eines offenen Entwurfs per Kommandozeile ergänzen/ersetzen (je Feld aus DATEI.json), gleiche Prüfung wie
+    die Oberfläche (`fundstellen_pruefen`). Nur Entwürfe – Einreichen und Freigeben bleiben Menschen vorbehalten."""
+    import json
+
+    from fastapi import HTTPException
+
+    from app import konditionen_zentrale as kz
+    from app.modelle import KonditionenVersion
+    with open(datei, encoding="utf-8") as f:
+        neu = json.load(f)
+    with SessionLocal() as db:
+        v = db.scalar(select(KonditionenVersion).where(KonditionenVersion.version == version).with_for_update())
+        if v is None or v.status != "entwurf":
+            print(f"Version {version} ist kein offener Entwurf.", file=sys.stderr)
+            return 1
+        try:
+            fs = kz.fundstellen_pruefen({**(v.fundstellen or {}), **neu}, db)
+        except HTTPException as fehler:
+            print(f"Abgelehnt: {fehler.detail}", file=sys.stderr)
+            return 1
+        geaendert = sorted(p for p in set(fs) | set(v.fundstellen or {}) if fs.get(p) != (v.fundstellen or {}).get(p))
+        v.fundstellen = fs
+        protokollieren(db, None, "konditionen_entwurf_geaendert", None, version=version, felder=[], fundstellen=geaendert[:100],
+                       quelle="kommandozeile", notiz=notiz[:300])
+        db.commit()
+        print(f"Entwurf Version {version}: Fundstellen für {len(geaendert)} Feld(er) gesetzt; fehlend: "
+              f"{[f['pfad'] for f in kz.fundstellen_fehlend(db, v)] or 'keine'}.")
+    return 0
+
+
 def main(argv=None) -> int:
     parser = argparse.ArgumentParser(prog="python -m app.cli", description="Berater-Cockpit – Verwaltung")
     befehle = parser.add_subparsers(dest="befehl", required=True)
@@ -235,6 +291,18 @@ def main(argv=None) -> int:
     n.add_argument("--eingaben", required=True, help="JSON-Datei mit den vollständigen Eingaben")
     n.add_argument("--auftrag", required=True, help="kurzer Auftragsvermerk fürs Protokoll, ohne Personendaten")
     n.add_argument("--aktuelle-konditionen", action="store_true", help="aktive statt eingefrorener Konditionen-Version")
+    qh = befehle.add_parser("konditionen-quelle-hochladen", help="Quelldokument (PDF) hinterlegen (Ersteller Kommandozeile)")
+    qh.add_argument("datei")
+    qh.add_argument("--titel", required=True)
+    qh.add_argument("--stand", required=True)
+    qh.add_argument("--abgerufen-am", required=True, help="JJJJ-MM-TT")
+    qh.add_argument("--herausgeber")
+    qh.add_argument("--url")
+    qh.add_argument("--auftrag", required=True)
+    fsp = befehle.add_parser("konditionen-fundstellen", help="Fundstellen eines offenen Entwurfs aus JSON-Datei setzen")
+    fsp.add_argument("version", type=int)
+    fsp.add_argument("datei")
+    fsp.add_argument("--notiz", required=True)
     args = parser.parse_args(argv)
     if args.befehl == "admin-anlegen":
         return admin_anlegen()
@@ -244,6 +312,11 @@ def main(argv=None) -> int:
         return konditionen_aktivieren()
     if args.befehl == "konditionen-entwurf-ergaenzen":
         return konditionen_entwurf_ergaenzen(args.version, args.datei, args.notiz)
+    if args.befehl == "konditionen-quelle-hochladen":
+        return konditionen_quelle_hochladen(args.datei, args.titel, args.stand, args.abgerufen_am, args.herausgeber, args.url,
+                                            args.auftrag)
+    if args.befehl == "konditionen-fundstellen":
+        return konditionen_fundstellen(args.version, args.datei, args.notiz)
     if args.befehl == "bericht-neue-version":
         return bericht_neue_version(args.basis_id, args.eingaben, args.auftrag, args.aktuelle_konditionen)
     if args.befehl == "bericht-kennzeichnen":

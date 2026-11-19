@@ -31,7 +31,7 @@ from sqlalchemy import func, select
 from sqlalchemy.orm import Session
 
 from app import config, fristen, ki, mail
-from app.auth import aktueller_benutzer, rolle
+from app.auth import aktueller_benutzer, rolle, nicht_technisch
 from app.db import SessionLocal, get_db
 from app.konditionen_zentrale import FELDER, TITEL, entwurf_anlegen, lesen_pfad, standard_basis
 from app.modelle import Benutzer, FoerderMeldung, KonditionenVersion, Protokoll, jetzt
@@ -663,6 +663,7 @@ def lauf_status(_: Benutzer = Depends(meldungen_leser), db: Session = Depends(ge
 
 @router.post("/foerderpruefung/jetzt", status_code=202)
 def jetzt_pruefen(hintergrund: BackgroundTasks, ich: Benutzer = Depends(nur_admin), db: Session = Depends(get_db)):
+    nicht_technisch(ich)
     """Startet einen Lauf im Hintergrund (dauert Minuten); die Oberfläche fragt /foerderpruefung/lauf ab."""
     if not config.FOERDERPRUEFUNG_AKTIV:
         raise HTTPException(503, "Die Förderprüfung ist ausgeschaltet (FOERDERPRUEFUNG_AKTIV in der .env).")
@@ -681,6 +682,7 @@ class Verwerfen(BaseModel):
 
 @router.post("/foerderpruefung/meldungen/{meldung_id}/verwerfen")
 def verwerfen(meldung_id: int, daten: Verwerfen, request: Request, ich: Benutzer = Depends(nur_admin), db: Session = Depends(get_db)):
+    nicht_technisch(ich)
     m = _meldung(db, meldung_id, sperren=True)
     if m.status != "offen":
         raise HTTPException(409, "Diese Meldung ist bereits bearbeitet.")
@@ -692,6 +694,7 @@ def verwerfen(meldung_id: int, daten: Verwerfen, request: Request, ich: Benutzer
 
 @router.post("/foerderpruefung/meldungen/{meldung_id}/entwurf", status_code=201)
 def entwurf(meldung_id: int, request: Request, ich: Benutzer = Depends(entwurf_berechtigt), db: Session = Depends(get_db)):
+    nicht_technisch(ich)
     m = _meldung(db, meldung_id, sperren=True)
     v, uebernommen, uebersprungen = entwurf_aus_meldung(db, request, m, ich)
     db.commit()
