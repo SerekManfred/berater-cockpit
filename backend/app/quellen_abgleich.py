@@ -136,9 +136,15 @@ def abgleichen(db: Session) -> tuple[list[dict], dict[int, bytes]]:
 
 def mitgeben(q: KonditionenQuelle) -> bool:
     """Geht als Text-Dokument mit (für die zugeordneten Programme): Rang 1 (Richtlinie und ihre verbindlichen Anlagen wie
-    Infoblatt und TMA) immer, unabhängig von der Domain und auch ohne Adresse (Nacharbeit 20.11.2026); sonst nur Dokumente auf
-    Domains, die das Abruf-Werkzeug der KI nicht lesen kann."""
-    return q.rang == "richtlinie" or nicht_abrufbar(q.url)
+    Infoblatt und TMA) immer, unabhängig von der Domain und auch ohne Adresse (Nacharbeit 20.11.2026); sonst Dokumente auf
+    Domains, die das Abruf-Werkzeug der KI nicht lesen kann, und (20.11.2026) Dokumente ohne Adresse – von Hand hinterlegt,
+    z. B. die Technischen FAQ; die KI kann sie nie selbst abrufen. Der Rang bleibt (FAQ = nur Auslegung)."""
+    return q.rang == "richtlinie" or nicht_abrufbar(q.url) or not q.url
+
+
+def kennung(quelle_id: int) -> str:
+    """Beleg-Kennung eines Quelldokuments ohne Adresse – die KI gibt sie als „quelle“ an, das Cockpit ordnet so den Rang zu."""
+    return f"quelldokument:{quelle_id}"
 
 
 def dokumente(db: Session, programme: set[str], abgleich: list[dict], inhalte: dict[int, bytes]) -> tuple[list[dict], list[str]]:

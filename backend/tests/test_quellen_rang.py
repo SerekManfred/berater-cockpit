@@ -173,3 +173,27 @@ def test_eingestufte_quelle_bestimmt_den_rang_im_lauf(aktiv, tmp_path, monkeypat
     _, _, _, erg = _lauf(monkeypatch, antwort, voll=True)
     a = erg["abweichungen"][0]
     assert (a["rang"], a["sicherheit"]) == ("merkblatt", "offiziell")
+
+
+# ---------- Technische FAQ ohne Adresse (20.11.2026): gehen mit, bleiben Rang 3 ----------
+
+def test_faq_ohne_adresse_geht_mit_und_bleibt_nur_auslegung(aktiv, tmp_path, monkeypatch):
+    faq = quelle(tmp_path, PDF_A + b"%tfaq", None, titel="BEG TFAQ Einzelmaßnahme", programme=["beg_em"])
+    ohne_programm = quelle(tmp_path, PDF_B + b"%tfaq2", None, titel="BEG TFAQ WG/NWG")
+    with SessionLocal() as db:
+        for qid in (faq, ohne_programm):
+            q = db.get(KonditionenQuelle, qid)
+            q.rang, q.gueltig_von = "faq", date(2026, 11, 1)
+        db.commit()
+    monkeypatch.setattr(quellen_abgleich, "pdf_text", lambda inhalt: "[Seite 1]\nTechnische FAQ")
+    kennung = quellen_abgleich.kennung(faq)
+    antwort = {**OHNE_ABWEICHUNG, "abweichungen": [
+        {"feld": "beg_em.foerdersatz", "neu": 0.2, "quelle": kennung, "sicherheit": "offiziell", "rang": "merkblatt"}]}
+    e, _, _, erg = _lauf(monkeypatch, antwort, voll=True)
+    doks = e.aufrufe[0]["dokumente"]
+    assert [d["titel"] for d in doks] == ["BEG TFAQ Einzelmaßnahme (Stand 17.07.2026)"]             # ohne Programm: nicht dabei
+    assert doks[0]["kontext"].startswith("Rang: FAQ (nur Auslegung) · Adresse: keine (von Hand hinterlegt) – als „quelle“ "
+                                         f"angeben: {kennung}")
+    a = erg["abweichungen"][0]
+    assert (a["rang"], a["sicherheit"], a["nur_faq"]) == ("faq", "zu_pruefen", True)                # nie „offiziell“, nie Entwurf
+    assert erg["mitgegebene_dokumente"][0]["rang"] == "faq"

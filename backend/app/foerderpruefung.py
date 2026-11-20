@@ -245,6 +245,8 @@ def quellen_raenge(db: Session, abgleich: list[dict] | None = None) -> dict[str,
     from app.modelle import KonditionenQuelle
     quellen = {q.id: q for q in db.scalars(select(KonditionenQuelle)) if q.rang in RAENGE}
     aus = {beleg_schluessel(q.url): q.rang for q in quellen.values() if q.url}
+    # Quelldokumente ohne Adresse: Beleg-Kennung „quelldokument:N“ (20.11.2026) – so greift der Rang (z. B. FAQ) auch ohne URL
+    aus.update({beleg_schluessel(quellen_abgleich.kennung(q.id)): q.rang for q in quellen.values() if not q.url})
     for a in abgleich or []:
         q = quellen.get(a.get("quelle_id"))
         if q is not None and a.get("adresse"):
@@ -644,7 +646,9 @@ def lauf_ausfuehren(db: Session, ausgeloest_von_id: int | None, voll: bool = Fal
                 effort="high", max_inhalt_tokens=config.FOERDERPRUEFUNG_ABRUF_MAX_TOKENS,
                 abruf_domains=abruf_domains(),
                 dokumente=[{"titel": d["titel"], "text": d["text"],
-                            "kontext": f"Rang: {d['rang_text']} · Adresse: {d['url'] or 'keine (von Hand hinterlegt)'} · Programme: {', '.join(d['programme'])} · "
+                            "kontext": f"Rang: {d['rang_text']} · Adresse: "
+                                       f"{d['url'] or 'keine (von Hand hinterlegt) – als „quelle“ angeben: ' + quellen_abgleich.kennung(d['quelle_id'])}"
+                                       f" · Programme: {', '.join(d['programme'])} · "
                                        f"{d['fassung']}"}
                            for d in doks] or None)
             ergebnis = auswerten(antwort.rohtext, kond, quellen_raenge(db, abgleich))

@@ -554,6 +554,16 @@ Verbindlich zusätzlich zu den unverhandelbaren Regeln; Einzelheiten in den Absc
   „bewusst leer“ (`<programm>.antragsfrist_bewusst_leer`, siehe Konditionen-Zentrale) → Feld geht nicht in die Prüfung,
   eine trotzdem gemeldete Abweichung wird verworfen („bewusst leer (…)“, `bewusst_leer()`).
   Tests: `tests/test_foerderpruefung_nacharbeiten.py`.
+- **Technische FAQ in der Prüfung (Geschäftsführung 20.11.2026):** Quelldokumente **ohne Adresse** (von Hand hinterlegt, die
+  KI kann sie nie selbst abrufen) gehen ebenfalls als Text-Dokument mit (`quellen_abgleich.mitgeben()`: Rang 1 **oder** nicht
+  abrufbare Domain **oder** keine Adresse; weiter nur mit zugeordnetem Programm und nur gültige). Beleg-Kennung
+  `quelldokument:N` (`kennung()`, im Kontext „als „quelle“ angeben: …“), `quellen_raenge()` ordnet ihr den Rang zu → FAQ bleibt
+  Rang 3: immer „zu prüfen“, `nur_faq`, nie im Entwurf. Einstufung per CLI (Auftrag im Protokoll): Quelle 8 „BEG TFAQ
+  Effizienzhaus“ 7.0 – FAQ, gültig ab 15.12.2025, beg_wg/kfw_266; Quelle 9 „BEG TFAQ Einzelmaßnahme“ 8.0 – FAQ, gültig ab
+  01.11.2026, beg_em/beg_em_heizung/kfw_458. Umfang (20.11.2026): Quelle 8 113 Seiten, 383.166 Zeichen (≈ 128.000 Tokens,
+  **gekürzt auf 200.000 Zeichen** ≈ 67.000), Quelle 9 43 Seiten, 137.133 Zeichen (≈ 46.000). Eine gründliche Prüfung gibt damit
+  Quellen 1, 5, 8, 9 mit ≈ 216.000 Tokens mit; Mehrkosten FAQ ≈ 0,90 $ je gründlichem Lauf (Opus, ≈ 15 Zwischenschritte),
+  ungekürzt ≈ 1,40 $; die Vorprüfung ist unverändert.
 - **Anzeige der Läufe (20.11.2026, gespeicherter Status unverändert):** `uebersicht(m)` in jeder Meldung der API: `ergebnis_text`
   „N Abweichungen zu V6 – davon X geplant in V7 (ab 01.02.2027) · Y offen“ (ohne geplante „… · N offen“, ohne Abweichung „Keine
   Abweichung zu V6“), `status_text` „Kein Handlungsbedarf (bereits geplant)“ bei `keine_abweichung` mit Abweichungen, „Keine
