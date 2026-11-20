@@ -89,7 +89,8 @@ Verbindlich zusätzlich zu den unverhandelbaren Regeln; Einzelheiten in den Absc
   (nur Testdaten) und wird **nie „Produktion“** genannt. **Produktion = HostEurope, noch nicht eingerichtet.** „Produktion“ in
   dieser Datei meint immer HostEurope.
 - **Rangfolge der Quellen** (Geschäftsführer 20.11.2026): maßgebend für BEG-Förderungen ist immer die **aktuelle Richtlinie**
-  (Rang 1); das Wichtigste daraus steht für Kunden und Banken in den **Merkblättern** KfW/BAFA (Rang 2); technische Einzelfragen
+  (Rang 1; **das Infoblatt „förderfähige Maßnahmen und Leistungen“ und die TMA gelten als Rang 1**, verbindliche Anlagen der
+  Richtlinie); das Wichtigste daraus steht für Kunden und Banken in den **Merkblättern** KfW/BAFA (Rang 2); technische Einzelfragen
   beantwortet die **FAQ** (Rang 3, nur Auslegung). „Offiziell“ nur mit Beleg aus Richtlinie oder Merkblatt; ein Wert nur aus einer
   FAQ ist immer „zu prüfen“ und nie alleinige Grundlage einer Abweichung (nicht in „Entwurf aus Meldung“); widerspricht
   Merkblatt/FAQ der Richtlinie, gilt die Richtlinie, der Widerspruch wird als Hinweis gemeldet. KfW-Einstieg
@@ -100,9 +101,16 @@ Verbindlich zusätzlich zu den unverhandelbaren Regeln; Einzelheiten in den Absc
   und Freigabe des Geschäftsführers.
 
 ## Aktueller Stand (19.11.2026)
-- **Datenbank:** Head **0019** (0018 Programme, 0019 Rang/Gültigkeit der Quelldokumente, 20.11.2026) – im Testsystem noch **0017** (0014
-  Berichts-Kennzeichnung, 0015 technischer Benutzer, 0016 Quelldokumente/Fundstellen, 0017 Word eingefroren). `cockpit-api`
-  migriert beim Start: vor dem nächsten `docker compose up -d cockpit-api` erst `scripts/sicherung.sh`.
+- **Datenbank:** Migrationsstand **0019** (Head, im Testsystem eingespielt 20.11.2026 nach Sicherung
+  `cockpit_2026-11-20_062314`; 0016 Quelldokumente/Fundstellen, 0017 Word eingefroren, 0018 Programme, 0019 Rang/Gültigkeit der
+  Quelldokumente). `cockpit-api` migriert beim Start: vor jedem `docker compose up -d cockpit-api` mit neuer Migration erst
+  `scripts/sicherung.sh`.
+- **Quelldokumente (Einstufung Geschäftsführer 20.11.2026, per CLI):** 1 Richtlinie BEG EM 17.07.2026 – Richtlinie, ab 21.07.2026,
+  bis offen (bis die BAnz-Fassung hochgeladen ist), beg_em/beg_em_heizung/kfw_458 (geht als Dokument mit, ≈ 150.000 Zeichen);
+  2 Infoblatt 10.0 – Richtlinie (Anlage), bis 20.07.2026 (abgelaufen, nur Nachweis); 3 BEG-FAQ – FAQ, ab 14.08.2026, keine
+  Programme; 4 Merkblatt 261 – Merkblatt, ab 24.09.2026, beg_wg; 5 Infoblatt 11.1 – Richtlinie (Anlage), ab 01.11.2026,
+  beg_em/beg_em_heizung/beg_wg (kfw.de: nur Prüfsumme, KI ruft selbst ab). Abgleich 20.11.2026: alle gültigen unverändert.
+  **Offen (macht Manfred):** amtliche Fassung BEG EM BAnz AT 27.08.2026 B1 und die TMA hochladen; danach Quelle 1 „gültig bis“.
 - **Generator:** **0.5.1** (Fördervergleich: WPB-Fall nach Grundlage, Kriterien nur aus den Konditionen; INIT unverändert seit 0.4.9).
   Prompts: Schnellweg `init-4`, Detailbearbeitung `init-1`.
 - **Konditionen:** Version **6 aktiv** (Stand 17.11.2026), Version **7 geplant** ab 01.02.2027, Version **8 Entwurf** (Kopie von V7 +
@@ -121,8 +129,15 @@ Verbindlich zusätzlich zu den unverhandelbaren Regeln; Einzelheiten in den Absc
     offen: Startbestand,
     Standardtext im Word, INIT.
   - **Mailversand im Testsystem:** Benachrichtigung Förderkonditionen nur noch bei Konto 1 (Konto 2 und 3 seit 16.11.2026 ohne
-    Haken). Umleitung umgesetzt (`SMTP_UMLEITUNG_AN`, `SMTP_BETREFF_PRAEFIX`, siehe „Förderprüfung … E-Mail“); im Testsystem
-    noch einzutragen, sobald der Geschäftsführer die Testadresse nennt.
+    Haken). Umleitung aktiv seit 19.11.2026 (`SMTP_UMLEITUNG_AN` = Testpostfach des Geschäftsführers, `SMTP_BETREFF_PRAEFIX=[TEST]`).
+  - **Quellenbibliothek** (Konzept 20.11.2026, als Plan freigegeben, **noch nicht umsetzen**): `konditionen_quellen` wird zur
+    zentralen Quelle aller KI-Funktionen (Förderprüfung, später KI-Textvorschläge mit Auszügen der Fundstellen statt ganzer
+    Dokumente). Dateien im Volume `datei-daten/konditionen_quellen/` + Metadaten in PostgreSQL (beides in der Sicherung;
+    Tabelle zusätzlich in `scripts/kennzahlen.sh`). Neue Felder `herkunft`, `ersetzt_id` (Kette je Reihe), `reihe`, gespeicherter
+    Text mit `text_sha256`/Seitenzahl. Rechte: hochladen/einstufen admin+pruefer, löschen admin (nur unbenutzt), technischer
+    Benutzer nur per CLI; kein Vier-Augen für die Einstufung, mit Protokoll. Kosten je gründlicher Prüfung ausweisen (Richtlinie
+    ≈ 0,45 $, Richtlinie+FAQ ≈ 1 $, Auszüge ≈ 0,05–0,15 $). Produktion (HostEurope): einmaliger Export/Import nur dieser Tabelle +
+    Dateien mit Manifest und sha256-Prüfung, Einstufung prüft vor Produktivstart die zweite Prüfperson.
   - Abnahmen offen: Phasen 2b, 2d, 2e, 2g, 2h.
   - Produktiv-Checkliste („Vor Produktivstart“), u. a. Geheimnisse neu, 2FA, Basic Auth, AVV, Kopie außer Haus, API-Logs dauerhaft,
     `BEISPIELDATEN_AKTIV=false`, Word einfrieren ab dem ersten Bericht.
