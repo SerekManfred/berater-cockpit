@@ -111,7 +111,7 @@ Verbindlich zusätzlich zu den unverhandelbaren Regeln; Einzelheiten in den Absc
   Programme; 4 Merkblatt 261 – Merkblatt, ab 24.09.2026, beg_wg; 5 Infoblatt 11.1 – Richtlinie (Anlage), ab 01.11.2026,
   beg_em/beg_em_heizung/beg_wg (kfw.de: nur Prüfsumme, KI ruft selbst ab). Abgleich 20.11.2026: alle gültigen unverändert.
   **Offen (macht Manfred):** amtliche Fassung BEG EM BAnz AT 27.08.2026 B1 und die TMA hochladen; danach Quelle 1 „gültig bis“.
-- **Generator:** **0.5.1** eingespielt, **0.6.0** lokal (KfW 458 Paket 3, nicht eingespielt) (Fördervergleich: WPB-Fall nach Grundlage, Kriterien nur aus den Konditionen; INIT unverändert seit 0.4.9).
+- **Generator:** **0.5.1** eingespielt, **0.6.1** lokal (0.6.0 KfW 458 Paket 3, 0.6.1 Entscheidungen GF 20.11.2026; nicht eingespielt) (Fördervergleich: WPB-Fall nach Grundlage, Kriterien nur aus den Konditionen; INIT unverändert seit 0.4.9).
   Prompts: Schnellweg `init-4`, Detailbearbeitung `init-1`.
 - **Konditionen:** Version **6 aktiv** (Stand 17.11.2026), Version **7 geplant** ab 01.02.2027, Version **8 Entwurf** (Kopie von V7 +
   WPB-Kriterien nach Infoblatt 11.1 mit Fundstellen) – **nicht eingereicht**. Quelldokumente 1–5: Richtlinie BEG EM 17.07.2026,
@@ -127,6 +127,10 @@ Verbindlich zusätzlich zu den unverhandelbaren Regeln; Einzelheiten in den Absc
   - **KfW 458 / Heizungstausch** (Konzept 20.11.2026, `docs/Konzept_KfW458_Heizungstausch.md`, **nicht umgesetzt**): Satz je
     Heizungsart (WP ab Q1 2027 15 %), Wertschöpfungs-Bonus EU-WP, 25 % bei Ersatz vor 2008 (Auslegung offen), Kategorien
     Heizung/Heizungsoptimierung im Fördervergleich. Offen: zwei Auslegungen (GF), Freigabe des Konzepts.
+  - **Quelle KfW 458** (GF 20.11.2026): Konditionen nicht ändern ohne Vier-Augen-Freigabe; Vorschlag
+    `app/konditionen/vorschlag_quelle_kfw458.json` (Quelle Richtlinie BEG EM Nr. 8.4, S. 18–21, nur Feld `quelle`) – nicht
+    eingespielt; bis dahin „Quelle nicht geprüft“ im Fördervergleich. Offen: nach Hochladen der BAnz-Fassung deren Seiten nennen.
+  - **FAQ-Satz Nr. 9.15** (Bilanzierung als Elektro-Direktheizung): erst nach Hochladen der beiden FAQ-Dateien, als eigener Commit.
   - **Laufzeitende 31.12.2030** (Vorschlag-Dateien, siehe Konditionen-Zentrale) – in Entwurf V8 oder die nächste Version
     einspielen? (Entscheidung offen.)
   - **Maßnahmenkatalog** (Bauteil, Standardtext, Kostenkennwert) – Vorschlag gemacht; festgelegt: Kostenkennwerte ohne Vier-Augen
@@ -443,6 +447,23 @@ Verbindlich zusätzlich zu den unverhandelbaren Regeln; Einzelheiten in den Absc
   Formular durch den Text der Angebotsvorlage, Hinweis „Leistungen aus der Angebotsvorlage übernommen (bisher: …)“ mit Knopf
   „Bisherigen Text behalten“ (`kurzeLeistungenErsetzen` in `Foerdervergleich.jsx`). Titel und Beträge bleiben; gespeichert erst mit
   „Speichern“, gespeicherte Berichte unverändert.
+
+## Speichern nur mit aktuellem Berechnungsergebnis (Geschäftsführung 20.11.2026)
+- Berechnen (`POST /module/foerderung-em-eh/berechnen`, Vorschau `POST /berichte/{id}/berechnen`) liefert `eingabe_hash`
+  (`rechnen.eingabe_hash()`: sha256 über Modul, genutzte Konditionen-Version und die bereinigten Eingaben wie gespeichert,
+  Schlüssel sortiert; ohne `HASH_OHNE` = Bestätigungs-Haken `waermeerzeuger_bestaetigt`/`stromdirekt_bestaetigt`, die sich auf
+  das angezeigte Ergebnis beziehen). Speichern (`POST /projekte/{id}/berichte`, `POST /berichte/{id}/neue-version`) verlangt
+  `berechnet_hash`: fehlt → 409 „Bitte zuerst berechnen …“, passt nicht (Eingaben oder Konditionen-Wahl geändert) → 409
+  „… Bitte neu berechnen und dann speichern.“ (`berechnung_pruefen()`); ungültige Eingaben weiter 422 mit Feldmeldung.
+  Oberfläche: Speichern gesperrt mit Hinweis „Bitte neu berechnen“, sobald die Eingaben nicht mehr zur Berechnung passen;
+  `Projekte.jsx` schickt `erg.eingabe_hash` mit. Kommandozeile (`bericht-neue-version`) rechnet selbst, keine Prüfung.
+  Ältere Tests speichern ohne Berechnung (`conftest`: `SPEICHERN_NUR_NACH_BERECHNUNG` aus); die Regel prüfen
+  `tests/test_speichern_nach_berechnung.py` und `SpeichernNachBerechnung.test.jsx`. Im Betrieb immer an (keine `.env`).
+- **INIT Weg B** (gleiche Entscheidung): Eigenanteil aus echten Kosten – Rechenkern `werte.zuschuss_eh`
+  (`zuschuss_eh_echte_kosten()`: Tilgungszuschuss auf min(`kosten_effizienzhaus`, Kreditbetrag), Eigenanteil = Kosten −
+  Zuschuss; ohne Kosten/Satz `None` → „—“), Generator 0.6.1. **Sekundärquelle** in Konditionen: `word.SEKUNDAERQUELLEN`
+  (`kfw_458`: „Ökozentrum NRW“) → `quellen_ungeprueft` → „– Quelle nicht geprüft“ im Fördervergleich (Quellen).
+  Tests: `tests/test_entscheidungen_20261120.py`.
 
 ## Zahlenfelder in der Oberfläche (Stand 14.11.2026)
 - **Alle Zahlenfelder** über `ZahlFeld`/`ZahlEingabe` (`frontend/src/ZahlFeld.jsx`) und `frontend/src/zahl.js` – kein `type="number"`,
