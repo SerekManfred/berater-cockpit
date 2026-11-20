@@ -261,3 +261,17 @@ Anträge für ihren Kostenanteil, jeweils mit eigenen Boni“ ist nur teilweise 
 selbstnutzendem Eigentümer: ja (FAQ 3.4). Eigene Anträge für den Kostenanteil am Gemeinschaftseigentum: nur in der Kreditvariante
 Effizienzhaus (FAQ 1.5); beim Zuschuss stellt die WEG den Basisantrag. Sondereigentum: gesonderter Antrag des Eigentümers.
 
+## 10. Stromdirekt-/Infrarotheizung (fachliche Vorgabe GF 20.11.2026, umgesetzt mit Stufe 1)
+
+- **Einzelmaßnahmen:** nie gefördert, egal unter welcher Einordnung, solange `beg_em_heizung.stromdirektheizung_foerderfaehig` nein
+  ist. Beleg Infoblatt 11.1 (Quelle 5, Rang 1), Nr. 9.2, S. 45: „Zusätzlich sind bei Einzelmaßnahmen (BEG EM)
+  Elektro-Direktheizungen nicht förderfähig: • Elektro-Speicherheizungen • Nachtstromspeicherheizungen • Elektro-Heizstrahler
+  • Infrarot-Heizungen (Ausnahme Strahlungsheizungen in Nichtwohngebäude gemäß Nummer 4.1.9), etc.“ (gleich im Infoblatt 10.0,
+  S. 37; BEG-FAQ S. 39: „Nicht förderfähig sind Stromdirektheizungen.“). Warnung, Speichern nur mit Bestätigung.
+- **Effizienzhaus:** zulässig als alleiniges Heizsystem, kein Ausschluss, kein eigener Heizungszuschuss – **Vorgabe GF**, Fundstelle
+  offen (Richtlinie BEG WG nicht als Quelldokument hinterlegt; Merkblatt 261 ohne Treffer).
+- **Nichtwohngebäude:** Richtlinie BEG EM Nr. 5.3 j (S. 10) „Strahlungsheizungen in Nichtwohngebäuden … mit mehr als 4 Meter
+  Raumhöhe“; Anlage Nr. 3.10.1 (S. 56) „Der konkrete Zeitpunkt, ab dem Strahlungsheizungssysteme förderfähig sind, wird … von der
+  KfW … bekannt gegeben.“; Infoblatt 11.1 Nr. 4.1.9 (S. 30) „voraussichtlich ab Dezember 2026 grundsätzlich möglich“ → Hinweis
+  „angekündigt, noch nicht in Kraft“. Eigene Rechnung (Satz 30 %, Raumhöhe) erst, wenn in Kraft (Stufe 2/3).
+

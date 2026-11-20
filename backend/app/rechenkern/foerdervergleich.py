@@ -20,6 +20,9 @@ class Massnahme:
     kosten: float
     em_kategorie: EmKategorie
     eh_foerderfaehig: bool = True
+    # Stromdirekt-/Infrarotheizung (erkannt an der Bezeichnung, app/rechnen.py): in Einzelmaßnahmen nie gefördert, wenn
+    # beg_em_heizung.stromdirektheizung_foerderfaehig nein ist (Infoblatt 11.1 Nr. 9.2), egal unter welcher Einordnung
+    stromdirektheizung: bool = False
 
 
 @dataclass
@@ -69,6 +72,9 @@ class Eingaben:
     heizung_bonus_we: int = 1
     klimabonus: bool = False
     einkommensbonus: float = 0.0
+    # Stromdirektheizung im Effizienzhaus: zulässig als alleiniges Heizsystem (Vorgabe GF 20.11.2026); None = nicht angegeben
+    stromdirekt_alleiniges_heizsystem: bool | None = None
+    nichtwohngebaeude: bool = False
 
     def bb_kosten(self, weg: str) -> float:
         """Kosten Fachplanung/Baubegleitung je Weg: aus den Angeboten, sonst die Pauschaleingabe."""
@@ -194,6 +200,29 @@ def wpb_em_angekuendigt(kond: dict) -> tuple[bool, str | None]:
     return True, "angekündigt, noch nicht in Kraft" + (f" ({zeit})" if zeit else "")
 
 
+# Texte mit Fundstelle (lokal gesucht 20.11.2026). Keine Sätze oder Fristen als Rechenwert – nur Hinweise.
+STROMDIREKT_EM = ("„{name}“: in Einzelmaßnahmen nicht förderfähig (Stromdirektheizung) – im Weg Einzelmaßnahmen keine Förderung "
+                  "angesetzt (Infoblatt förderfähige Maßnahmen 11.1, Nr. 9.2)")
+STROMDIREKT_NWG = ("Strahlungsheizungen in Nichtwohngebäuden (Räume über 4 m Raumhöhe): Förderung ab 12/2026 angekündigt, noch nicht "
+                   "in Kraft (Infoblatt 11.1, Nr. 4.1.9; Richtlinie BEG EM Nr. 5.3 j)")
+STROMDIREKT_EH_NEIN = ("Stromdirektheizung ist nicht das alleinige Heizsystem – Zulässigkeit im Effizienzhaus bitte prüfen "
+                       "(Vorgabe GF, Fundstelle BEG WG offen)")
+STROMDIREKT_EH_OFFEN = ("Stromdirektheizung im Effizienzhaus: bitte angeben, ob sie das alleinige Heizsystem ist "
+                        "(Vorgabe GF, Fundstelle BEG WG offen)")
+
+
+def stromdirekt_ausgeschlossen(kond: dict) -> bool:
+    """Stromdirektheizungen in Einzelmaßnahmen ausgeschlossen? Aus beg_em_heizung.stromdirektheizung_foerderfaehig (seit
+    Version 1 „nein“); fehlt das Feld, gilt die Vorgabe GF 20.11.2026 (ausgeschlossen)."""
+    return not (kond.get("beg_em_heizung") or {}).get("stromdirektheizung_foerderfaehig", False)
+
+
+def em_massnahmen(e: "Eingaben", kond: dict) -> list:
+    """Maßnahmen für den Weg Einzelmaßnahmen – ohne ausgeschlossene Stromdirektheizungen."""
+    aus = stromdirekt_ausgeschlossen(kond)
+    return [m for m in e.massnahmen if not (aus and m.stromdirektheizung)]
+
+
 def isfp_bonus(ff: float, cap_ohne: float, satz: float, mindestbetrag: float | None) -> float:
     """iSFP-Bonus (Nr. 8.4.2): nur ab dem förderfähigen Mindestinvestitionsvolumen (`beg_em.isfp_bonus_mindestbetrag`, ab
     Version 3; fehlt = keine Schwelle) und nur auf den Teil über der Höchstgrenze ohne iSFP."""
@@ -212,7 +241,7 @@ def heizung_kfw458(e: Eingaben, kond: dict) -> tuple[float | None, dict | None, 
     begrenzt auf kfw_458.hoechstkosten (WE-Staffel, je Gebäude); Grundförderung für alle, Klima-/Einkommensbonus nur für den
     Anteil der von verschiedenen Eigentümern selbstgenutzten WE, Deckel deckel bzw. deckel_einkommensbonus_40.
     → (Zuschuss oder None ohne Heizungsmaßnahme, Herleitung, Hinweise)."""
-    kosten_wz = sum(m.kosten for m in e.massnahmen if m.em_kategorie == "heizung")
+    kosten_wz = sum(m.kosten for m in em_massnahmen(e, kond) if m.em_kategorie == "heizung")
     if kosten_wz <= 0 and e.kosten_baubegleitung_heizung <= 0:
         return None, None, []
     k = kond.get("kfw_458")
@@ -254,8 +283,14 @@ def heizung_kfw458(e: Eingaben, kond: dict) -> tuple[float | None, dict | None, 
 def einzelmassnahmen(e: Eingaben, kond: dict, wpb: bool) -> Szenario:
     em, bera = kond["beg_em"], kond["isfp_beratung"]
     s = Szenario("EM_" + ("WPB" if wpb else "ohne_WPB"), "Einzelmaßnahmen " + ("mit" if wpb else "ohne") + " WPB")
-    basis = sum(m.kosten for m in e.massnahmen if m.em_kategorie in HUELLE_TOPF)
-    daemm = sum(m.kosten for m in e.massnahmen if m.em_kategorie == "daemmung")
+    em_m = em_massnahmen(e, kond)
+    for m in e.massnahmen:
+        if not any(m is x for x in em_m):
+            s.hinweise.append(STROMDIREKT_EM.format(name=m.name))
+    if e.nichtwohngebaeude and len(em_m) < len(e.massnahmen):
+        s.hinweise.append(STROMDIREKT_NWG)
+    basis = sum(m.kosten for m in em_m if m.em_kategorie in HUELLE_TOPF)
+    daemm = sum(m.kosten for m in em_m if m.em_kategorie == "daemmung")
     cap0 = hoechstgrenze(e.we_nach_sanierung, em["hoechstgrenze_ohne_isfp"])
     cap = hoechstgrenze(e.we_nach_sanierung, em["hoechstgrenze_mit_isfp"]) if e.isfp else cap0
     ff = min(basis, cap)
@@ -288,7 +323,7 @@ def einzelmassnahmen(e: Eingaben, kond: dict, wpb: bool) -> Szenario:
         s.zuschuesse["kfw_458"] = heiz
         s.heizung = herleitung
         s.hinweise += h
-    kosten_heizung = sum(m.kosten for m in e.massnahmen if m.em_kategorie == "heizung")
+    kosten_heizung = sum(m.kosten for m in em_m if m.em_kategorie == "heizung")
     s.kreditprogramm = em["ergaenzungskredit"]["programm"]
     s.kreditrahmen = _r(min(basis + kosten_heizung, em["ergaenzungskredit"]["je_we"] * e.we_nach_sanierung))
     s.kosten_energetisch = _r(sum(m.kosten for m in e.massnahmen) + e.bb_kosten("EM") + (e.kosten_isfp if e.isfp else 0)
@@ -338,7 +373,13 @@ def effizienzhaus(e: Eingaben, kond: dict, wpb: bool) -> Szenario:
         s.zuschuesse["wpb_bonus"] = _r(wpb_satz * ff)
     s.zuschuesse["baubegleitung"] = _baubegleitung(e.we_nach_sanierung, e.bb_kosten("EH"), wg["baubegleitung"])
     s.angebotsweg = _angebotsweg(e, "EH", s.zuschuesse["baubegleitung"], wg["baubegleitung"]["satz"])
-    if any(m.em_kategorie == "heizung" and m.eh_foerderfaehig for m in e.massnahmen):
+    if any(m.stromdirektheizung and m.eh_foerderfaehig for m in e.massnahmen):
+        # Effizienzhaus: zulässig als alleiniges Heizsystem, kein eigener Heizungszuschuss, kein Ausschluss (Vorgabe GF 20.11.2026)
+        if e.stromdirekt_alleiniges_heizsystem is False:
+            s.hinweise.append(STROMDIREKT_EH_NEIN)
+        elif e.stromdirekt_alleiniges_heizsystem is None:
+            s.hinweise.append(STROMDIREKT_EH_OFFEN)
+    if any(m.em_kategorie == "heizung" and m.eh_foerderfaehig and not m.stromdirektheizung for m in e.massnahmen):
         s.hinweise.append("Heizung im Effizienzhaus-Paket (KfW 261) – kein zusätzlicher Zuschuss KfW 458 für dieselbe Heizung")
     s.kreditprogramm, s.kredit_pflicht = "KfW 261", True
     s.kreditrahmen = _r(ff + e.bb_kosten("EH"))

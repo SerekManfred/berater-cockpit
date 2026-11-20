@@ -201,3 +201,15 @@ def test_standard_eine_bonus_we_und_hinweis_auf_zusatzantraege():
     assert any("eigenem Zusatzantrag" in x for x in s["hinweise"])
     s = em(Eingaben(we_nach_sanierung=1, massnahmen=[Massnahme("Wärmepumpe", 20000, "heizung")], klimabonus=True))
     assert not any("Zusatzantrag" in x for x in s["hinweise"])                         # EFH: kein Hinweis
+
+
+def test_fall_e_efh_wp_30000_klima_einkommen_40_deckel_80():
+    """Fall E: EFH, WP 30.000 > Höchstbetrag 28.000; 30 % + 16 % + 40 % = 86 % → Deckel 80 % (Einkommensbonus 40 %, Nr. 8.4.1)
+    → 80 % × 28.000 = 22.400 €."""
+    s = em(Eingaben(we_nach_sanierung=1, massnahmen=[Massnahme("Wärmepumpe", 30000, "heizung")], isfp=False,
+                    heizung_bonus_we=1, klimabonus=True, einkommensbonus=0.40))
+    h = s["heizung"]
+    assert (h["foerderfaehig"], h["deckel"], h["satz"]) == (28000, 0.8, pytest.approx(0.80))
+    assert s["zuschuesse"]["kfw_458"] == 22400
+    w = init(1, einkommensbonus=0.40, kosten_heizung=30000, kosten_huelle=0)
+    assert w["zuschuss"]["heiz_zuschuss"] == 22400                                  # INIT-Kern: gleiche Zahl

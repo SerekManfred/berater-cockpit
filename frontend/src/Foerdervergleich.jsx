@@ -287,9 +287,13 @@ export function Foerdervergleich({ titel = "Fördervergleich Einzelmaßnahmen / 
   // Warnung „Wärmeerzeuger als Anlagentechnik“ (Regel im Backend): Speichern nur mit „Einordnung geprüft“
   const [einordnungGeprueft, setEinordnungGeprueft] = useState(false);
   const warmHinweise = erg?.waermeerzeuger_hinweise || [];
-  useEffect(() => { setEinordnungGeprueft(false); }, [erg]);
+  // Stromdirektheizung (Vorgabe GF 20.11.2026, erkannt im Backend): in Einzelmaßnahmen nie gefördert, Speichern nur mit Bestätigung
+  const [stromGeprueft, setStromGeprueft] = useState(false);
+  const stromHinweise = erg?.stromdirekt_hinweise || [];
+  useEffect(() => { setEinordnungGeprueft(false); setStromGeprueft(false); }, [erg]);
   const speicherFehler = onSpeichern ? [...speichernPruefen(d),
-    ...(warmHinweise.length && !einordnungGeprueft ? ["Einordnung der Wärmeerzeuger prüfen und bestätigen (Hinweis oben)"] : [])] : [];
+    ...(warmHinweise.length && !einordnungGeprueft ? ["Einordnung der Wärmeerzeuger prüfen und bestätigen (Hinweis oben)"] : []),
+    ...(stromHinweise.length && !stromGeprueft ? ["Stromdirektheizung prüfen und bestätigen (Hinweis oben)"] : [])] : [];
   const widerspruch = fachplanungWiderspruch(d);
   // Einkommensbonus-Stufen nur aus den aktiven Konditionen (kfw_458.einkommensbonus_stufen) – keine Sätze im Code
   const [einkommensStufen, setEinkommensStufen] = useState([]);
@@ -326,6 +330,7 @@ export function Foerdervergleich({ titel = "Fördervergleich Einzelmaßnahmen / 
     setFehler(""); setSpeichert(true);
     const eingaben = JSON.parse(berechnetMit);
     if (warmHinweise.length && einordnungGeprueft) eingaben.waermeerzeuger_bestaetigt = true;
+    if (stromHinweise.length && stromGeprueft) eingaben.stromdirekt_bestaetigt = true;
     try { await onSpeichern(eingaben, erg, weGeprueft && weWarnungen.length > 0); }
     catch (e) { setFehler("Speichern nicht möglich: " + e.message); }
     finally { setSpeichert(false); }
@@ -519,6 +524,17 @@ export function Foerdervergleich({ titel = "Fördervergleich Einzelmaßnahmen / 
         {warmHinweise.map(h => <p key={h} style={{ margin: "0 0 6px" }}>{h}</p>)}
         {onSpeichern && <label><input type="checkbox" checked={einordnungGeprueft} onChange={e => setEinordnungGeprueft(e.target.checked)} />
           {" "}Einordnung geprüft – die Maßnahme ist kein Wärmeerzeuger nach KfW 458 (sonst bitte oben ändern und neu berechnen)</label>}
+      </div>}
+      {stromHinweise.length > 0 && <div className="warnung karte" role="alert">
+        {stromHinweise.map(h => <p key={h} style={{ margin: "0 0 6px" }}>{h}</p>)}
+        <label>Im Effizienzhaus: Stromdirektheizung ist das alleinige Heizsystem
+          <select value={d.stromdirekt_alleiniges_heizsystem === true ? "ja" : d.stromdirekt_alleiniges_heizsystem === false ? "nein" : ""}
+            onChange={e => setOpt("stromdirekt_alleiniges_heizsystem", e.target.value === "" ? null : e.target.value === "ja")}>
+            <option value="">keine Angabe</option><option value="ja">ja</option><option value="nein">nein</option>
+          </select></label>
+        <p className="klein" style={{ margin: "6px 0" }}>Nach einer Änderung bitte neu berechnen. Bei „nein“ erscheint im Effizienzhaus ein Prüfhinweis.</p>
+        {onSpeichern && <label><input type="checkbox" checked={stromGeprueft} onChange={e => setStromGeprueft(e.target.checked)} />
+          {" "}Stromdirektheizung geprüft – im Weg Einzelmaßnahmen ohne Förderung</label>}
       </div>}
       {erg && <Ergebnis erg={erg} />}
       {vorschau && <Vorschau erg={vorschau} />}

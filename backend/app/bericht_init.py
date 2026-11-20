@@ -149,6 +149,7 @@ class FoerderIn(_Frei):
     kosten_heizung: float | None = Field(None, ge=0)
     kosten_baubegleitung_heizung: float | None = Field(None, ge=0)
     we_bonus: int | None = Field(None, ge=0, le=9999)
+    heizung_stromdirekt: bool = False                        # neue Heizung = Stromdirekt/Infrarot → Weg A kein Heizungszuschuss
 
 
 class MassnahmeText(_Frei):
@@ -332,7 +333,8 @@ def _foerder_eingaben(d: dict) -> InitFoerderEingaben:
                                    eh_wpb=bool(f.get("eh_wpb")), eh_sersan=bool(f.get("eh_sersan")),
                                    we_bonus=f.get("we_bonus"), kosten_huelle=f.get("kosten_huelle"),
                                    kosten_heizung=f.get("kosten_heizung"),
-                                   kosten_baubegleitung_heizung=f.get("kosten_baubegleitung_heizung"))
+                                   kosten_baubegleitung_heizung=f.get("kosten_baubegleitung_heizung"),
+                                   heizung_stromdirekt=bool(f.get("heizung_stromdirekt")))
     except ValidationError as fehler:
         meldung = "; ".join(str(x.get("msg", "")).removeprefix("Value error, ") for x in fehler.errors())
         raise HTTPException(422, f"Förderangaben unvollständig oder ungültig: {meldung}") from None

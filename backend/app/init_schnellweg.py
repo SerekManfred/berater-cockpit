@@ -66,6 +66,20 @@ def defekt_hinweis(d: dict) -> str | None:
     return None
 
 
+STROMDIREKT_FRAGE = ("Ist die neue Heizung eine Stromdirekt- oder Infrarotheizung? In Einzelmaßnahmen (Weg A) ist sie nicht "
+                     "förderfähig – „ja“ setzt den Heizungszuschuss auf 0; im Effizienzhaus ist sie als alleiniges Heizsystem zulässig.")
+
+
+def stromdirekt_hinweis(d: dict) -> str | None:
+    """Fundstelle eines Hinweises auf Stromdirekt-/Infrarotheizung in Checkliste und Notizen (Rückfrage, Vorgabe GF 20.11.2026)."""
+    from app.rechnen import STROMDIREKT
+    c = d.get("checkliste") or {}
+    for quelle in (c.get("anlagentechnik"), c.get("auffaelligkeiten"), d.get("notizen"), (d.get("objekt") or {}).get("weiteres")):
+        if quelle and (m := STROMDIREKT.search(str(quelle))):
+            return m.group(0)
+    return None
+
+
 # ---------- Ablage der Vorschau (nicht in „dateien“: erst die Freigabe erzeugt eine Berichtsversion) ----------
 
 def _vorschau(e_id: int, endung: str) -> Path:
@@ -122,7 +136,7 @@ def _typ(pfad: str) -> str:
     if pfad in ("foerder.kosten_einzel", "foerder.kosten_effizienzhaus", "foerder.kosten_huelle", "foerder.kosten_heizung",
                 "foerder.kosten_baubegleitung_heizung"):
         return "euro"
-    if pfad in ("foerder.klimabonus", "foerder.eh_wpb", "foerder.eh_sersan"):
+    if pfad in ("foerder.klimabonus", "foerder.eh_wpb", "foerder.eh_sersan", "foerder.heizung_stromdirekt"):
         return "janein"
     if pfad == "foerder.einkommensbonus":
         return "einkommensbonus"
@@ -213,6 +227,10 @@ def rueckfragen(db: Session, e: BerichtEntwurf, p: Projekt, st: dict) -> list[di
               "label": HEIZUNG_FRAGE, "vorschlag": "",
               "hinweis": f"Klimageschwindigkeitsbonus ist gewählt, die Angaben nennen aber „{fund}“. „nein“ nimmt den Klimabonus heraus."})
     f = d.get("foerder") or {}
+    if "stromdirekt" not in st.get("beantwortet", []) and not f.get("heizung_stromdirekt") and (fund := stromdirekt_hinweis(d)):
+        dazu({"id": "stromdirekt", "pfad": "foerder.heizung_stromdirekt", "art": "frage", "typ": "janein",
+              "weglassen_erlaubt": False, "label": STROMDIREKT_FRAGE, "vorschlag": "",
+              "hinweis": f"Die Angaben nennen „{fund}“ (Bestand oder Planung)."})
     if f.get("kosten_effizienzhaus") is not None and not f.get("eh_stufe") and not f.get("eh_kein_vergleich"):
         dazu({"id": "eh_ziel", "pfad": "foerder.eh_stufe", "art": "frage", "weglassen_erlaubt": False,
               "label": "Effizienzhaus-Ziel (KfW 261)", "vorschlag": "",

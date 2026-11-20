@@ -394,6 +394,7 @@ function DatenSchritt({ d, e, kond, projekt, aendern, einlesen = null }) {
         <p className="klein">Bonusberechtigte WE: leer = 1 (bzw. 0 ohne Selbstnutzung). Weitere selbstnutzende Eigentümer (z. B. WEG) beantragen ihre Boni mit eigenem Zusatzantrag.</p>
         <div className="schalter">
           <label><input type="checkbox" checked={!!f.klimabonus} onChange={x => aendern("foerder.klimabonus", x.target.checked)} /> Klimageschwindigkeitsbonus (KfW 458) {mk("foerder.klimabonus")}</label>
+          <label><input type="checkbox" checked={!!f.heizung_stromdirekt} onChange={x => aendern("foerder.heizung_stromdirekt", x.target.checked)} /> Neue Heizung ist eine Stromdirekt-/Infrarotheizung (Weg A: nicht förderfähig, kein Heizungszuschuss) {mk("foerder.heizung_stromdirekt")}</label>
           <label><input type="checkbox" checked={!!f.eh_wpb} onChange={x => aendern("foerder.eh_wpb", x.target.checked)} /> Worst Performing Building (WPB) {mk("foerder.eh_wpb")}</label>
           <label><input type="checkbox" checked={!!f.eh_sersan} onChange={x => aendern("foerder.eh_sersan", x.target.checked)} /> Serielle Sanierung (Bonus KfW 261)</label>
           <label><input type="checkbox" checked={!!f.eh_nh} disabled={!f.eh_stufe} onChange={x => aendern("foerder.eh_nh", x.target.checked)} /> NH-Klasse statt EE-Klasse {mk("foerder.eh_nh")}</label>
@@ -587,6 +588,7 @@ function ErzeugenSchritt({ e, geaendert, laeuft, darf, onErzeugen, onWeGeprueft 
                 <tr className="summe"><td>Summe Weg A (Zuschüsse)</td><td></td><td></td><td className="z">{w.zuschuss.weg_a != null ? eur(w.zuschuss.weg_a) : "—"}</td></tr>
               </tbody>
             </table></div>}
+          {(w.zuschuss?.hinweise || []).map(h => <p key={h} className="info" role="status">{h}</p>)}
           <h3>Förderpotenzial (Obergrenzen je Wohneinheit – kein Zuschuss)</h3>
           <div className="tabelle"><table>
             <thead><tr><th>Förderweg</th><th className="z">Quote</th><th className="z">Max. förderf. Kosten</th><th className="z">Förderpotenzial</th></tr></thead>

@@ -252,7 +252,8 @@ def _rechnen(modul: str, eingaben: dict, kond: dict, projekt: Projekt | None = N
         daten = schema.model_validate(eingaben)
     except ValidationError as fehler:
         raise RequestValidationError(fehler.errors(include_url=False, include_context=False)) from None
-    extra = {"projekt_we": projekt.wohneinheiten} if projekt is not None and modul in MIT_PROJEKT_WE else {}
+    extra = ({"projekt_we": projekt.wohneinheiten, "projekt_gebaeudeart": projekt.gebaeudeart}
+             if projekt is not None and modul in MIT_PROJEKT_WE else {})
     # Nicht ausgefüllte optionale Felder (None) werden nicht mitgespeichert
     return daten.model_dump(exclude_none=True), rechner(daten, kond, **extra)
 

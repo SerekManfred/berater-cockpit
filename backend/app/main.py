@@ -56,8 +56,9 @@ def module():
 def berechnen(daten: FoerdervergleichIn, projekt_id: int | None = None, db: Session = Depends(get_db)):
     """Schnellrechnung ohne Speichern (auch Vorschau vor dem Speichern in der Projektakte).
     Mit projekt_id prüft die Plausibilität auch die Wohneinheiten des Projekts."""
-    projekt_we = projekte_api._projekt_laden(db, projekt_id).wohneinheiten if projekt_id is not None else None
-    return foerdervergleich_rechnen(daten, lade_konditionen(daten.konditionen_version, db=db), projekt_we=projekt_we)
+    p = projekte_api._projekt_laden(db, projekt_id) if projekt_id is not None else None
+    return foerdervergleich_rechnen(daten, lade_konditionen(daten.konditionen_version, db=db),
+                                    projekt_we=p.wohneinheiten if p else None, projekt_gebaeudeart=p.gebaeudeart if p else None)
 
 
 @app.post("/module/foerderung-em-eh/vorschau-geplant", dependencies=[Depends(rolle("berater"))])
@@ -68,8 +69,9 @@ def vorschau_geplant(daten: FoerdervergleichEingaben, projekt_id: int | None = N
     kond = lade_geplante(db)
     if kond is None:
         raise HTTPException(404, "Es gibt keine geplante Konditionen-Version.")
-    projekt_we = projekte_api._projekt_laden(db, projekt_id).wohneinheiten if projekt_id is not None else None
-    erg = foerdervergleich_rechnen(daten, kond, projekt_we=projekt_we)
+    p = projekte_api._projekt_laden(db, projekt_id) if projekt_id is not None else None
+    erg = foerdervergleich_rechnen(daten, kond, projekt_we=p.wohneinheiten if p else None,
+                                   projekt_gebaeudeart=p.gebaeudeart if p else None)
     datum = ".".join(reversed(kond["gueltig_ab"][:10].split("-")))
     return {**erg, "vorschau": {"version": kond["version"], "gueltig_ab": kond["gueltig_ab"],
                                 "text": f"Vorschau mit den Konditionen ab {datum} (Version {kond['version']}) – noch nicht "

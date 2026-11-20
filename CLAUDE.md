@@ -792,7 +792,18 @@ Stufe 2 Variante B (Staffelwert in der Version nach `antrag_geplant_am`, leer = 
   Vorschau trennt „Zuschüsse Weg A aus Ihren Kosten“ und „Förderpotenzial (Obergrenzen – kein Zuschuss)“. Tests:
   `tests/test_kfw458_eingaben.py`, `frontend/src/HeizungKfw458.test.jsx`.
   **Nicht einspielen vor Paket 3:** Speichern friert das Word ein, Generator 0.5.1 zeigt den Posten `kfw_458` noch nicht.
-- **Paket 3 Generator 0.6.0:** offen (Änderungen angekündigt 20.11.2026).
+- **Stromdirekt-/Infrarotheizung (Vorgabe GF 20.11.2026, `docs/auftraege/Auftrag_Stromdirektheizung.md`):** Einzelmaßnahmen
+  (Fördervergleich Weg EM, INIT Weg A) **nie gefördert, egal unter welcher Einordnung**, solange
+  `beg_em_heizung.stromdirektheizung_foerderfaehig` nein ist (seit Version 1; Beleg Infoblatt 11.1 Nr. 9.2, S. 45). Erkennung an der
+  Bezeichnung (`STROMDIREKT`, `ist_stromdirekt()` in `app/rechnen.py` → `Massnahme.stromdirektheizung`, `em_massnahmen()` im
+  Rechenkern); Rechnen liefert `stromdirekt_hinweise`, **Speichern nur mit `stromdirekt_bestaetigt`** (sonst 422; Haken
+  „Stromdirektheizung geprüft“). **Effizienzhaus:** zulässig als alleiniges Heizsystem, kein Ausschluss, kein eigener Zuschuss;
+  Eingabe `stromdirekt_alleiniges_heizsystem` (ja/nein/leer) → bei nein bzw. leer Prüfhinweis – **„Vorgabe GF“, Fundstelle
+  BEG WG offen** (Richtlinie BEG WG nicht hinterlegt, Merkblatt 261 ohne Aussage). **Nichtwohngebäude** (Gebäudeart des Projekts):
+  Hinweis „Förderung ab 12/2026 angekündigt, noch nicht in Kraft“ (Infoblatt 11.1 Nr. 4.1.9, S. 30; Richtlinie BEG EM Nr. 5.3 j,
+  Räume > 4 m). INIT: `foerder.heizung_stromdirekt` (Detailbearbeitung, Schnellweg-Rückfrage `stromdirekt` bei Fundstelle in
+  Checkliste/Notizen) → Heizungszuschuss 0 mit Hinweis. Tests: `tests/test_stromdirekt.py`, `HeizungKfw458.test.jsx`.
+- **Paket 3 Generator 0.6.0:** offen (Änderungen angekündigt 20.11.2026; Freigabe GF ausstehend).
 - **INIT-Skill im Chat hat denselben Fehler** (`generate_report.js`/`foerder_rechnung.js` im Skill-Paket „energieberatungsbericht“):
   `heizMax` und `em_foerder_mit` auf Höchstkosten, als „Zuschuss“ beschriftet, „Geschätzter Eigenanteil“ = Kosten − Potenzial,
   Boni höchstens für eine WE. Nach Stufe 1 den korrigierten Generator als Skill-Paket bereitstellen (Zip nicht einchecken).

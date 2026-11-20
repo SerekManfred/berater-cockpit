@@ -23,6 +23,8 @@ REFERENZFALL = {
     ],
     # Pflichtregel Angebote (19.11.2026): der Referenzfall rechnet mit pauschaler externer Fachplanung (20.000 €)
     "ohne_angebote": {"grund": "Referenzfall: Fachplanung extern"},
+    # Stromdirektheizung (Vorgabe GF 20.11.2026): Speichern nur mit Bestätigung – Beträge unverändert (Infrarot war schon nicht förderfähig)
+    "stromdirekt_bestaetigt": True,
 }
 
 

@@ -8,7 +8,7 @@ from sqlalchemy import select
 from sqlalchemy.orm import Session
 
 from app import fristen, wohneinheiten
-from app.rechenkern.foerdervergleich import Angebote, Eingaben, Massnahme, vergleich
+from app.rechenkern.foerdervergleich import Angebote, Eingaben, Massnahme, stromdirekt_ausgeschlossen, vergleich
 from app.rechenkern.init_foerderung import InitEingaben, init_foerderung
 
 FREIGEGEBEN = ("aktiv", "abgeloest")
@@ -245,6 +245,8 @@ class FoerdervergleichEingaben(BaseModel):
     heizung_bonus_we: int = Field(1, ge=0, le=9999)
     klimabonus: bool = False
     einkommensbonus: float = Field(0, ge=0, le=1)
+    # Stromdirektheizung im Effizienzhaus zulässig als alleiniges Heizsystem (Vorgabe GF 20.11.2026); leer = nicht angegeben
+    stromdirekt_alleiniges_heizsystem: bool | None = None
     # Optional: unsere Angebote A–D. Ersetzen kosten_baubegleitung und liefern den Ablauf im Bericht.
     angebote: AngeboteIn | None = None
     # Pflicht beim Speichern in der Projektakte: Angebote ODER „bewusst ohne Angebote“ mit Grund (angebote_entscheidung)
@@ -259,6 +261,8 @@ class FoerdervergleichEingaben(BaseModel):
     kosten_hinweis: str | None = Field(None, max_length=1000)
     # Bestätigung „Einordnung geprüft“ für die Warnung „Wärmeerzeuger als Anlagentechnik“ (waermeerzeuger_hinweise); nur Nachweis
     waermeerzeuger_bestaetigt: bool | None = None
+    # Bestätigung „Stromdirektheizung in Einzelmaßnahmen nicht förderfähig“ (stromdirekt_hinweise); nur Nachweis
+    stromdirekt_bestaetigt: bool | None = None
 
     @model_validator(mode="after")
     def _bonus_we(self):
@@ -268,7 +272,7 @@ class FoerdervergleichEingaben(BaseModel):
 
 
 ANZEIGEFELDER = {"we_vor_sanierung", "bestandsheizung", "nutzung", "wpb_status", "wpb_grundlage", "kosten_hinweis",
-                 "waermeerzeuger_bestaetigt"}
+                 "waermeerzeuger_bestaetigt", "stromdirekt_bestaetigt"}
 
 # Angebotsbeträge sind Bruttobeträge gegenüber dem Kunden (Geschäftsführer 19.11.2026); Ausweis im Word-Bericht
 ANGEBOTE_BRUTTO_TEXT = "Alle Beträge inkl. 19 % MwSt."
@@ -302,7 +306,26 @@ def waermeerzeuger_hinweise(daten: "FoerdervergleichEingaben") -> list[str]:
             "„Heizung – Wärmeerzeuger (KfW 458)“ einordnen (eigener Höchstbetrag, Zuschuss KfW 458); als Anlagentechnik "
             "zählt die Maßnahme mit 15 % zur Höchstgrenze der Gebäudehülle."
             for m in daten.massnahmen
-            if m.em_kategorie == "anlagentechnik" and WAERMEERZEUGER.search(m.name or "") and not KEIN_WAERMEERZEUGER.search(m.name or "")]
+            if m.em_kategorie == "anlagentechnik" and WAERMEERZEUGER.search(m.name or "") and not KEIN_WAERMEERZEUGER.search(m.name or "")
+            and not ist_stromdirekt(m.name)]
+
+
+# Stromdirekt-/Infrarotheizungen an der Bezeichnung erkennen (Infoblatt 11.1 Nr. 9.2: Elektro-Speicherheizungen,
+# Nachtstromspeicherheizungen, Elektro-Heizstrahler, Infrarot-Heizungen …) – Begriffe, keine Sätze
+STROMDIREKT = re.compile(r"infrarot|\bir[- ]heiz|stromdirekt|elektro[- ]?direkt|direktheiz|nachtspeicher|nachtstromspeicher|"
+                         r"elektro[- ]?speicherheiz|speicherheizung|heizstrahler|elektroheiz|heizpaneel|heizfolie", re.IGNORECASE)
+
+
+def ist_stromdirekt(name: str | None) -> bool:
+    return bool(STROMDIREKT.search(name or ""))
+
+
+def stromdirekt_hinweise(daten: "FoerdervergleichEingaben") -> list[str]:
+    """Stromdirektheizungen, egal unter welcher Einordnung (Vorgabe GF 20.11.2026): Warnung beim Rechnen, Speichern nur mit
+    Bestätigung (stromdirekt_bestaetigt). Gefördert wird im Weg Einzelmaßnahmen nichts (Rechenkern)."""
+    return [f"„{m.name}“: in Einzelmaßnahmen nicht förderfähig (Stromdirektheizung). Im Weg Einzelmaßnahmen wird keine "
+            "Förderung angesetzt; im Effizienzhaus zulässig, wenn sie das alleinige Heizsystem ist."
+            for m in daten.massnahmen if ist_stromdirekt(m.name)]
 
 
 def fachplanung_widerspruch(daten: "FoerdervergleichEingaben") -> str | None:
@@ -332,6 +355,9 @@ def angebote_entscheidung(eingaben: dict) -> None:
     widerspruch = fachplanung_widerspruch(daten)
     if widerspruch:
         raise HTTPException(422, widerspruch)
+    strom = stromdirekt_hinweise(daten)
+    if strom and not daten.stromdirekt_bestaetigt:
+        raise HTTPException(422, strom[0] + " Bitte bestätigen („Stromdirektheizung geprüft“).")
     warm = waermeerzeuger_hinweise(daten)
     if warm and not daten.waermeerzeuger_bestaetigt:
         raise HTTPException(422, warm[0] + " Bitte die Einordnung ändern oder „Einordnung geprüft“ bestätigen.")
@@ -345,7 +371,8 @@ class FoerdervergleichIn(FoerdervergleichEingaben):
     konditionen_version: int | None = None
 
 
-def foerdervergleich_rechnen(daten: FoerdervergleichEingaben, kond: dict, projekt_we: int | None = None) -> dict:
+def foerdervergleich_rechnen(daten: FoerdervergleichEingaben, kond: dict, projekt_we: int | None = None,
+                             projekt_gebaeudeart: str | None = None) -> dict:
     """Rechnen mit Plausibilität der Wohneinheiten: Fehler → 422, Warnungen stehen im Ergebnis unter „hinweise“
     (mit projekt_we auch der Vergleich mit den Wohneinheiten im Projekt)."""
     hinweise = wohneinheiten.foerdervergleich(daten.we_nach_sanierung, daten.we_vor_sanierung, daten.we_neu, daten.kfw266,
@@ -359,15 +386,20 @@ def foerdervergleich_rechnen(daten: FoerdervergleichEingaben, kond: dict, projek
             raise HTTPException(422, f"Antragsfrist abgelaufen ({frist[8:10]}.{frist[5:7]}.{frist[:4]}): "
                                      f"{schalter.replace('kfw', 'KfW ')} kann nicht mehr gewählt werden.")
     werte = daten.model_dump(exclude={"massnahmen", "konditionen_version", "angebote", "ohne_angebote"} | ANZEIGEFELDER)
-    e = Eingaben(**werte, massnahmen=[Massnahme(**m.model_dump()) for m in daten.massnahmen],
-                 angebote=daten.angebote.fuer_rechenkern() if daten.angebote else None)
+    e = Eingaben(**werte, massnahmen=[Massnahme(**m.model_dump(), stromdirektheizung=ist_stromdirekt(m.name))
+                                      for m in daten.massnahmen],
+                 angebote=daten.angebote.fuer_rechenkern() if daten.angebote else None,
+                 nichtwohngebaeude=projekt_gebaeudeart == "Nichtwohngebaeude")
     try:
         erg = {**vergleich(e, kond), "hinweise": hinweise, "konditionen_stand": konditionen_stand(kond)}
     except ValueError as fehler:   # z. B. Einkommensbonus nicht aus den Stufen der Konditionen
         raise HTTPException(422, str(fehler)) from None
     warm = waermeerzeuger_hinweise(daten)
     if warm:
-        erg["waermeerzeuger_hinweise"] = warm   # Formular/Ergebnis; Speichern nur mit Bestätigung (angebote_entscheidung)
+        erg["waermeerzeuger_hinweise"] = warm
+    strom = stromdirekt_hinweise(daten)
+    if strom:
+        erg["stromdirekt_hinweise"] = strom   # Formular/Ergebnis; Speichern nur mit Bestätigung (angebote_entscheidung)   # Formular/Ergebnis; Speichern nur mit Bestätigung (angebote_entscheidung)
     kh = kostenhinweis_warnung(daten.kosten_hinweis)
     if kh:
         erg["kostenhinweis_warnung"] = kh   # sichtbar in Formular/Ergebnis, sperrt nicht
@@ -399,6 +431,8 @@ class InitFoerderEingaben(BaseModel):
     kosten_huelle: float | None = Field(None, ge=0)
     kosten_heizung: float | None = Field(None, ge=0)
     kosten_baubegleitung_heizung: float | None = Field(None, ge=0)
+    # Neue Heizung ist eine Stromdirekt-/Infrarotheizung: im Weg A kein Heizungszuschuss (Infoblatt 11.1 Nr. 9.2)
+    heizung_stromdirekt: bool = False
 
     @model_validator(mode="after")
     def _we(self):
@@ -419,7 +453,8 @@ def init_rechnen(daten: InitFoerderEingaben, kond: dict) -> dict:
     if daten.eh_stufe and daten.eh_stufe not in kond["beg_wg"]["tilgungszuschuss"]:
         raise HTTPException(422, f"Unbekannte EH-Stufe {daten.eh_stufe}")
     try:
-        return init_foerderung(InitEingaben(**daten.model_dump()), kond)
+        return init_foerderung(InitEingaben(**daten.model_dump(),
+                                            stromdirekt_ausgeschlossen=stromdirekt_ausgeschlossen(kond)), kond)
     except (KeyError, ValueError) as fehler:
         raise HTTPException(422, f"Förder-Übersicht nicht berechenbar: {fehler}") from None
 

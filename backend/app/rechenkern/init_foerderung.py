@@ -33,6 +33,10 @@ class InitEingaben:
     kosten_huelle: float | None = None                 # förderfähige Kosten Gebäudehülle/Anlagentechnik (BEG EM, mit iSFP)
     kosten_heizung: float | None = None                # Wärmeerzeuger KfW 458
     kosten_baubegleitung_heizung: float | None = None  # KfW-Baubegleitung Heizung, zählt zu den Heizungskosten
+    # Neue Heizung = Stromdirekt-/Infrarotheizung (Berater): in Einzelmaßnahmen nicht förderfähig, wenn die Konditionen sie
+    # ausschließen (beg_em_heizung.stromdirektheizung_foerderfaehig nein; Infoblatt 11.1 Nr. 9.2) → Heizungszuschuss 0
+    heizung_stromdirekt: bool = False
+    stromdirekt_ausgeschlossen: bool = True
 
 
 def saetze_aus_konditionen(k: dict) -> dict:
@@ -122,9 +126,14 @@ def zuschuss_echte_kosten(fs: dict, w: dict, e: InitEingaben) -> dict | None:
         bonus = 0.0 if ff < (fs["em_isfp_min"] or 0) else _js_round(fs["em_isfp_bonus"] * max(0.0, ff - w["em_cap_ohne"]))
         aus.update(em_kosten=float(e.kosten_huelle), em_foerderfaehig=ff, em_basis=basis, em_isfp_bonus=bonus,
                    em_zuschuss=basis + bonus)
+    aus["hinweise"] = []
     if e.kosten_heizung is not None or e.kosten_baubegleitung_heizung is not None:
         kosten = float(e.kosten_heizung or 0) + float(e.kosten_baubegleitung_heizung or 0)
         ff = min(kosten, w["heiz_kosten"])
+        if e.heizung_stromdirekt and e.stromdirekt_ausgeschlossen:
+            ff = 0.0
+            aus["hinweise"].append("Stromdirekt-/Infrarotheizung: in Einzelmaßnahmen nicht förderfähig – kein Heizungszuschuss "
+                                   "(Infoblatt förderfähige Maßnahmen 11.1, Nr. 9.2)")
         anteil = w["heiz_bonus_we"] / w["we"]
         satz = w["heiz_rate_verm"] * (1 - anteil) + w["heiz_rate_eigen"] * anteil
         aus.update(heiz_kosten=kosten, heiz_kosten_waermeerzeuger=float(e.kosten_heizung or 0),
