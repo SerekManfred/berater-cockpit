@@ -177,3 +177,31 @@ Klasse H (Bedarfsausweis vom 03.05.2024)“). Nur wenn `eingaben.wpb_status` „
   `baujahr_bis`, `anteil_aussenwand_unsaniert_min`, optional `endenergie_min`). Ohne den Abschnitt: „Kriterien laut BEG-Infoblatt:
   Energieausweis oder Baujahr und Sanierungszustand der Außenwand“ – **„Klasse H bzw. ≥ 300 kWh/(m²a)“ ist entfallen** (nicht in
   Richtlinie BEG EM 17.07.2026 bzw. Infoblatt 10.0 belegt; ändert auch den Download älterer Berichte an dieser Stelle).
+
+## KfW 458 Heizung, Stromdirektheizung, INIT Förderpotenzial (ab 0.6.0)
+KfW 458 Stufe 1, Paket 3 (20.11.2026), Datenvertrag `docs/Datenvertrag_Generator_KfW458.md`. Der Generator rechnet weiter nichts.
+- **Fördervergleich, nur mit Posten `kfw_458` im Ergebnis:** Kurzfazit „Im Weg Einzelmaßnahmen enthalten: Heizungsförderung
+  KfW 458 …“; Kapitel 3 Programmzeile „KfW 458 – Heizung (Wärmeerzeuger)“ aus `konditionen.kfw_458` und Abschnitt
+  „Heizungsförderung KfW 458 im Weg Einzelmaßnahmen“ mit Herleitung aus `szenario.heizung` und den Texten aus
+  `szenario.heizung_hinweise` (Rechenkern); Kapitel 7 Einordnung „KfW 458 (Heizung)“ und Zeile „Baubegleitung Heizung“;
+  Kapitel 8 Zeile „Heizungsförderung KfW 458“ (Summen stimmen wieder mit den Zeilen überein), unter der Tabelle die
+  `heizung_hinweise` des Effizienzhaus-Szenarios („Heizung im 261-Paket“); Quelle `kfw_458.quelle`. Bis 0.5.1 stand dort
+  „BEG EM (undefined)“ und der Posten fehlte in Kapitel 8.
+- **Stromdirektheizung:** Kennung `eingaben.massnahmen[].stromdirektheizung` vom Cockpit (`app/word.py`, gleiche Regel wie
+  der Rechenkern). Mit Kennung: Kapitel 7 „nicht förderfähig (Stromdirektheizung)“ (solange
+  `beg_em_heizung.stromdirektheizung_foerderfaehig` nicht ja ist). Ohne Kennung (ältere Daten) Erkennung an der Bezeichnung wie
+  bis 0.5.1. Kapitel 5 (Effizienzhaus systemneutral, Entscheidung Geschäftsführung 20.11.2026): „Infrarot-/Stromdirektheizung:
+  in BEG EM nicht förderfähig (Infoblatt 11.1, Nr. 9.2, S. 45). Der Bilanznachweis durch den Experten gilt für alle
+  Heizsysteme.“ – ersetzt „Für die EE-Klasse zählen nur … – Nachweis über die Bilanzierung erforderlich“; dazu die Quelle
+  Infoblatt 11.1 Nr. 9.2. Der Satz zur Bilanzierung als Elektro-Direktheizung (Technische FAQ Nr. 9.15) folgt erst nach
+  Hochladen und Prüfung der FAQ.
+- **Kapitel 5:** „iSFP-Bonus: erst ab förderfähigen Kosten von …“, wenn der Rechenkern den Hinweis liefert.
+- **INIT, nur mit `foerderung.rechenkern.werte.potenzial`:** 7.5 heißt „Förderpotenzial nach Wohneinheiten (Obergrenzen)“,
+  Spalte „Förderpotenzial“, Form „Potenzial“, Einleitung „Es ist kein Zuschuss …“; Fußnote „für die bonusberechtigten
+  selbstgenutzten Wohneinheiten dieses Antrags“, Termine nur aus `saetze.heizung_klima_hinweis`/`heizung_kosten_hinweis`.
+  Anhang 9 Weg A aus `werte.zuschuss` (Kosten, förderfähig, Satz, Zuschuss; „—“ mit „Kosten bitte eintragen“, kein
+  Ersatzwert), Summe „Weg A (Zuschüsse aus Ihren Kosten)“, Herleitung, Hinweise aus `zuschuss.hinweise` (Stromdirekt,
+  Zusatzanträge); „Geschätzter Eigenanteil“ nur aus Investitionskosten minus Zuschüssen aus Kosten, sonst „—“.
+  Weg B (Effizienzhaus) unverändert als Höchstbetrag.
+- **Ältere Daten** (ohne `kfw_458`, ohne `potenzial`): Text wie 0.5.1, außer dem Stromdirekt-Absatz in Kapitel 5 und der
+  zusätzlichen Quelle (Textvergleich 20.11.2026).

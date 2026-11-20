@@ -101,6 +101,9 @@ class Szenario:
     angekuendigt_text: str | None = None
     zuschuss_angekuendigt: float = 0.0
     heizung: dict | None = None          # Herleitung Heizungsposten KfW 458 (nur Weg EM mit Heizungsmaßnahmen)
+    # Texte zur Heizung für den Word-Bericht (Generator 0.6.0, Datenvertrag docs/Datenvertrag_Generator_KfW458.md) –
+    # fertig formuliert, der Generator setzt sie nur ein; leer = nicht im Ergebnis
+    heizung_hinweise: list[str] = field(default_factory=list)
 
     @property
     def summe_zuschuesse_energetisch(self) -> float:
@@ -134,6 +137,7 @@ class Szenario:
             "angekuendigt": self.angekuendigt, "angekuendigt_text": self.angekuendigt_text,
             "zuschuss_angekuendigt": self.zuschuss_angekuendigt, "summe_zuschuesse_in_kraft": self.summe_zuschuesse_in_kraft,
             **({"heizung": self.heizung} if self.heizung is not None else {}),
+            **({"heizung_hinweise": self.heizung_hinweise} if self.heizung_hinweise else {}),
         }
 
 
@@ -233,6 +237,14 @@ EINZELANTRAG_HINWEIS = ("Gerechnet sind die Boni für die bonusberechtigten WE d
                         "zu prüfen) – hier nicht enthalten.")
 
 
+# Berichtstexte (Generator 0.6.0): ohne „zu prüfen“-Vermerke der Oberfläche, ohne Pflicht-Formulierung
+BERICHT_ZUSATZANTRAG = ("Weitere selbstnutzende Eigentümer (z. B. in einer Wohnungseigentümergemeinschaft) können ihre Boni mit "
+                        "einem eigenen Zusatzantrag beantragen; diese sind hier nicht enthalten.")
+BERICHT_NUR_GRUND = "Klima- und Einkommensbonus nur für selbstgenutzte Wohneinheiten – hier nur Grundförderung."
+BERICHT_EH_HEIZUNG = ("Die Heizung ist Teil des Effizienzhaus-Pakets (KfW 261); ein zusätzlicher Zuschuss KfW 458 für dieselbe "
+                      "Heizung entfällt.")
+
+
 def heizung_kfw458(e: Eingaben, kond: dict) -> tuple[float | None, dict | None, list[str]]:
     """Heizungsposten KfW 458 (Stufe 1, nur Regeln der aktiven Version): Kosten der Wärmeerzeuger + Baubegleitung Heizung,
     begrenzt auf kfw_458.hoechstkosten (WE-Staffel, je Gebäude); Grundförderung für alle, Klima-/Einkommensbonus nur für den
@@ -260,20 +272,23 @@ def heizung_kfw458(e: Eingaben, kond: dict) -> tuple[float | None, dict | None, 
     ff = min(kosten, grenze)
     satz = grund * (1 - anteil) + satz_eigen * anteil      # Boni anteilig auf die gesamten geförderten Ausgaben (Nr. 8.4.4)
     zuschuss = _r(satz * ff)
-    hinweise = []
+    hinweise, bericht = [], []
     if kosten > grenze:
         hinweise.append("Höchstbetrag Heizung (KfW 458) erreicht: " + f"{kosten - grenze:,.0f}".replace(",", ".") + " € nicht förderfähig")
+        bericht.append(hinweise[-1] + ".")
     if (e.klimabonus or eink) and not bonus_we:
         hinweise.append("Klima-/Einkommensbonus nur für selbstgenutzte WE – keine angegeben, nur Grundförderung")
+        bericht.append(BERICHT_NUR_GRUND)
     if anteil and bonus_we < we:
         hinweise.append(f"Boni KfW 458 anteilig: {bonus_we} von {we} WE selbstgenutzt")
     if (e.klimabonus or eink) and we > 1:
         hinweise.append(EINZELANTRAG_HINWEIS)
+        bericht.append(BERICHT_ZUSATZANTRAG)
     herleitung = {"kosten_waermeerzeuger": _r(kosten_wz), "kosten_baubegleitung": _r(e.kosten_baubegleitung_heizung),
                   "kosten": kosten, "hoechstkosten": _r(grenze), "foerderfaehig": _r(ff), "grundfoerderung": grund,
                   "klimabonus": klima, "einkommensbonus": eink, "deckel": deckel, "satz_selbstgenutzt": round(satz_eigen, 6),
                   "bonus_we": bonus_we, "we": we, "anteil_selbstgenutzt": round(anteil, 6), "satz": round(satz, 6),
-                  "zuschuss": zuschuss}
+                  "zuschuss": zuschuss, "hinweise": bericht}
     return zuschuss, herleitung, hinweise
 
 
@@ -284,8 +299,10 @@ def einzelmassnahmen(e: Eingaben, kond: dict, wpb: bool) -> Szenario:
     for m in e.massnahmen:
         if not any(m is x for x in em_m):
             s.hinweise.append(STROMDIREKT_EM.format(name=m.name))
+            s.heizung_hinweise.append(s.hinweise[-1] + ".")
     if e.nichtwohngebaeude and len(em_m) < len(e.massnahmen):
         s.hinweise.append(STROMDIREKT_NWG)
+        s.heizung_hinweise.append(STROMDIREKT_NWG + ".")
     basis = sum(m.kosten for m in em_m if m.em_kategorie in HUELLE_TOPF)
     daemm = sum(m.kosten for m in em_m if m.em_kategorie == "daemmung")
     cap0 = hoechstgrenze(e.we_nach_sanierung, em["hoechstgrenze_ohne_isfp"])
@@ -320,6 +337,7 @@ def einzelmassnahmen(e: Eingaben, kond: dict, wpb: bool) -> Szenario:
         s.zuschuesse["kfw_458"] = heiz
         s.heizung = herleitung
         s.hinweise += h
+        s.heizung_hinweise += (herleitung or {}).get("hinweise", [])
     kosten_heizung = sum(m.kosten for m in em_m if m.em_kategorie == "heizung")
     s.kreditprogramm = em["ergaenzungskredit"]["programm"]
     s.kreditrahmen = _r(min(basis + kosten_heizung, em["ergaenzungskredit"]["je_we"] * e.we_nach_sanierung))
@@ -374,6 +392,7 @@ def effizienzhaus(e: Eingaben, kond: dict, wpb: bool) -> Szenario:
     # Prüfhinweis – maßgeblich ist die Bilanz (Qp, H′T); die Aussage steht einmal im Bericht (Generator, Kapitel 5)
     if any(m.em_kategorie == "heizung" and m.eh_foerderfaehig and not m.stromdirektheizung for m in e.massnahmen):
         s.hinweise.append("Heizung im Effizienzhaus-Paket (KfW 261) – kein zusätzlicher Zuschuss KfW 458 für dieselbe Heizung")
+        s.heizung_hinweise.append(BERICHT_EH_HEIZUNG)
     s.kreditprogramm, s.kredit_pflicht = "KfW 261", True
     s.kreditrahmen = _r(ff + e.bb_kosten("EH"))
     s.hinweise.append("Tilgungszuschuss nur auf tatsächlich abgerufenen Kredit")

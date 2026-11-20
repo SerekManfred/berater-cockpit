@@ -54,6 +54,8 @@ def saetze_aus_konditionen(k: dict) -> dict:
         "heizung_kosten_we1": hk["erste_we"], "heizung_kosten_we_2_6": hk["we_2_bis_6"], "heizung_kosten_we_ab7": hk["ab_we_7"],
         "heizung_grund": h["grundfoerderung"], "heizung_klima": h["klimabonus"],
         "heizung_deckel": h["deckel"], "heizung_deckel_max": h["deckel_einkommensbonus_40"],
+        # Texte der Konditionen für die Fußnote 7.5 (Generator 0.6.0 – keine Daten fest im Generator)
+        "heizung_klima_hinweis": h.get("klimabonus_hinweis") or "", "heizung_kosten_hinweis": h.get("hoechstkosten_hinweis") or "",
         "eh_kredit_pro_we_klasse": wg["kredit_je_we"], "eh_tilgung_max": wg["tilgungszuschuss_max"], "eh_wpb_bonus": wg["wpb_bonus"],
         "eh_tilgung_label": f"0–{p(wg['tilgungszuschuss_max'])}",
         "steuer_quote": st["quote_text"], "steuer_kosten_objekt": st["max_kosten_objekt"], "steuer_max_objekt": st["max_ermaessigung_objekt"],
@@ -132,13 +134,16 @@ def zuschuss_echte_kosten(fs: dict, w: dict, e: InitEingaben) -> dict | None:
         ff = min(kosten, w["heiz_kosten"])
         if e.heizung_stromdirekt and e.stromdirekt_ausgeschlossen:
             ff = 0.0
-            aus["hinweise"].append("Stromdirekt-/Infrarotheizung: in Einzelmaßnahmen nicht förderfähig – kein Heizungszuschuss "
-                                   "(Infoblatt förderfähige Maßnahmen 11.1, Nr. 9.2)")
+            aus["hinweise"].append("Stromdirekt- bzw. Infrarotheizung: in Einzelmaßnahmen nicht förderfähig – kein Heizungszuschuss "
+                                   "(Infoblatt förderfähige Maßnahmen 11.1, Nr. 9.2, S. 45).")
         anteil = w["heiz_bonus_we"] / w["we"]
         satz = w["heiz_rate_verm"] * (1 - anteil) + w["heiz_rate_eigen"] * anteil
         aus.update(heiz_kosten=kosten, heiz_kosten_waermeerzeuger=float(e.kosten_heizung or 0),
                    heiz_kosten_baubegleitung=float(e.kosten_baubegleitung_heizung or 0), heiz_foerderfaehig=ff,
                    heiz_anteil_bonus=anteil, heiz_satz=satz, heiz_zuschuss=_js_round(satz * ff))
+        if (w["heiz_klima"] or w["heiz_einkommen"]) and w["we"] > 1:
+            from app.rechenkern.foerdervergleich import BERICHT_ZUSATZANTRAG
+            aus["hinweise"].append(BERICHT_ZUSATZANTRAG)
     if aus["em_zuschuss"] is not None and aus["heiz_zuschuss"] is not None:
         aus["weg_a"] = aus["em_zuschuss"] + aus["heiz_zuschuss"]
     return aus

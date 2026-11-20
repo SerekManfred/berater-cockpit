@@ -25,7 +25,7 @@ function fachwerte(k) {
 
 const R = AlignmentType.RIGHT, Z = AlignmentType.CENTER;
 const REIHE = ["EM_ohne_WPB", "EM_WPB", "EH_ohne_WPB", "EH_WPB"];
-const KAT = { daemmung: "Dämmung", fenster: "Fenster", anlagentechnik: "Anlagentechnik", nicht_foerderfaehig: "–" };
+const KAT = { daemmung: "Dämmung", fenster: "Fenster", anlagentechnik: "Anlagentechnik", heizung: "Heizung", nicht_foerderfaehig: "–" };
 const prozent = x => (x * 100).toLocaleString("de-DE", { maximumFractionDigits: 1 }) + " %";
 
 function pruefen(d) {
@@ -133,7 +133,14 @@ function erstelleFoerdervergleich(d) {
   const s = Object.fromEntries(erg.szenarien.map(x => [x.schluessel, { ...x, titel: titelVon(x.schluessel) }]));
   const em = k.beg_em, wg = k.beg_wg, k266 = k.kfw_266;
   const mit266 = !!e.kfw266, ee = e.ee_klasse_erreichbar !== false;
-  const istIR = (e.massnahmen || []).some(m => /infrarot|direktheiz|elektroheiz/i.test(m.name || ""));
+  // Stromdirektheizung: ab 0.6.0 Kennung vom Cockpit (m.stromdirektheizung, gleiche Regel wie der Rechenkern); ältere Daten
+  // ohne Kennung wie bis 0.5.1 an der Bezeichnung erkannt
+  const mitKennung = (e.massnahmen || []).some(m => m && m.stromdirektheizung !== undefined);
+  const istStrom = m => mitKennung ? !!m.stromdirektheizung : /infrarot|direktheiz|elektroheiz/i.test(m.name || "");
+  const istIR = (e.massnahmen || []).some(istStrom);
+  const stromAus = !(k.beg_em_heizung && k.beg_em_heizung.stromdirektheizung_foerderfaehig === true);
+  // Heizung KfW 458 (ab 0.6.0): nur mit Posten kfw_458 im Ergebnis; Werte aus szenario.heizung, Texte aus heizung_hinweise
+  const mit458 = REIHE.some(key => (erg.szenarien.find(x => x.schluessel === key)?.zuschuesse || {}).kfw_458 !== undefined);
   const hatBWWP = (e.massnahmen || []).some(m => /brauchwasser|warmwasser-?w(ä|ae)rmepumpe/i.test(m.name || ""));
   const ort = [pj.objekt_plz, pj.objekt_ort].filter(Boolean).join(" ");
   const objektzeile = [pj.kunde_name, ort].filter(Boolean).join(", ");
@@ -207,6 +214,8 @@ function erstelleFoerdervergleich(d) {
     else if (e.wpb_status === "nein") fazit.push(P("Das Gebäude ist **kein** Worst Performing Building – maßgeblich ist die erste Zeile."));
     else fazit.push(P(`**Erster Schritt:** klären, ob das Gebäude als Worst Performing Building gilt (${kriterien}). Davon hängt ab, welcher Weg der richtige ist.`));
   }
+  if (mit458 && s.EM_ohne_WPB.zuschuesse.kfw_458 !== undefined)
+    fazit.push(P(`Im Weg Einzelmaßnahmen enthalten: **Heizungsförderung KfW 458** ${eur(s.EM_ohne_WPB.zuschuesse.kfw_458)} (eigener Zuschuss für den Wärmeerzeuger).`));
   if (!ee) fazit.push(P("**EE-Klasse nicht erreichbar:** Die Effizienzhaus-Förderung" + (mit266 ? " und KfW 266 entfallen." : " entfällt.")));
   else if (wg.ee_klasse_pflicht) fazit.push(P("**Voraussetzung:** Die EE-Klasse muss rechnerisch nachgewiesen werden" + (mit266 ? " – für das Effizienzhaus und für KfW 266 (mindestens " + (FT.eh_stufen[k266.mindeststufe]?.name || k266.mindeststufe) + ")." : ".")));
   if (mit266 && k266.antragsfrist) fazit.push(P(`**Frist:** KfW 266 muss bis **${datum(k266.antragsfrist)}** und vor Beginn des Vorhabens beantragt werden.`, { after: 0 }));
@@ -239,10 +248,37 @@ function erstelleFoerdervergleich(d) {
     [{ t: "**KfW 261 – Fachplanung/Baubegleitung**" }, `${prozent(bbW.satz)} Tilgungszuschuss; EFH/ZFH max. ${eur(bbW.efh_zfh_max)}, MFH ${eur(bbW.mfh_je_we)}/WE, max. ${eur(bbW.mfh_max)}`, "Pflicht im Programm 261"],
     [{ t: "**Ergänzungskredit " + em.ergaenzungskredit.programm.replace("KfW ", "") + "**" }, `Kredit bis ${eur(em.ergaenzungskredit.je_we)}/WE`, "Nur zusammen mit BEG-EM-Zuschuss"],
   ];
+  const k458 = k.kfw_458;
+  if (mit458 && k458) {
+    const hk = k458.hoechstkosten || {};
+    prog.splice(2, 0, [{ t: "**KfW 458 – Heizung (Wärmeerzeuger)**" },
+      `Grundförderung ${prozent(k458.grundfoerderung)}; Klimageschwindigkeits-Bonus +${prozent(k458.klimabonus)} und Einkommens-Bonus ` +
+      `(${(k458.einkommensbonus_stufen || []).map(prozent).join(" / ")}) nur für selbstgenutzte Wohneinheiten; zusammen max. ${prozent(k458.deckel)}` +
+      ` (${prozent(k458.deckel_einkommensbonus_40)} mit Einkommens-Bonus 40 %). Förderfähige Kosten je Gebäude: ${eur(hk.erste_we)} (1. WE) / ` +
+      `${eur(hk.we_2_bis_6)} (2.–6. WE) / ${eur(hk.ab_we_7)} (ab 7. WE)`,
+      "Eigener Höchstbetrag, unabhängig von der Gebäudehülle; Baubegleitung der Heizung zählt zu den Heizungskosten"]);
+  }
   if (mit266) prog.push([{ t: "**KfW 266 – Gewerbe zu Wohnen**" },
     `${prozent(k266.satz)} Zuschuss auf max. ${eur(k266.max_kosten_je_neue_we)} Umbaukosten je neuer WE`,
     `Mindestens ${FT.eh_stufen[k266.mindeststufe]?.name || k266.mindeststufe}; Ausnahme von der EE-Klasse: ${k266.ee_ausnahme}. Antragsfrist ${datum(k266.antragsfrist)}`]);
   ch.push(tabelle([2100, 4204, 3900], ["Programm", "Förderung", "Bedingungen"], prog, { zebra: true }));
+  const hz = s.EM_ohne_WPB.heizung;
+  const heizTexte = [...new Set((s.EM_ohne_WPB.heizung_hinweise || []))];
+  if (hz || heizTexte.length) {
+    ch.push(H2("Heizungsförderung KfW 458 im Weg Einzelmaßnahmen"));
+    if (hz) {
+      let t = `**Heizungsförderung KfW 458:** ${prozent(hz.satz)} auf ${eur(hz.foerderfaehig)} förderfähig ` +
+        `(Wärmeerzeuger ${eur(hz.kosten_waermeerzeuger)}` + (hz.kosten_baubegleitung ? ` + Baubegleitung Heizung ${eur(hz.kosten_baubegleitung)}` : "") +
+        `; Höchstbetrag ${eur(hz.hoechstkosten)}) = **${eur(hz.zuschuss)}**.`;
+      if (hz.anteil_selbstgenutzt > 0)
+        t += hz.we > 1
+          ? ` Grundförderung ${prozent(hz.grundfoerderung)}; Klima- und Einkommensbonus anteilig für ${hz.bonus_we} von ${hz.we} ` +
+            `Wohneinheiten (selbstgenutzt, ${prozent(hz.satz_selbstgenutzt)}, höchstens ${prozent(hz.deckel)}).`
+          : ` Grundförderung ${prozent(hz.grundfoerderung)} plus Klima- und Einkommensbonus (selbstgenutzt), höchstens ${prozent(hz.deckel)}.`;
+      ch.push(P(t));
+    }
+    heizTexte.forEach(t => ch.push(bullet(t, { size: 18 })));
+  }
 
   // ---------- 4 Technische Anforderungen ----------
   ch.push(H1("4  Technische Anforderungen"));
@@ -259,7 +295,11 @@ function erstelleFoerdervergleich(d) {
   ch.push(H1("5  Besonderheiten und Hinweise"));
   const bes = [];
   if (wg.ee_klasse_pflicht) bes.push(`**EE-Klasse:** Für die Effizienzhaus-Förderung ist sie Pflicht${mit266 ? ", für KfW 266 ebenfalls (auch bei Einzelmaßnahmen)" : ""}. ${ee ? "Sie muss vor dem Antrag rechnerisch nachgewiesen werden." : "Laut Eingabe ist sie **nicht erreichbar**."}`);
-  if (istIR) bes.push("**Infrarot-/Stromdirektheizung:** in BEG EM nicht förderfähig. Für die EE-Klasse zählen nur Wärmerückgewinnung, Umweltwärme (z. B. Brauchwasser-Wärmepumpe) und eigener PV-Strom – Nachweis über die Bilanzierung erforderlich.");
+  // ab 0.6.0: Effizienzhaus systemneutral (Entscheidung Geschäftsführung 20.11.2026) – keine Regel je Heizart, maßgeblich ist die
+  // Bilanz. Satz zur Bilanzierung als Elektro-Direktheizung (Technische FAQ Nr. 9.15) erst nach Hochladen und Prüfung der FAQ.
+  if (istIR) bes.push("**Infrarot-/Stromdirektheizung:** in BEG EM nicht förderfähig (Infoblatt 11.1, Nr. 9.2, S. 45). Der Bilanznachweis durch den Experten gilt für alle Heizsysteme.");
+  const isfpMin = (s.EM_ohne_WPB.hinweise || []).find(h => /^iSFP-Bonus erst ab/.test(h));
+  if (isfpMin) bes.push(`**iSFP-Bonus:** ${isfpMin.replace(/^iSFP-Bonus /, "")}.`);
   if (hatBWWP) bes.push("**Brauchwasser-Wärmepumpe:** in BEG EM nur als Umfeldmaßnahme einer förderfähigen Heizung förderfähig.");
   bes.push(`**Kombination BEG EM und BEG WG:** ${wg.kombination_mit_beg_em}. Die Wahl des Weges bindet das Gebäude für Jahre.`);
   if (e.isfp) bes.push(`**iSFP-Bonus:** ${em.isfp_bonus_regel}. Der iSFP lohnt sich vor allem durch die höhere Höchstgrenze.`);
@@ -283,9 +323,11 @@ function erstelleFoerdervergleich(d) {
   ch.push(H1("7  Kosten und Förderwege"));
   ch.push(P(d.kosten_hinweis || "Kosten brutto laut Eingabe; Grundlage der Berechnung.", { italics: true, size: 17, color: C.grau }));
   const kz = (e.massnahmen || []).map(m => [m.name, { t: eur(m.kosten), align: R },
-    { t: m.em_kategorie === "nicht_foerderfaehig" ? "–" : "BEG EM (" + KAT[m.em_kategorie] + ")", align: Z },
+    { t: stromAus && mitKennung && istStrom(m) ? "nicht förderfähig (Stromdirektheizung)" : m.em_kategorie === "nicht_foerderfaehig" ? "–"
+      : m.em_kategorie === "heizung" ? "KfW 458 (Heizung)" : "BEG EM (" + (KAT[m.em_kategorie] || m.em_kategorie) + ")", align: Z },
     { t: m.eh_foerderfaehig ? "KfW 261" : "–", align: Z }]);
   kz.push([{ t: "**Summe Maßnahmen**", fill: C.grauL }, { t: "**" + eur(kostenMass) + "**", align: R, fill: C.grauL }, { t: "", fill: C.grauL }, { t: "", fill: C.grauL }]);
+  if (e.kosten_baubegleitung_heizung) kz.push(["Baubegleitung Heizung", { t: eur(e.kosten_baubegleitung_heizung), align: R }, { t: "KfW 458 (Heizung)", align: Z }, { t: "–", align: Z }]);
   if (e.kosten_baubegleitung) kz.push(["Fachplanung / Baubegleitung", { t: eur(e.kosten_baubegleitung), align: R }, { t: "BEG EM", align: Z }, { t: "KfW 261", align: Z }]);
   const awEM = s.EM_ohne_WPB.angebotsweg, awEH = s.EH_ohne_WPB.angebotsweg;
   if (awEM && awEH) {
@@ -314,6 +356,7 @@ function erstelleFoerdervergleich(d) {
     color: nichtZutreffend(key) ? C.grau : undefined,
     fill: nichtZutreffend(key) ? C.grauL : o.markiere && beste(key) ? C.goldL : undefined }))];
   const posten = [["beg_em", "BAFA Gebäudehülle/Anlagentechnik"], ["isfp_bonus", "iSFP-Bonus"], ["wpb_bonus", "WPB-Bonus"],
+    ["kfw_458", "Heizungsförderung KfW 458"],
     ["tilgungszuschuss", "Tilgungszuschuss KfW 261"], ["baubegleitung", "Fachplanung / Baubegleitung"], ["isfp_beratung", "iSFP-Beratung"]]
     .filter(([p]) => REIHE.some(key => s[key].zuschuesse && s[key].zuschuesse[p] !== undefined));
   const t9 = [
@@ -344,6 +387,8 @@ function erstelleFoerdervergleich(d) {
   if (A) ch.push(P(`¹ Enthält den WPB-Bonus Einzelmaßnahmen: ${T} – Betrag unter Vorbehalt, zählt nicht für die Bewertung.`,
     { size: 15, color: C.grau, before: 60, after: hinweisBeste ? 20 : undefined }));
   if (hinweisBeste) ch.push(P(hinweisBeste, { size: 15, color: C.grau }));
+  const ehHeiz = [...new Set((s.EH_ohne_WPB.heizung_hinweise || []))];
+  ehHeiz.forEach(t => ch.push(P("Effizienzhaus: " + t, { size: 15, color: C.grau, before: 40 })));
   const nf = REIHE.filter(key => !s[key].foerderfaehig);
   if (nf.length) ch.push(P("„–“: " + [...new Set(nf.flatMap(key => s[key].hinweise || []))].join("; "), { size: 15, color: C.grau, before: 60 }));
 
@@ -389,7 +434,8 @@ function erstelleFoerdervergleich(d) {
 
   // ---------- Quellen ----------
   ch.push(H1("Quellen"));
-  const quellen = [em.quelle, k["beg_em_heizung"]?.quelle, k.isfp_beratung?.quelle, wg.quelle, mit266 ? k266.quelle : null, FT.quelle_tma_em]
+  const quellen = [em.quelle, k["beg_em_heizung"]?.quelle, mit458 ? k.kfw_458?.quelle : null, k.isfp_beratung?.quelle, wg.quelle, mit266 ? k266.quelle : null, FT.quelle_tma_em,
+    istIR ? "BEG – Infoblatt zu den förderfähigen Maßnahmen und Leistungen, Version 11.1 (11/2026), Nr. 9.2, S. 45 (Elektro-Direktheizungen in Einzelmaßnahmen)" : null]
     .filter(Boolean);
   [...new Set(quellen)].forEach(q => ch.push(bullet(q, { size: 16 })));
   ch.push(P(`Förderbedingungen Stand ${datum(k.gueltig_ab)} (interne Version ${k.version}).`, { size: 16, color: C.grau, before: 60 }));

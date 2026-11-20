@@ -636,7 +636,12 @@ children.push(h2("7.4 Steuerliche Förderung (§ 35c EStG)"));
 bodyText(foe.steuer).forEach(p => children.push(p));
 
 // ---- 7.5 Übersicht: max. Förderung nach Wohneinheiten ----------
-children.push(h2("7.5 Übersicht der maximal möglichen Förderung nach Wohneinheiten"));
+// ab Generator 0.6.0 (KfW 458 Stufe 1): mit foerderung.rechenkern.werte.potenzial ist 7.5 ausdrücklich „Förderpotenzial“
+// (Obergrenzen, kein Zuschuss); die Zuschüsse aus den Kosten des Beraters (werte.zuschuss) stehen im Anhang. Ohne diese
+// Kennung (Skill im Chat, ältere Daten) bleibt der Bericht wie bis 0.5.1.
+const POT = !!(foe.rechenkern && foe.rechenkern.werte && foe.rechenkern.werte.potenzial);
+const ZK = POT ? (foe.rechenkern.werte.zuschuss || {}) : null;
+children.push(h2(POT ? "7.5 Förderpotenzial nach Wohneinheiten (Obergrenzen)" : "7.5 Übersicht der maximal möglichen Förderung nach Wohneinheiten"));
 // Overrides aus foerderung.saetze: leere Felder und Hinweis-Schlüssel ("_...") ignorieren,
 // damit die leere Vorlage die hinterlegten Standardwerte nicht mit "" überschreibt.
 function cleanSaetze(o) {
@@ -711,24 +716,28 @@ const rateVerm = R.heiz_rate_verm, rateEigen = R.heiz_rate_eigen, heizMax = R.he
 const qV = Math.round(rateVerm * 100), qE = Math.round(rateEigen * 100);
 const heizQuote = (bonusWE && WE > 1 && qV !== qE) ? (qV + "–" + qE + " %") : (Math.max(qV, qE) + " %");
 children.push(...bodyText(
-  has(foe.uebersicht_intro) ? foe.uebersicht_intro
+  POT ? ("Die Übersicht zeigt das Förderpotenzial – die Obergrenzen der förderfähigen Kosten, skaliert auf "
+    + (WEraw ? WEraw + " Wohneinheit" + (WEraw > 1 ? "en" : "") : "die angegebene Anzahl Wohneinheiten")
+    + " dieses Objekts. Es ist kein Zuschuss; die Zuschüsse aus Ihren Kosten stehen im Anhang 9.")
+  : has(foe.uebersicht_intro) ? foe.uebersicht_intro
   : ("Die folgende Übersicht stellt die theoretisch maximal möglichen Förderbeträge der "
     + "Förderwege gegenüber \u2013 skaliert auf "
     + (WEraw ? WEraw + " Wohneinheit" + (WEraw > 1 ? "en" : "") : "die angegebene Anzahl Wohneinheiten")
     + " dieses Objekts. Es handelt sich um Obergrenzen der förderfähigen Kosten; die "
     + "tatsächliche Förderung richtet sich nach den konkreten Maßnahmen und Kosten."), { keep: true }));
-const uebersichtRows = (Array.isArray(foe.uebersicht) && foe.uebersicht.length)
+const FORM_EM = POT ? "Potenzial" : "Zuschuss";
+const uebersichtRows = (!POT && Array.isArray(foe.uebersicht) && foe.uebersicht.length)
   ? foe.uebersicht
   : [
     { weg: "BAFA BEG EM \u2013 Einzelmaßnahmen (Gebäudehülle, Anlagentechnik, Heizungsopt.)",
       quote: FS.em_quote_basis, kosten: eur(emCapOhne),
-      foerderung: eur(emFoerderOhne), form: "Zuschuss" },
+      foerderung: eur(emFoerderOhne), form: FORM_EM },
     { weg: "BAFA BEG EM \u2013 mit iSFP-Bonus",
       quote: FS.em_quote_isfp, kosten: eur(emCapMit),
-      foerderung: eur(emFoerderMit), form: "Zuschuss" },
+      foerderung: eur(emFoerderMit), form: FORM_EM },
     { weg: "KfW 458 \u2013 Heizungstausch (erneuerbare Wärme)",
       quote: heizQuote, kosten: eur(heizKosten),
-      foerderung: eur(heizMax), form: "Zuschuss" },
+      foerderung: eur(heizMax), form: FORM_EM },
     ...(EHV ? [{ weg: "KfW 261 \u2013 Sanierung zum Effizienzhaus",
       quote: FS.eh_tilgung_label, kosten: "bis " + eur(R.eh_kredit),
       foerderung: "bis " + eur(R.eh_max_uebersicht),
@@ -741,17 +750,20 @@ children.push(dataTable([
   { label: "Förderweg",            key: "weg",        width: 2750 },
   { label: "Quote",                key: "quote",      width: 1350, align: AlignmentType.RIGHT },
   { label: "Max. förderf. Kosten", key: "kosten",     width: 1750, align: AlignmentType.RIGHT },
-  { label: "Max. Förderung",       key: "foerderung", width: 1750, align: AlignmentType.RIGHT },
+  { label: POT ? "Förderpotenzial" : "Max. Förderung", key: "foerderung", width: 1750, align: AlignmentType.RIGHT },
   { label: "Form",                 key: "form",       width: 1472 },
 ], uebersichtRows));
 children.push(spacer(60));
+const _klimaHinweis = POT ? (FS.heizung_klima_hinweis ? ", " + FS.heizung_klima_hinweis : "") : ", ab 01.02.2027 sinkend";
+const _bonusWer = POT ? "für die bonusberechtigten selbstgenutzten Wohneinheiten dieses Antrags" : "nur für eine selbstgenutzte Wohneinheit";
+const _kostenHinweis = POT ? (FS.heizung_kosten_hinweis ? " (" + FS.heizung_kosten_hinweis + ")" : "") : ", ab 01.02.2027 halbjährlich \u2212750 \u20ac";
 children.push(new Paragraph({ children: [new TextRun({ text:
   "BEG EM: Höchstgrenzen je Gebäude und Kalenderjahr gestaffelt (1. WE / 2.\u20136. WE / ab 7. WE); der "
   + "iSFP-Bonus von 5 % gilt nur für den Kostenanteil oberhalb der Höchstgrenze ohne iSFP (mind. 30.000 \u20ac). "
   + "KfW 458: Grundförderung " + Math.round(FS.heizung_grund * 100) + " % für alle Wohneinheiten; Klimageschwindigkeitsbonus ("
-  + Math.round(FS.heizung_klima * 100) + " %, ab 01.02.2027 sinkend) und Einkommensbonus (10/30/40 % je nach Einkommen) "
-  + "nur für eine selbstgenutzte Wohneinheit, zusammen max. 70 % (80 % bei Einkommensbonus 40 %). Höchstgrenze "
-  + "1. WE " + eur(FS.heizung_kosten_we1) + ", ab 01.02.2027 halbjährlich \u2212750 \u20ac. Diese Übersicht ist auf "
+  + Math.round(FS.heizung_klima * 100) + " %" + _klimaHinweis + ") und Einkommensbonus (10/30/40 % je nach Einkommen) "
+  + _bonusWer + ", zusammen max. " + Math.round(FS.heizung_deckel * 100) + " % (" + Math.round(FS.heizung_deckel_max * 100) + " % bei Einkommensbonus 40 %). Höchstgrenze "
+  + "1. WE " + eur(FS.heizung_kosten_we1) + _kostenHinweis + ". Diese Übersicht ist auf "
   + weEigen + " selbstgenutzte und " + weVerm + " vermietete WE gerechnet. "
   + (EHV ? "KfW 261 gilt je Wohneinheit unabhängig "
   + "von der Nutzung. KfW 458 (Heizung) wird nicht zusammen mit der Effizienzhaus-Förderung (KfW 261) für dieselbe "
@@ -837,8 +849,10 @@ const anhang = D.anhang_fotos || [];
   const bafaFoerder = emFoerderMit;
   const wegA = R.weg_a;
   bodyText((EHV ? "Die folgende Aufschlüsselung stellt die beiden Förderwege gegenüber, damit die wirtschaftlichere "
-    + "Lösung gewählt werden kann. " : "Die folgende Aufschlüsselung schlüsselt die Förderung der Einzelmaßnahmen auf. ") + "Angegeben sind die maximal möglichen Förderbeträge (unverbindlich, keine "
-    + "verbindliche Förderauskunft).", { keep: true }).forEach(p => children.push(p));
+    + "Lösung gewählt werden kann. " : "Die folgende Aufschlüsselung schlüsselt die Förderung der Einzelmaßnahmen auf. ")
+    + (POT ? "Weg A zeigt die Zuschüsse aus den eingetragenen förderfähigen Kosten" + (EHV ? "; Weg B den höchstmöglichen Tilgungszuschuss auf den Kreditrahmen" : "")
+      + " (unverbindlich, keine verbindliche Förderauskunft)."
+      : "Angegeben sind die maximal möglichen Förderbeträge (unverbindlich, keine verbindliche Förderauskunft)."), { keep: true }).forEach(p => children.push(p));
   // Herleitungen (transparent nachvollziehbar)
   const n26 = Math.min(Math.max(WE - 1, 0), 5), n7 = Math.max(WE - 6, 0);
   let heizHerl = eur(FS.heizung_kosten_we1) + " (1. WE)";
@@ -860,13 +874,42 @@ const anhang = D.anhang_fotos || [];
   ], [
     { k: "Anzahl Wohneinheiten", v: WEraw ? String(WEraw) : EM },
     { k: "davon selbstgenutzt / vermietet", v: weEigen + " selbstgenutzt / " + weVerm + " vermietet" },
-    { k: "KfW 458 – Klimageschwindigkeitsbonus (" + Math.round(FS.heizung_klima * 100) + " %, eine selbstgenutzte WE)", v: bKlima > 0 ? "ja" : "nein" },
-    { k: "KfW 458 – Einkommensbonus (10/30/40 %, eine selbstgenutzte WE)", v: bEink > 0 ? Math.round(bEink * 100) + " %" : "nein" },
+    { k: "KfW 458 – Klimageschwindigkeitsbonus (" + Math.round(FS.heizung_klima * 100) + " %, " + (POT ? "bonusberechtigte WE" : "eine selbstgenutzte WE") + ")", v: bKlima > 0 ? "ja" : "nein" },
+    { k: "KfW 458 – Einkommensbonus (10/30/40 %, " + (POT ? "bonusberechtigte WE" : "eine selbstgenutzte WE") + ")", v: bEink > 0 ? Math.round(bEink * 100) + " %" : "nein" },
+    ...(POT ? [{ k: "Bonusberechtigte selbstgenutzte WE in diesem Antrag", v: String(bonusWE) }] : []),
     { k: "Förderquote KfW 458: vermietete / selbstgenutzte WE", v: Math.round(rateVerm * 100) + " % / " + Math.round(rateEigen * 100) + " %" },
     ...(EHV ? [{ k: "Angestrebtes Effizienzniveau (KfW 261)", v: has(ez.label) ? (ez.label + (ez.wpb ? " + WPB" : "")) : EM }] : []),
   ]));
   children.push(spacer(60));
   children.push(h2("Weg A – Einzelmaßnahmen (direkte Zuschüsse, schrittweise umsetzbar)"));
+  // ab 0.6.0: Zuschüsse aus den Kosten des Beraters (werte.zuschuss); fehlende/„bewusst leere“ Kosten = „—“, kein Ersatzwert
+  const _wert = x => (x === null || x === undefined) ? EM : eur(x);
+  const _pzt = x => (Math.round(x * 1000) / 10).toLocaleString("de-DE") + " %";
+  const wegAZ = POT ? ZK.weg_a : wegA;
+  if (POT) {
+    const emHerl = ZK.em_kosten == null ? "Kosten bitte eintragen"
+      : "Kosten " + eur(ZK.em_kosten) + ", förderfähig " + eur(ZK.em_foerderfaehig) + " (Höchstgrenze mit iSFP " + eur(emCapMit) + ")";
+    const heizHerlZ = ZK.heiz_kosten == null ? "Kosten bitte eintragen"
+      : "Wärmeerzeuger " + eur(ZK.heiz_kosten_waermeerzeuger) + (ZK.heiz_kosten_baubegleitung ? " + Baubegleitung Heizung " + eur(ZK.heiz_kosten_baubegleitung) : "")
+        + ", förderfähig " + eur(ZK.heiz_foerderfaehig) + " (Höchstbetrag " + eur(heizKosten) + ")";
+    children.push(dataTable(colsAB.map(c => c.key === "f" ? { ...c, label: "Zuschuss" } : c), [
+      { b: "BAFA BEG EM – Gebäudehülle (mit iSFP)", h: emHerl, q: FS.em_quote_isfp, f: _wert(ZK.em_zuschuss) },
+      { b: "KfW 458 – Heizungstausch", h: heizHerlZ, q: ZK.heiz_satz == null ? EM : _pzt(ZK.heiz_satz), f: _wert(ZK.heiz_zuschuss) },
+      { b: "Summe Weg A (Zuschüsse aus Ihren Kosten)", h: LEER, q: LEER, f: _wert(wegAZ) },
+    ]));
+    children.push(spacer(40));
+    const teile = [];
+    if (ZK.heiz_zuschuss != null) teile.push("Herleitung KfW-458-Zuschuss: " + _pzt(ZK.heiz_satz) + " auf " + eur(ZK.heiz_foerderfaehig)
+      + " förderfähig = " + eur(ZK.heiz_zuschuss) + " (Grundförderung " + qV + " %"
+      + (bonusWE ? (WE > 1 ? "; Boni anteilig für " + bonusWE + " von " + WE + " WE (selbstgenutzt, " + qE + " %)"
+        : " plus Boni für die selbstgenutzte WE, zusammen " + qE + " %") : "") + ").");
+    if (ZK.em_zuschuss != null) teile.push("BAFA BEG EM: " + FS.em_quote_basis + " von " + eur(ZK.em_foerderfaehig) + " (" + eur(ZK.em_basis)
+      + ") + iSFP-Bonus " + (ZK.em_isfp_bonus ? "auf den Anteil über " + eur(emCapOhne) + " (" + eur(ZK.em_isfp_bonus) + ")" : "0 € (unter der Mindestinvestition oder Höchstgrenze ohne iSFP)")
+      + " = " + eur(ZK.em_zuschuss) + ".");
+    if (ZK.em_zuschuss == null || ZK.heiz_zuschuss == null) teile.push("\u201e\u2014\u201c = Kosten noch nicht eingetragen; ohne Kosten wird kein Zuschuss ausgewiesen.");
+    (ZK.hinweise || []).forEach(t => teile.push(t));
+    children.push(noteBox(teile.join(" ")));
+  } else {
   children.push(dataTable(colsAB, [
     { b: "BAFA BEG EM – Gebäudehülle (mit iSFP)", h: bafaHerl, q: "15 % + 5 %", f: eur(bafaFoerder) },
     { b: "KfW 458 – Heizungstausch", h: heizHerl, q: heizQuote, f: eur(heizMax) },
@@ -879,6 +922,7 @@ const anhang = D.anhang_fotos || [];
       + eur(R.heiz_anteil_eigen) + ")" : "") + " = " + eur(heizMax) + ". BAFA BEG EM: 15 % von "
     + eur(bafaKosten) + " (" + eur(R.em_foerder_mit_basis) + ") + iSFP-Bonus 5 % auf den Anteil über "
     + eur(R.em_isfp_schwelle) + " (" + eur(emIsfpBonus) + ") = " + eur(bafaFoerder) + "."));
+  }
   if (EHV) {
     children.push(h2("Weg B – Effizienzhaus (KfW 261, Komplettsanierung)"));
     children.push(dataTable(colsAB, [
@@ -907,15 +951,16 @@ const anhang = D.anhang_fotos || [];
       { label: "Weg A – Einzelmaßnahmen", key: "a", width: 2786, align: AlignmentType.RIGHT },
       { label: "Weg B – Effizienzhaus", key: "b", width: 2786, align: AlignmentType.RIGHT },
     ], [
-      { k: "Max. Förderung", a: eur(wegA), b: (ehFoerder === null ? EM : eur(ehFoerder)) },
+      { k: POT ? "Förderung (A: Zuschüsse aus Ihren Kosten, B: höchstens)" : "Max. Förderung", a: _wert(wegAZ), b: (ehFoerder === null ? EM : eur(ehFoerder)) },
       { k: "Grobe Investitionskosten", a: (nA === null ? EM : eur(nA)), b: (nB === null ? EM : eur(nB)) },
-      { k: "Geschätzter Eigenanteil", a: (nA === null ? EM : eur(nA - wegA)), b: ((nB === null || ehFoerder === null) ? EM : eur(nB - ehFoerder)) },
+      { k: "Geschätzter Eigenanteil", a: ((nA === null || wegAZ == null) ? EM : eur(nA - wegAZ)), b: ((nB === null || ehFoerder === null) ? EM : eur(nB - ehFoerder)) },
       { k: "Förderform", a: "direkte Zuschüsse", b: "Kredit + Tilgungszuschuss" },
       { k: "Umsetzung", a: "schrittweise", b: "gebündelt (EH-Standard)" },
     ]));
     children.push(spacer(60));
-    const _offen = nA === null || nB === null || ehFoerder === null;
-    children.push(noteBox((_offen ? "Investitionskosten und Eigenanteil sind vom Berater einzutragen (\u201e\u2014\u201c = noch offen). " : "Investitionskosten nach Angabe des Beraters (grobe Schätzung). ")
+    const _offen = nA === null || nB === null || ehFoerder === null || wegAZ == null;
+    children.push(noteBox((POT ? "Geschätzter Eigenanteil = Investitionskosten nach Angabe des Beraters abzüglich der Zuschüsse aus den eingetragenen Kosten. " : "")
+      + (_offen ? "Investitionskosten und Eigenanteil sind vom Berater einzutragen (\u201e\u2014\u201c = noch offen). " : "Investitionskosten nach Angabe des Beraters (grobe Schätzung). ")
       + "Die KfW-261-Förderung ist ein Tilgungszuschuss auf einen Förderkredit, die Einzelmaßnahmen-Zuschüsse werden "
       + "direkt ausgezahlt. Welcher Weg wirtschaftlicher ist, hängt von den konkreten Kosten, der Finanzierung und – "
       + "gerade bei vermieteten Einheiten – von der steuerlichen Situation ab."));
@@ -926,14 +971,15 @@ const anhang = D.anhang_fotos || [];
       { label: "Kriterium", key: "k", width: 5536 },
       { label: "Weg A – Einzelmaßnahmen", key: "a", width: 3536, align: AlignmentType.RIGHT },
     ], [
-      { k: "Max. Förderung", a: eur(wegA) },
+      { k: POT ? "Zuschüsse aus Ihren Kosten" : "Max. Förderung", a: _wert(wegAZ) },
       { k: "Grobe Investitionskosten", a: (nA === null ? EM : eur(nA)) },
-      { k: "Geschätzter Eigenanteil", a: (nA === null ? EM : eur(nA - wegA)) },
+      { k: "Geschätzter Eigenanteil", a: ((nA === null || wegAZ == null) ? EM : eur(nA - wegAZ)) },
       { k: "Förderform", a: "direkte Zuschüsse" },
       { k: "Umsetzung", a: "schrittweise" },
     ]));
     children.push(spacer(60));
-    children.push(noteBox("Investitionskosten und Eigenanteil sind vom Berater einzutragen. Die Zuschüsse für "
+    children.push(noteBox((POT ? "Geschätzter Eigenanteil = Investitionskosten nach Angabe des Beraters abzüglich der Zuschüsse aus den eingetragenen Kosten. " : "")
+      + "Investitionskosten und Eigenanteil sind vom Berater einzutragen. Die Zuschüsse für "
       + "Einzelmaßnahmen werden direkt ausgezahlt; maßgeblich sind die konkreten Kosten und die Bewilligung der Förderstelle."));
   }
   // Fotos direkt nach der Gegenüberstellung (kein Seitenumbruch, eine Zeile Abstand via photoGrid)

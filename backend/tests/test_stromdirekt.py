@@ -156,3 +156,34 @@ def test_init_foerder_vorschau_mit_stromdirekt(v3_aktiv):
     w = berater.get(ENTWURF.format(p["id"]) + "/foerder-vorschau").json()["werte"]["zuschuss"]
     assert w["heiz_zuschuss"] == 0 and w["hinweise"]
 
+
+# ---------- Generator 0.6.0: Berichtstexte und Kennung ----------
+
+def test_berichtstexte_heizung_und_stromdirekt():
+    from tests.test_kfw458_heizung import fall as fall458
+    s = sz(fall458(8, isfp=True), "EM_ohne_WPB")
+    assert s["heizung"]["hinweise"] == s["heizung_hinweise"]
+    assert any("eigenen Zusatzantrag" in h and "zu prüfen" not in h for h in s["heizung_hinweise"])
+    em_ir = sz(fall("anlagentechnik", nichtwohngebaeude=True), "EM_ohne_WPB")
+    assert any("Nr. 9.2, S. 45" in h for h in em_ir["heizung_hinweise"])
+    assert any("angekündigt, noch nicht in Kraft" in h for h in em_ir["heizung_hinweise"])
+    eh = sz(Eingaben(we_nach_sanierung=1, massnahmen=[Massnahme("Wärmepumpe", 20000, "heizung")], isfp=False), "EH_ohne_WPB")
+    assert eh["heizung_hinweise"] == ["Die Heizung ist Teil des Effizienzhaus-Pakets (KfW 261); ein zusätzlicher Zuschuss KfW 458 "
+                                      "für dieselbe Heizung entfällt."]
+    ohne = sz(Eingaben(we_nach_sanierung=1, massnahmen=[Massnahme("Dach", 40000, "daemmung")], isfp=False), "EM_ohne_WPB")
+    assert "heizung_hinweise" not in ohne and "heizung" not in ohne                  # Referenzfall-ähnlich: Ergebnis unverändert
+
+
+def test_word_kennung_stromdirekt_nicht_gespeichert():
+    from app.word import mit_stromdirekt_kennung
+    e = {"massnahmen": [{"name": "Infrarotheizung"}, {"name": "Rückbau Gaskessel"}, {"name": "Dach"}]}
+    k = mit_stromdirekt_kennung(e)
+    assert [m["stromdirektheizung"] for m in k["massnahmen"]] == [True, False, False]
+    assert "stromdirektheizung" not in e["massnahmen"][0]                           # Eingaben selbst unverändert
+    assert mit_stromdirekt_kennung({}) == {}
+
+
+def test_init_saetze_hinweise_aus_den_konditionen():
+    r = init_foerderung(InitEingaben(we=8, we_eigen=8, klimabonus=True, kosten_heizung=20000, kosten_huelle=0), KOND)
+    assert r["saetze"]["heizung_klima_hinweis"] == KOND["kfw_458"]["klimabonus_hinweis"]
+    assert any("eigenen Zusatzantrag" in h for h in r["werte"]["zuschuss"]["hinweise"])

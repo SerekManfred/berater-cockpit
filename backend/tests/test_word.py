@@ -116,7 +116,12 @@ def test_daten_kommen_exakt_aus_dem_gespeicherten_bericht(generator, monkeypatch
 
     assert len(generator) == 1 and generator[0]["url"] == config.GENERATOR_URL + "/foerdervergleich"
     d = generator[0]["daten"]
-    assert d["eingaben"] == vorher.eingaben                       # exakt die gespeicherten Eingaben
+    # exakt die gespeicherten Eingaben – plus ab Generator 0.6.0 die Kennung stromdirektheizung je Maßnahme (nicht gespeichert)
+    ohne_kennung = {**d["eingaben"], "massnahmen": [{k: v for k, v in m.items() if k != "stromdirektheizung"}
+                                                    for m in d["eingaben"]["massnahmen"]]}
+    assert ohne_kennung == vorher.eingaben
+    assert all(m["stromdirektheizung"] in (True, False) for m in d["eingaben"]["massnahmen"])
+    assert "stromdirektheizung" not in str(gespeichert(b["id"]).eingaben)
     assert d["ergebnis"] == vorher.ergebnis                       # nicht neu gerechnet (1,0 € bleibt)
     assert d["ergebnis"]["szenarien"][0]["summe_zuschuesse_gesamt"] == 1.0
     assert d["konditionen"] == vorher.konditionen_snapshot != lade_konditionen()  # Snapshot, nicht aktuell

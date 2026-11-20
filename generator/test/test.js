@@ -171,6 +171,68 @@ async function text(daten) {
   assert(!w4.includes("****") && w4.includes("ist angekündigt (voraussichtlich Q1 2027)"), "WPB Fall 4: kein „ab ****“");
   const ohneDatum = fx("fall3_in_kraft"); ohneDatum.konditionen.beg_em.wpb_bonus_ab = null;
   assert(!(await text(ohneDatum)).includes("****"), "WPB in Kraft ohne Datum: kein „ab ****“");
+  // ab 0.6.0: KfW 458 Heizung, Stromdirektheizung (Effizienzhaus systemneutral), INIT Förderpotenzial vs. Zuschüsse aus Kosten
+  {
+    const kx = n => JSON.parse(fs.readFileSync(path.join(__dirname, "fixtures_kfw458", n + ".json"), "utf8"));
+    const faelle = { fall_a: [12880, 18380], fall_b: [12880, 24380], fall_c: [13440, 24940], efh_wp_20000: [9200, null], fall_e: [22400, null] };
+    for (const [n, [heiz, summe]] of Object.entries(faelle)) {
+      const t = await text(kx(n));
+      assert((t.match(new RegExp("Heizungsförderung KfW 458" + ".{0,40}?" + eur(heiz).replace(".", "\\."), "g")) || []).length >= 1, `${n}: Zeile Heizungsförderung ${eur(heiz)}`);
+      if (summe) assert(t.includes(eur(summe)), `${n}: Summe ${eur(summe)}`);
+      for (const z of ["KfW 458 – Heizung (Wärmeerzeuger)", "KfW 458 (Heizung)", "Heizungsförderung KfW 458 im Weg Einzelmaßnahmen", "Im Weg Einzelmaßnahmen enthalten"])
+        assert(t.includes(z), `${n}: ${z}`);
+      assert(!/undefined|NaN|null/.test(t), `${n}: undefined/NaN/null`);
+    }
+    const ta = await text(kx("fall_a"));
+    for (const z of ["46 % auf 28.000 € förderfähig (Wärmeerzeuger 40.000 € + Baubegleitung Heizung 2.000 €; Höchstbetrag 28.000 €) = 12.880 €",
+      "Höchstbetrag Heizung (KfW 458) erreicht: 14.000 € nicht förderfähig.", "Baubegleitung Heizung"]) assert(ta.includes(z), "Fall A: " + z);
+    const tc = await text(kx("fall_c"));
+    for (const z of ["anteilig für 1 von 8 Wohneinheiten (selbstgenutzt, 46 %, höchstens 70 %)", "eigenen Zusatzantrag beantragen; diese sind hier nicht enthalten."])
+      assert(tc.includes(z), "Fall C: " + z);
+    assert(!tc.includes("zu prüfen"), "Fall C: kein „zu prüfen“ im Kundenbericht");
+    const te = await text(kx("fall_e"));
+    assert(te.includes("höchstens 80 %") && te.includes("= 22.400 €") && !te.includes("1 von 1"), "Fall E: Deckel 80 %");
+    // Stromdirektheizung: Kennung vom Cockpit, W1 in Kapitel 5, Quelle, keine Pflicht-Formulierung, kein „alleiniges Heizsystem“
+    const W1 = "Infrarot-/Stromdirektheizung: in BEG EM nicht förderfähig (Infoblatt 11.1, Nr. 9.2, S. 45). Der Bilanznachweis durch den Experten gilt für alle Heizsysteme.";
+    const sd = kx("stromdirekt"), ts = await text(sd);
+    for (const z of [W1, "nicht förderfähig (Stromdirektheizung)", "Nr. 9.2, S. 45 (Elektro-Direktheizungen in Einzelmaßnahmen)",
+      "„Infrarotheizung“: in Einzelmaßnahmen nicht förderfähig (Stromdirektheizung)"]) assert(ts.includes(z), "Stromdirekt: " + z);
+    for (const z of ["Nachweis über die Bilanzierung erforderlich", "alleinige", "Vorgabe GF", "Für die EE-Klasse zählen nur"]) assert(!ts.includes(z), "Stromdirekt alt: " + z);
+    const tn = await text(kx("stromdirekt_nwg"));
+    assert(tn.includes("Förderung ab 12/2026 angekündigt, noch nicht in Kraft (Infoblatt 11.1, Nr. 4.1.9, S. 30"), "NWG: Ankündigung");
+    // Kennung gilt vor der Bezeichnung; ohne Kennung (ältere Daten) Erkennung wie 0.5.1
+    const ohneK = kx("stromdirekt"); ohneK.eingaben.massnahmen.forEach(m => delete m.stromdirektheizung);
+    const tok = await text(ohneK);
+    assert(ts.includes("nicht förderfähig (Stromdirektheizung)KfW 261"), "mit Kennung: Maßnahmentabelle");
+    assert(tok.includes(W1) && !tok.includes("nicht förderfähig (Stromdirektheizung)KfW 261"), "ohne Kennung: Erkennung an der Bezeichnung, Tabelle wie 0.5.1");
+    const kAus = kx("stromdirekt"); kAus.eingaben.massnahmen.forEach(m => { m.stromdirektheizung = false; });
+    assert(!(await text(kAus)).includes("Infrarot-/Stromdirektheizung:"), "Kennung false: kein Absatz trotz Bezeichnung");
+    assert(!(await text(kx("efh_wp_20000"))).includes("Infrarot-/Stromdirektheizung"), "ohne Infrarot kein Absatz");
+    const teh = await text(kx("eh_heizung"));
+    assert(teh.includes("Effizienzhaus: Die Heizung ist Teil des Effizienzhaus-Pakets (KfW 261); ein zusätzlicher Zuschuss KfW 458 für dieselbe Heizung entfällt."), "EH: Heizung im 261-Paket");
+    // alter Datenstand ohne Posten kfw_458: keine neuen Texte
+    for (const z of ["KfW 458", "Baubegleitung Heizung"]) assert(!tr.includes(z), "Referenzfall ohne Heizung: " + z);
+    // INIT: Kapitel 7.5 als Förderpotenzial, Anhang mit Zuschüssen aus Kosten
+    const mitRk = (n, extra = {}) => { const x = JSON.parse(JSON.stringify(bd)); x.foerderung.rechenkern = kx(n);
+      Object.assign(x.foerderung, extra); return x; };
+    const ti = await alles(await erzeugeBericht("init", { daten: mitRk("init_echte_kosten", { kosten_einzel: "70.000 €" }), bilder }));
+    for (const z of ["7.5 Förderpotenzial nach Wohneinheiten (Obergrenzen)", "Es ist kein Zuschuss; die Zuschüsse aus Ihren Kosten stehen im Anhang 9.",
+      "Förderpotenzial", "Potenzial", "für die bonusberechtigten selbstgenutzten Wohneinheiten dieses Antrags",
+      "Summe Weg A (Zuschüsse aus Ihren Kosten)", "9.200 €", "6.500 €", "15.700 €", "Wärmeerzeuger 20.000 €, förderfähig 20.000 € (Höchstbetrag 28.000 €)", "plus Boni für die selbstgenutzte WE, zusammen 46 %",
+      "Herleitung KfW-458-Zuschuss: 46 % auf 20.000 € förderfähig = 9.200 €", "54.300 €",
+      "Geschätzter Eigenanteil = Investitionskosten nach Angabe des Beraters abzüglich der Zuschüsse aus den eingetragenen Kosten."])
+      assert(ti.includes(z), "INIT 0.6.0: " + z);
+    for (const z of ["Übersicht der maximal möglichen Förderung", "Summe Weg A (max. direkte Zuschüsse)", "nur für eine selbstgenutzte Wohneinheit"])
+      assert(!ti.includes(z), "INIT 0.6.0 alt: " + z);
+    assert(!/undefined|NaN|null/.test(ti), "INIT 0.6.0: undefined/NaN/null");
+    const to = await alles(await erzeugeBericht("init", { daten: mitRk("init_kosten_offen", { kosten_einzel: "70.000 €" }), bilder }));
+    assert(to.includes("Kosten bitte eintragen") && to.includes("= Kosten noch nicht eingetragen; ohne Kosten wird kein Zuschuss ausgewiesen."), "INIT: fehlende Kosten „—“");
+    assert(!to.includes("15.700 €") && !to.includes("54.300 €"), "INIT: ohne Hüllkosten kein Weg A und kein Eigenanteil");
+    const tsi = await alles(await erzeugeBericht("init", { daten: mitRk("init_stromdirekt"), bilder }));
+    assert(tsi.includes("Stromdirekt- bzw. Infrarotheizung: in Einzelmaßnahmen nicht förderfähig – kein Heizungszuschuss (Infoblatt förderfähige Maßnahmen 11.1, Nr. 9.2, S. 45)."), "INIT: Stromdirekt-Hinweis");
+    // alter Datenstand (ohne werte.potenzial): INIT unverändert
+    assert(bt.includes("7.5 Übersicht der maximal möglichen Förderung nach Wohneinheiten") && bt.includes("Summe Weg A (max. direkte Zuschüsse)"), "INIT alt unverändert");
+  }
   // ab 0.4.9: Versionsmeldung und Dokumenteigenschaften (nie im Text)
   {
     const JSZipV = require("jszip");
@@ -209,5 +271,5 @@ async function text(daten) {
       assert.strictEqual(f.headers.get("x-generator-version"), VERSION, "Kopfzeile auch bei 404");
     } finally { srv.kill(); }
   }
-  console.log(`OK – Versionsmeldung + Dokumenteigenschaften + WPB angekündigt (4 Fälle) + Bericht INIT (mit/ohne EH-Vergleich) + ${n} Beispiele + Referenzzahlen + Schutzprüfungen + Fachwerte mit/ohne + ${MODULE.length} Checklisten`);
+  console.log(`OK – KfW 458 (A/B/C/E/EFH, Stromdirekt, NWG, EH, INIT Potenzial/Kosten) + Versionsmeldung + Dokumenteigenschaften + WPB angekündigt (4 Fälle) + Bericht INIT (mit/ohne EH-Vergleich) + ${n} Beispiele + Referenzzahlen + Schutzprüfungen + Fachwerte mit/ohne + ${MODULE.length} Checklisten`);
 })().catch(e => { console.error("FEHLER:", e.message); process.exit(1); });

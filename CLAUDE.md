@@ -111,7 +111,7 @@ Verbindlich zusätzlich zu den unverhandelbaren Regeln; Einzelheiten in den Absc
   Programme; 4 Merkblatt 261 – Merkblatt, ab 24.09.2026, beg_wg; 5 Infoblatt 11.1 – Richtlinie (Anlage), ab 01.11.2026,
   beg_em/beg_em_heizung/beg_wg (kfw.de: nur Prüfsumme, KI ruft selbst ab). Abgleich 20.11.2026: alle gültigen unverändert.
   **Offen (macht Manfred):** amtliche Fassung BEG EM BAnz AT 27.08.2026 B1 und die TMA hochladen; danach Quelle 1 „gültig bis“.
-- **Generator:** **0.5.1** (Fördervergleich: WPB-Fall nach Grundlage, Kriterien nur aus den Konditionen; INIT unverändert seit 0.4.9).
+- **Generator:** **0.5.1** eingespielt, **0.6.0** lokal (KfW 458 Paket 3, nicht eingespielt) (Fördervergleich: WPB-Fall nach Grundlage, Kriterien nur aus den Konditionen; INIT unverändert seit 0.4.9).
   Prompts: Schnellweg `init-4`, Detailbearbeitung `init-1`.
 - **Konditionen:** Version **6 aktiv** (Stand 17.11.2026), Version **7 geplant** ab 01.02.2027, Version **8 Entwurf** (Kopie von V7 +
   WPB-Kriterien nach Infoblatt 11.1 mit Fundstellen) – **nicht eingereicht**. Quelldokumente 1–5: Richtlinie BEG EM 17.07.2026,
@@ -805,7 +805,15 @@ Stufe 2 Variante B (Staffelwert in der Version nach `antrag_geplant_am`, leer = 
   Hinweis „Förderung ab 12/2026 angekündigt, noch nicht in Kraft“ (Infoblatt 11.1 Nr. 4.1.9, S. 30; Richtlinie BEG EM Nr. 5.3 j,
   Räume > 4 m). INIT: `foerder.heizung_stromdirekt` (Detailbearbeitung, Schnellweg-Rückfrage `stromdirekt` bei Fundstelle in
   Checkliste/Notizen) → Heizungszuschuss 0 mit Hinweis. Tests: `tests/test_stromdirekt.py`, `HeizungKfw458.test.jsx`.
-- **Paket 3 Generator 0.6.0:** offen (Änderungen angekündigt 20.11.2026; Freigabe GF ausstehend).
+- **Paket 3 Generator 0.6.0 (lokal umgesetzt 20.11.2026, nicht gepusht, nicht eingespielt):** Datenvertrag
+  `docs/Datenvertrag_Generator_KfW458.md`. Fördervergleich: Posten „Heizungsförderung KfW 458“ in Kapitel 1/3/8, Herleitung aus
+  `szenario.heizung`, Berichtstexte `szenario.heizung_hinweise` (Rechenkern, ohne „zu prüfen“), Einordnung „KfW 458 (Heizung)“,
+  Stromdirektheizung über die Kennung `massnahmen[].stromdirektheizung` (`word.mit_stromdirekt_kennung()`, nicht gespeichert),
+  Kapitel 5 systemneutral (Infoblatt 11.1 Nr. 9.2 S. 45). INIT: 7.5 „Förderpotenzial (Obergrenzen)“, Anhang Weg A aus
+  `werte.zuschuss`, Eigenanteil nur aus echten Kosten, Termine der Fußnote aus `saetze.heizung_klima_hinweis`/`_kosten_hinweis`.
+  Ältere Daten wie 0.5.1 (Textvergleich), Generator-Tests mit Fixtures aus dem Rechenkern (`generator/test/fixtures_kfw458/`).
+  **Offen:** Satz „Im Effizienzhaus wird sie als Elektro-Direktheizung bilanziert (Technische FAQ, Nr. 9.15)“ erst nach Hochladen
+  und Prüfung der Technischen FAQ; Quelle `kfw_458.quelle` nennt eine Sekundärquelle (Ökozentrum NRW) und erscheint im Bericht.
 - **INIT-Skill im Chat hat denselben Fehler** (`generate_report.js`/`foerder_rechnung.js` im Skill-Paket „energieberatungsbericht“):
   `heizMax` und `em_foerder_mit` auf Höchstkosten, als „Zuschuss“ beschriftet, „Geschätzter Eigenanteil“ = Kosten − Potenzial,
   Boni höchstens für eine WE. Nach Stufe 1 den korrigierten Generator als Skill-Paket bereitstellen (Zip nicht einchecken).

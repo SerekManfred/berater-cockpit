@@ -13,7 +13,7 @@ from app.modelle import Benutzer, Bericht, Projekt
 from app.parteien import berichtskunde
 from app.projekte_api import _bericht_laden, we_pruefung
 from app.protokoll import protokollieren
-from app.rechnen import ANGEBOTE_BRUTTO_TEXT, kennzeichnung_nachtragen, wpb_grundlage_text
+from app.rechnen import ANGEBOTE_BRUTTO_TEXT, ist_stromdirekt, kennzeichnung_nachtragen, wpb_grundlage_text
 
 router = APIRouter(tags=["Word-Berichte"])
 
@@ -48,7 +48,7 @@ def generator_daten(b: Bericht, p: Projekt, ersteller: str | None) -> dict:
         "berater": {"name": ersteller or "–"},
         "bericht": {"versionsnummer": b.versionsnummer,
                     "erstellt_am": b.erstellt_am.astimezone(ZoneInfo("Europe/Berlin")).date().isoformat()},
-        "eingaben": eingaben_vollstaendig(b.eingaben),
+        "eingaben": mit_stromdirekt_kennung(eingaben_vollstaendig(b.eingaben)),
         "ergebnis": kennzeichnung_nachtragen(b.ergebnis, b.konditionen_snapshot),   # ältere Berichte: „angekündigt“ ableiten
         "konditionen": b.konditionen_snapshot,
         "kosten_hinweis": (b.eingaben or {}).get("kosten_hinweis") or None,
@@ -59,6 +59,16 @@ def generator_daten(b: Bericht, p: Projekt, ersteller: str | None) -> dict:
         **({"wpb_grundlage_text": wpb_grundlage_text((b.eingaben or {}).get("wpb_grundlage"))}
            if (b.eingaben or {}).get("wpb_grundlage") and (b.eingaben or {}).get("wpb_status") in ("ja", "nein") else {}),
     }
+
+
+def mit_stromdirekt_kennung(eingaben: dict) -> dict:
+    """Kennung `stromdirektheizung` je Maßnahme (Generator 0.6.0): dieselbe Regel wie im Rechenkern (`ist_stromdirekt`),
+    damit der Generator nicht selbst an der Bezeichnung erkennt. Nur für den Generator, gespeichert wird nichts."""
+    massnahmen = eingaben.get("massnahmen")
+    if not isinstance(massnahmen, list):
+        return eingaben
+    return {**eingaben, "massnahmen": [{**m, "stromdirektheizung": ist_stromdirekt(m.get("name"))} if isinstance(m, dict) else m
+                                       for m in massnahmen]}
 
 
 def eingaben_vollstaendig(eingaben: dict | None) -> dict:
