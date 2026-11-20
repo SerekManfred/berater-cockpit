@@ -237,6 +237,8 @@ class KonditionenQuelle(Base):
     sha256: Mapped[str] = mapped_column(String(64), nullable=False, index=True)
     hochgeladen_von_id: Mapped[int | None] = mapped_column(ForeignKey("benutzer.id", ondelete="SET NULL"))
     hochgeladen_am: Mapped[datetime] = mapped_column(UTCZeit, nullable=False, default=jetzt)
+    # Migration 0018: Programm-IDs, für die das Dokument maßgeblich ist (Förderprüfung gibt den Inhalt nur dafür mit)
+    programme: Mapped[list] = mapped_column(DETAILS_TYP, nullable=False, default=list)
 
 
 # ---------- Bericht-Entwürfe (Phase 2b) ----------

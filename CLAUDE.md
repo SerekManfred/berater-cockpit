@@ -93,8 +93,9 @@ Verbindlich zusätzlich zu den unverhandelbaren Regeln; Einzelheiten in den Absc
   und Freigabe des Geschäftsführers.
 
 ## Aktueller Stand (19.11.2026)
-- **Datenbank:** Migrationsstand **0017** (Head; zuletzt 0014 Berichts-Kennzeichnung, 0015 technischer Benutzer, 0016
-  Quelldokumente/Fundstellen, 0017 Word eingefroren).
+- **Datenbank:** Head **0018** (Programme der Quelldokumente, 20.11.2026) – im Testsystem noch **0017** (0014
+  Berichts-Kennzeichnung, 0015 technischer Benutzer, 0016 Quelldokumente/Fundstellen, 0017 Word eingefroren). `cockpit-api`
+  migriert beim Start: vor dem nächsten `docker compose up -d cockpit-api` erst `scripts/sicherung.sh`.
 - **Generator:** **0.5.1** (Fördervergleich: WPB-Fall nach Grundlage, Kriterien nur aus den Konditionen; INIT unverändert seit 0.4.9).
   Prompts: Schnellweg `init-4`, Detailbearbeitung `init-1`.
 - **Konditionen:** Version **6 aktiv** (Stand 17.11.2026), Version **7 geplant** ab 01.02.2027, Version **8 Entwurf** (Kopie von V7 +
@@ -453,6 +454,25 @@ Verbindlich zusätzlich zu den unverhandelbaren Regeln; Einzelheiten in den Absc
   (`dokumentreihe()`: Titel ohne Stand/Datum/Versionsnummer): gehört ein „neues Dokument“ zu einem bekannten Titel → neue Fassung.
   Unklar, Pressemitteilung mit `betrifft`, `aenderung_moeglich` null → weiter gründlich. Ältere Antworten ohne `art` wie bisher
   über `geaendert`. Tests: `tests/test_foerderpruefung_anzeige_kosten.py`.
+- **Lesbare Quellen (Auftrag 20.11.2026, `app/quellen_abgleich.py`, Migration 0018):** Test 20.11.2026: `web_fetch_20260209`
+  ist nur aus der Code-Ausführung aufrufbar und liefert dort einen **JSON-Text** (PDF Base64 in `content.source.data`); kfw.de-PDFs
+  sind so lesbar, **energiewechsel.de-PDFs nicht** (nur HTML-Begleitseite). Deshalb:
+  (1) Prompt **`foerderpruefung-4`** beschreibt das Abruf-Ergebnis (`json.loads`, Base64, pypdf) und die beigefügten Dokumente;
+  (2) **kein Abruf von energiewechsel.de** (`NICHT_ABRUFBAR`; Abruf-Werkzeug mit eigenen `allowed_domains` ohne energiewechsel.de,
+  Suche behält sie; `bekannte_dokumente` ohne diese Adressen), stattdessen gehen deren **Quelldokumente als Text-Dokumente** mit
+  (pypdf, `[Seite N]`, je höchstens 200.000 Zeichen, Cache-Punkt nach dem letzten Dokument) – **nur Dokumente mit einem
+  zugeordneten, geprüften Programm** (`konditionen_quellen.programme`, Migration 0018; ändern admin/pruefer über „Programme
+  ändern“ im Reiter Quelldokumente oder `python -m app.cli konditionen-quelle-programme ID --programme a,b --auftrag …`,
+  Protokoll `konditionen_quelle_geaendert` alt/neu, technischer Benutzer 403); Größe: Richtlinie BEG EM ≈ 50.000 Tokens,
+  BEG-FAQ ≈ 60.000 Tokens; (3) **Prüfsummen-Abgleich ohne KI** vor jedem Lauf: das Cockpit lädt jedes Quelldokument mit
+  offizieller https-Adresse (nur PDF am Inhalt, ≤ 25 MB, 30 s; bei einer HTML-Begleitseite die echte Download-Adresse
+  `…__blob=publicationFile&v=N` desselben Pfads) und vergleicht sha256: **geändert → gründliche Prüfung ohne KI-Vorprüfung**
+  (Hinweis „neue Fassung bitte als Quelldokument hinterlegen“, mitgegeben wird die neu geladene Fassung), **gleich →
+  `per_pruefsumme_bestaetigt`** an die Vorprüfung (Prompt **`foerderpruefung-stand-3`**; dieselbe Adresse gilt dort immer als
+  „gleich“, eine neue Fassung unter anderer Adresse bleibt „neue_fassung“), **fehler → Hinweis**, mitgegeben wird die
+  hinterlegte Fassung. Ergebnis je Lauf in `quellen_abgleich` und `mitgegebene_dokumente` (Details: „Quelldokumente
+  (Prüfsumme)“). Neue Quelldokument-Fassungen legt nie das Cockpit selbst an. Tests: `tests/test_quellen_abgleich.py`
+  (Netz in Tests gesperrt, conftest), `KonditionenQuellenProgramme.test.jsx`.
 - **Anzeige der Läufe (20.11.2026, gespeicherter Status unverändert):** `uebersicht(m)` in jeder Meldung der API: `ergebnis_text`
   „N Abweichungen zu V6 – davon X geplant in V7 (ab 01.02.2027) · Y offen“ (ohne geplante „… · N offen“, ohne Abweichung „Keine
   Abweichung zu V6“), `status_text` „Kein Handlungsbedarf (bereits geplant)“ bei `keine_abweichung` mit Abweichungen, „Keine
@@ -467,8 +487,8 @@ Verbindlich zusätzlich zu den unverhandelbaren Regeln; Einzelheiten in den Absc
 - KI über `app/ki/` (`websuche()`, Regel 7): `web_search_20260209` mit `allowed_domains` kfw.de, bafa.de, energiewechsel.de,
   bmwk.de, bmwe.de, gesetze-im-internet.de, `max_uses` = `FOERDERPRUEFUNG_MAX_SUCHEN` (12), dazu `web_fetch_20260209` auf
   denselben Domains (`FOERDERPRUEFUNG_MAX_ABRUFE`, 5, je Dokument höchstens `FOERDERPRUEFUNG_ABRUF_MAX_TOKENS` **30.000**, bis
-  19.11.2026 60.000). Zeitlimit 600 s, `pause_turn` wird fortgesetzt. Prompt `app/ki/prompts/foerderpruefung_v3.md`
-  (`PROMPT-VERSION: foerderpruefung-3`, 20.11.2026; v2/v1 bleiben liegen).
+  19.11.2026 60.000; seit 20.11.2026 ohne energiewechsel.de). Zeitlimit 600 s, `pause_turn` wird fortgesetzt. Prompt
+  `app/ki/prompts/foerderpruefung_v4.md` (`PROMPT-VERSION: foerderpruefung-4`, 20.11.2026; v3/v2/v1 bleiben liegen).
   Kostenschätzung (`kosten_usd`): Cache schreiben 1,25 × Eingabe, Cache lesen nach Preisliste (Sonnet/Opus 5.5: 5 % der Eingabe).
   Antwort = JSON im ```json-Block (kein `output_config.format`, weil Websuche Zitate erzeugt) – **streng geprüft** in `auswerten()`:
   nur bekannte Felder, gültiges Format, echter Unterschied; „hinterlegt“ immer aus der Datenbank; „offiziell“ nur mit Quelle auf

@@ -1,6 +1,8 @@
 """Quelldokumente der Konditionen-Zentrale (Geschäftsführer 19.11.2026): PDF je Merkblatt/Richtlinie mit Stand, URL und
 Abrufdatum, auf die Fundstellen der Konditionen-Felder verweisen. Lesen/Herunterladen alle Angemeldeten, hochladen admin und
-pruefer, löschen nur admin und nur, solange keine Version darauf verweist. Inhalt im Volume (konditionen_quellen/)."""
+pruefer, löschen nur admin und nur, solange keine Version darauf verweist. Inhalt im Volume (konditionen_quellen/).
+Seit 20.11.2026 (Migration 0018) mit zugeordneten Programmen (`programme`): ändern admin/pruefer bzw. Kommandozeile,
+Protokoll `konditionen_quelle_geaendert` mit alt/neu – die Förderprüfung gibt den Inhalt nur für diese Programme mit."""
 from datetime import date
 
 from fastapi import APIRouter, Depends, HTTPException, Request
@@ -35,7 +37,29 @@ def _aus(db: Session, q: KonditionenQuelle) -> dict:
     von = db.get(Benutzer, q.hochgeladen_von_id) if q.hochgeladen_von_id else None
     return {"id": q.id, "titel": q.titel, "herausgeber": q.herausgeber, "stand": q.stand, "url": q.url,
             "abgerufen_am": q.abgerufen_am, "groesse": q.groesse, "sha256": q.sha256, "hochgeladen_am": q.hochgeladen_am,
-            "hochgeladen_von": von.name if von else "Kommandozeile", "verwendet_in": verwendet_in(db, q.id)}
+            "hochgeladen_von": von.name if von else "Kommandozeile", "verwendet_in": verwendet_in(db, q.id),
+            "programme": list(q.programme or [])}
+
+
+def programme_pruefen(programme) -> list[str]:
+    """Nur bekannte Programme der Konditionen (ohne Allgemein/Fachwerte), je einmal, in der Reihenfolge der Formulare."""
+    from app.konditionen_zentrale import TITEL
+    erlaubt = [p for p in TITEL if p not in ("allgemein", "fachwerte")]
+    liste = [str(p).strip() for p in (programme or []) if str(p).strip()]
+    unbekannt = sorted(set(liste) - set(erlaubt))
+    if unbekannt:
+        raise HTTPException(422, f"Unbekannte Programme: {', '.join(unbekannt)}. Erlaubt: {', '.join(erlaubt)}.")
+    return [p for p in erlaubt if p in liste]
+
+
+def programme_setzen(db: Session, request, q: KonditionenQuelle, programme, benutzer_id: int | None, **protokoll) -> bool:
+    neu, alt = programme_pruefen(programme), list(q.programme or [])
+    if neu == alt:
+        return False
+    q.programme = neu
+    protokollieren(db, request, "konditionen_quelle_geaendert", benutzer_id, quelle_id=q.id,
+                   programme={"alt": alt, "neu": neu}, **protokoll)
+    return True
 
 
 class QuelleMeta(BaseModel):
@@ -44,6 +68,7 @@ class QuelleMeta(BaseModel):
     stand: str = Field(min_length=2, max_length=40)
     url: str | None = Field(None, max_length=500, pattern=r"^https://")
     abgerufen_am: date
+    programme: list[str] = Field(default_factory=list)
 
 
 def quelle_aus_datei(db: Session, pfad_pdf, meta: "QuelleMeta", auftrag: str) -> KonditionenQuelle:
@@ -60,7 +85,8 @@ def quelle_aus_datei(db: Session, pfad_pdf, meta: "QuelleMeta", auftrag: str) ->
     doppelt = db.scalar(select(KonditionenQuelle).where(KonditionenQuelle.sha256 == sha))
     if doppelt is not None:
         raise HTTPException(409, f"Dieses Dokument ist schon hinterlegt: „{doppelt.titel}“ (Stand {doppelt.stand}), Quelle {doppelt.id}.")
-    q = KonditionenQuelle(**meta.model_dump(), speichername=dateien.neuer_speichername(), groesse=pfad_pdf.stat().st_size,
+    q = KonditionenQuelle(**{**meta.model_dump(), "programme": programme_pruefen(meta.programme)},
+                          speichername=dateien.neuer_speichername(), groesse=pfad_pdf.stat().st_size,
                           sha256=sha, hochgeladen_von_id=None, hochgeladen_am=jetzt())
     shutil.copyfile(pfad_pdf, pfad(q))
     db.add(q)
@@ -77,13 +103,14 @@ def quellen_liste(_: Benutzer = Depends(lesen), db: Session = Depends(get_db)):
 
 @router.post("/konditionen/quellen", status_code=201)
 async def quelle_hochladen(request: Request, titel: str, stand: str, abgerufen_am: date, dateiname: str,
-                           herausgeber: str | None = None, url: str | None = None,
+                           herausgeber: str | None = None, url: str | None = None, programme: str | None = None,
                            ich: Benutzer = Depends(hochladen), db: Session = Depends(get_db)):
-    """Ein PDF als roher Anfrage-Inhalt, Angaben als Parameter (wie der Upload der Unterlagen)."""
+    """Ein PDF als roher Anfrage-Inhalt, Angaben als Parameter (wie der Upload der Unterlagen); programme kommagetrennt."""
     nicht_technisch(ich)
+    progs = programme_pruefen((programme or "").split(","))
     try:
         meta = QuelleMeta(titel=titel.strip(), herausgeber=(herausgeber or "").strip() or None, stand=stand.strip(),
-                          url=(url or "").strip() or None, abgerufen_am=abgerufen_am)
+                          url=(url or "").strip() or None, abgerufen_am=abgerufen_am, programme=progs)
         name = dateien.dateiname_bereinigen(dateiname)
     except (ValueError, dateien.DateiAbgelehnt) as fehler:
         raise HTTPException(422, str(fehler)) from None
@@ -114,6 +141,23 @@ async def quelle_hochladen(request: Request, titel: str, stand: str, abgerufen_a
         db.commit()
     finally:
         tmp.unlink(missing_ok=True)
+    return _aus(db, q)
+
+
+class ProgrammeIn(BaseModel):
+    programme: list[str] = Field(max_length=30)
+
+
+@router.patch("/konditionen/quellen/{quelle_id}")
+def quelle_programme(quelle_id: int, daten: ProgrammeIn, request: Request, ich: Benutzer = Depends(hochladen),
+                     db: Session = Depends(get_db)):
+    """Zugeordnete Programme ändern (admin, pruefer). Titel, Stand, Datei bleiben – ein neuer Stand ist ein neues Dokument."""
+    nicht_technisch(ich)
+    q = db.get(KonditionenQuelle, quelle_id)
+    if q is None:
+        raise HTTPException(404, "Quelldokument nicht gefunden")
+    programme_setzen(db, request, q, daten.programme, ich.id)
+    db.commit()
     return _aus(db, q)
 
 

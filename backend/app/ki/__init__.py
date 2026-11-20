@@ -33,9 +33,12 @@ class KiAnbieter(Protocol):
     # max_abrufe Seitenabrufe. Antwort = Text der KI (JSON wird in app/foerderpruefung.py geprüft); nutzung enthält
     # zusätzlich „suchen“, „abrufe“ und „werkzeug_fehler“. effort = Gründlichkeit (low … high), max_inhalt_tokens = Länge je
     # abgerufenem Dokument, einfach = Suche ohne Code-Ausführung (kurze Recherchen).
+    # abruf_domains = Domains nur für den Abruf (Standard wie domains); dokumente = [{titel, text, kontext}] als feste
+    # Dokumente vor der Anfrage (Inhalte offizieller Quelldokumente, mit Prompt-Caching).
     def websuche(self, system: str, text: str, domains: tuple[str, ...], max_suchen: int, max_abrufe: int,
                  zeitlimit: float, effort: str = "high", max_inhalt_tokens: int | None = None,
-                 einfach: bool = False) -> KiAntwort: ...
+                 einfach: bool = False, abruf_domains: tuple[str, ...] | None = None,
+                 dokumente: list[dict] | None = None) -> KiAntwort: ...
 
 
 # Nur für Tests: fester Anbieter statt des konfigurierten (kein Netzwerk in Tests)

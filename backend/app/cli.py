@@ -237,6 +237,29 @@ def konditionen_quelle_hochladen(datei: str, titel: str, stand: str, abgerufen_a
     return 0
 
 
+def konditionen_quelle_programme(quelle_id: int, programme: str, auftrag: str) -> int:
+    """Programme eines Quelldokuments setzen (Ersteller „Kommandozeile“, Protokoll alt/neu mit Auftrag) – nie als technischer
+    Benutzer, nie an der Prüfung vorbei (gleiche Prüfung wie die Route)."""
+    from fastapi import HTTPException
+    from app.db import SessionLocal
+    from app.konditionen_quellen import programme_setzen
+    from app.modelle import KonditionenQuelle
+    with SessionLocal() as db:
+        q = db.get(KonditionenQuelle, quelle_id)
+        if q is None:
+            print(f"Quelldokument {quelle_id} nicht gefunden.")
+            return 1
+        try:
+            geaendert = programme_setzen(db, None, q, programme.split(","), None, quelle="kommandozeile", auftrag=auftrag)
+        except HTTPException as fehler:
+            print(f"Abgelehnt: {fehler.detail}")
+            return 1
+        db.commit()
+        print(f"Quelldokument {q.id} „{q.titel}“: Programme {', '.join(q.programme) or '–'}"
+              + ("" if geaendert else " (unverändert)"))
+    return 0
+
+
 def konditionen_fundstellen(version: int, datei: str, notiz: str) -> int:
     """Fundstellen eines offenen Entwurfs per Kommandozeile ergänzen/ersetzen (je Feld aus DATEI.json), gleiche Prüfung wie
     die Oberfläche (`fundstellen_pruefen`). Nur Entwürfe – Einreichen und Freigeben bleiben Menschen vorbehalten."""
@@ -329,6 +352,10 @@ def main(argv=None) -> int:
     qh.add_argument("--herausgeber")
     qh.add_argument("--url")
     qh.add_argument("--auftrag", required=True)
+    qp = befehle.add_parser("konditionen-quelle-programme", help="Programme eines Quelldokuments setzen (Ersteller Kommandozeile)")
+    qp.add_argument("quelle_id", type=int)
+    qp.add_argument("--programme", required=True, help="kommagetrennt, z. B. beg_em,beg_em_heizung,kfw_458 (leer = keines)")
+    qp.add_argument("--auftrag", required=True)
     fsp = befehle.add_parser("konditionen-fundstellen", help="Fundstellen eines offenen Entwurfs aus JSON-Datei setzen")
     fsp.add_argument("version", type=int)
     fsp.add_argument("datei")
@@ -346,6 +373,8 @@ def main(argv=None) -> int:
         return konditionen_entwurf_ergaenzen(args.version, args.datei, args.notiz)
     if args.befehl == "berichte-word-einfrieren":
         return berichte_word_einfrieren(args.bericht)
+    if args.befehl == "konditionen-quelle-programme":
+        return konditionen_quelle_programme(args.quelle_id, args.programme, args.auftrag)
     if args.befehl == "konditionen-quelle-hochladen":
         return konditionen_quelle_hochladen(args.datei, args.titel, args.stand, args.abgerufen_am, args.herausgeber, args.url,
                                             args.auftrag)

@@ -14,3 +14,4 @@ tzdata==2025.*
 pillow==11.0.*
 pillow-heif==0.20.*
 anthropic==2.8.*
+pypdf==5.1.*

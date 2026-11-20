@@ -81,6 +81,39 @@ export function FundstellenEditor({ pfad, liste, quellen, fehlt, onChange }) {
   );
 }
 
+/** Programme eines Quelldokuments (20.11.2026): die Förderprüfung gibt nicht abrufbare Dokumente (energiewechsel.de) nur
+ *  für diese Programme als Text mit. Ändern admin/pruefer; Prüfung und Protokoll im Backend. */
+export function programmeText(q, programme) {
+  const titel = Object.fromEntries((programme || []).map(p => [p.id, p.titel]));
+  const liste = Array.isArray(q?.programme) ? q.programme : [];
+  return liste.length ? liste.map(id => titel[id] || id).join(", ") : "keinem Programm zugeordnet";
+}
+
+function ProgrammeBearbeiten({ q, programme, onFertig }) {
+  const [offen, setOffen] = useState(false);
+  const [wahl, setWahl] = useState(Array.isArray(q.programme) ? q.programme : []);
+  const [fehler, setFehler] = useState("");
+  async function speichern() {
+    setFehler("");
+    try { await api(`/konditionen/quellen/${q.id}`, { method: "PATCH", body: { programme: wahl } }); setOffen(false); onFertig(); }
+    catch (e) { setFehler(e.message); }
+  }
+  if (!offen) return <button type="button" className="btn2 klein-knopf" onClick={() => setOffen(true)}>Programme ändern</button>;
+  return (
+    <fieldset className="karte" style={{ marginTop: 6 }}>
+      <legend>Programme für „{q.titel}“</legend>
+      {fehler && <div className="fehler" role="alert">{fehler}</div>}
+      {(programme || []).filter(p => !["allgemein", "fachwerte"].includes(p.id)).map(p => (
+        <label key={p.id} className="haken"><input type="checkbox" checked={wahl.includes(p.id)}
+          onChange={e => setWahl(e.target.checked ? [...wahl, p.id] : wahl.filter(x => x !== p.id))} /> {p.titel}</label>))}
+      <div className="aktionen">
+        <button type="button" className="btn" onClick={speichern}>Speichern</button>
+        <button type="button" className="btn2" onClick={() => { setWahl(q.programme || []); setOffen(false); }}>Abbrechen</button>
+      </div>
+    </fieldset>
+  );
+}
+
 /** Reiter „Quelldokumente“: Liste für alle, Hochladen admin/pruefer, Löschen admin (nur unbenutzte) */
 export function Quelldokumente({ ich }) {
   const [liste, setListe] = useState(null);
@@ -89,8 +122,9 @@ export function Quelldokumente({ ich }) {
   const [form, setForm] = useState({ titel: "", herausgeber: "", stand: "", url: "", abgerufen_am: new Date().toISOString().slice(0, 10) });
   const [datei, setDatei] = useState(null);
   const [laeuft, setLaeuft] = useState(false);
+  const [programme, setProgramme] = useState([]);
   const laden = () => api("/konditionen/quellen").then(setListe).catch(e => { setListe([]); setFehler(e.message); });
-  useEffect(() => { laden(); }, []);
+  useEffect(() => { laden(); api("/konditionen/formular").then(f => setProgramme(f.programme || [])).catch(() => setProgramme([])); }, []);
   const darfHochladen = hatRolle(ich, "pruefer");
 
   async function hochladen(e) {
@@ -124,7 +158,9 @@ export function Quelldokumente({ ich }) {
             <tr key={q.id}>
               <td><a href={pdfLink(q.id)} target="_blank" rel="noreferrer">{q.titel}</a>{q.herausgeber ? ` · ${q.herausgeber}` : ""}
                 {q.url && <div className="klein"><a href={q.url} target="_blank" rel="noreferrer">{q.url}</a></div>}
-                <div className="klein">hochgeladen {zeit(q.hochgeladen_am)} von {q.hochgeladen_von || "–"} · sha256 {q.sha256.slice(0, 12)}…</div></td>
+                <div className="klein">hochgeladen {zeit(q.hochgeladen_am)} von {q.hochgeladen_von || "–"} · sha256 {q.sha256.slice(0, 12)}…</div>
+                <div className="klein">Programme: {programmeText(q, programme)}</div>
+                {darfHochladen && <ProgrammeBearbeiten q={q} programme={programme} onFertig={laden} />}</td>
               <td>{q.stand}</td><td>{datumDe(q.abgerufen_am)}</td><td>{groesseText(q.groesse)}</td>
               <td>{q.verwendet_in.length ? q.verwendet_in.map(n => `V${n}`).join(", ") : "–"}</td>
               <td>{hatRolle(ich) && !q.verwendet_in.length && <button className="btn2" onClick={() => loeschen(q)}>Löschen</button>}</td>

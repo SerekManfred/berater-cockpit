@@ -30,7 +30,7 @@ from pydantic import BaseModel, Field
 from sqlalchemy import func, select
 from sqlalchemy.orm import Session
 
-from app import config, fristen, ki, mail
+from app import config, fristen, ki, mail, quellen_abgleich
 from app.auth import aktueller_benutzer, rolle, nicht_technisch
 from app.db import SessionLocal, get_db
 from app.konditionen_zentrale import FELDER, TITEL, entwurf_anlegen, lesen_pfad, standard_basis
@@ -42,10 +42,12 @@ log = logging.getLogger("cockpit.foerderpruefung")
 router = APIRouter(tags=["Förderprüfung"])
 BERLIN = ZoneInfo("Europe/Berlin")
 
-# v3 (20.11.2026): Grenzen ausdrücklich, bekannte Adressen direkt abrufen, höchstens 8 kurze Hinweise (v2: auch leere Felder melden)
-PROMPT_DATEI = Path(__file__).parent / "ki" / "prompts" / "foerderpruefung_v3.md"
-# stand-2 (20.11.2026): Art je Dokument – neue Fassung einer bekannten Reihe → gründlich, neues Dokument → nur Hinweis
-PROMPT_STAND_DATEI = Path(__file__).parent / "ki" / "prompts" / "foerderpruefung_stand_v2.md"
+# v4 (20.11.2026, lesbare Quellen): Aufbau des Abruf-Ergebnisses im Code, beigefügte Quelldokumente, kein energiewechsel.de-Abruf
+# v3: Grenzen ausdrücklich, bekannte Adressen direkt abrufen, höchstens 8 kurze Hinweise; v2: auch leere Felder melden
+PROMPT_DATEI = Path(__file__).parent / "ki" / "prompts" / "foerderpruefung_v4.md"
+# stand-3 (20.11.2026): per Prüfsumme bestätigte Dokumente; stand-2: neue Fassung einer bekannten Reihe → gründlich,
+# neues Dokument → nur Hinweis
+PROMPT_STAND_DATEI = Path(__file__).parent / "ki" / "prompts" / "foerderpruefung_stand_v3.md"
 MAX_HINWEISE = 8                                            # Hinweise der KI je Lauf (je ein kurzer Satz)
 HINWEIS_MAX_ZEICHEN = 300
 BEKANNTE_DOKUMENTE_MAX = 25                                 # Adressen der letzten gründlichen Prüfung im Prompt
@@ -108,18 +110,21 @@ def bekannte_dokumente(basis: "FoerderMeldung | None") -> list[dict]:
     aus, gesehen = [], set()
     for m in (basis.ergebnis or {}).get("merkblaetter", []):
         url = (m.get("quelle") or "").strip()
-        if not offizielle_quelle(url) or url in gesehen:
+        # energiewechsel.de-PDFs liefert das Abruf-Werkzeug nur als HTML-Seite – dafür gehen Quelldokumente mit (20.11.2026)
+        if not offizielle_quelle(url) or url in gesehen or quellen_abgleich.nicht_abrufbar(url):
             continue
         gesehen.add(url)
         aus.append({k: m.get(k) for k in ("programm", "titel", "stand", "quelle")})
     return aus[:BEKANNTE_DOKUMENTE_MAX]
 
 
-def eingabe_text(kond: dict, bekannt: list[dict] | None = None) -> str:
+def eingabe_text(kond: dict, bekannt: list[dict] | None = None, abgleich: list[dict] | None = None) -> str:
     daten = {"konditionen_version": kond.get("version"), "stand_der_foerderbedingungen": kond.get("gueltig_ab"),
              "heute": fristen.heute().isoformat(), "programme": programme_fuer_pruefung(kond)}
     if bekannt:
         daten["bekannte_dokumente"] = bekannt
+    if abgleich:
+        daten["quellen_abgleich"] = [{k: a.get(k) for k in ("titel", "stand", "url", "ergebnis", "beigefuegt")} for a in abgleich]
     return ("Bitte prüfen Sie diese hinterlegten Förderkonditionen gegen die aktuellen offiziellen Quellen:\n\n"
             + json.dumps(daten, ensure_ascii=False, indent=1))
 
@@ -336,13 +341,15 @@ def basis_pruefung(db: Session) -> FoerderMeldung | None:
     return None
 
 
-def vor_eingabe_text(kond: dict, basis: FoerderMeldung) -> str:
+def vor_eingabe_text(kond: dict, basis: FoerderMeldung, bestaetigt: list[dict] | None = None) -> str:
     programme = [{"programm": pid, "titel": TITEL[pid], "quelle": lesen_pfad(kond, f"{pid}.quelle"),
                   "geprueft_am": lesen_pfad(kond, f"{pid}.geprueft_am")}
                  for pid in TITEL if pid not in OHNE_PRUEFUNG and isinstance(kond.get(pid), dict)]
     bekannt = [{k: m.get(k) for k in ("programm", "titel", "stand", "quelle")} for m in basis.ergebnis.get("merkblaetter", [])]
     daten = {"heute": fristen.heute().isoformat(), "letzte_gruendliche_pruefung": basis.zeit.astimezone(BERLIN).date().isoformat(),
              "programme": programme, "bekannte_dokumente": bekannt}
+    if bestaetigt:
+        daten["per_pruefsumme_bestaetigt"] = bestaetigt
     return ("Bitte prüfen Sie, ob sich seit der letzten gründlichen Prüfung Stand-Angaben geändert haben:\n\n"
             + json.dumps(daten, ensure_ascii=False, indent=1))
 
@@ -362,7 +369,14 @@ def dokumentreihe(titel: str) -> str:
     return " ".join(woerter)
 
 
-def _art(p: dict, bekannte_reihen: set[str]) -> str:
+def adresse_norm(url) -> str:
+    return html.unescape(str(url or "")).strip().split("#", 1)[0].rstrip("/")
+
+
+def _art(p: dict, bekannte_reihen: set[str], bestaetigt: set[str] = frozenset()) -> str:
+    # dieselbe Adresse hat das Cockpit eben per Prüfsumme als unverändert bestätigt – das gilt vor der Einschätzung der KI
+    if adresse_norm(p.get("quelle")) in bestaetigt:
+        return "gleich"
     art = p.get("art") if p.get("art") in ARTEN else {True: "neue_fassung", False: "gleich"}.get(p.get("geaendert"), "unklar")
     # Schutz: als „neues Dokument“ gemeldet, gehört aber erkennbar zu einer bekannten Reihe → neue Fassung (gründlich prüfen)
     if art == "neues_dokument" and dokumentreihe(str(p.get("dokument") or "")) in bekannte_reihen:
@@ -370,7 +384,7 @@ def _art(p: dict, bekannte_reihen: set[str]) -> str:
     return art
 
 
-def vor_auswerten(rohtext: str, bekannte_titel: list[str] | tuple = ()) -> tuple[bool, dict]:
+def vor_auswerten(rohtext: str, bekannte_titel: list[str] | tuple = (), bestaetigte_adressen: list[str] | tuple = ()) -> tuple[bool, dict]:
     """→ (gründlich prüfen?, Ergebnis der Vorprüfung). Im Zweifel gründlich: unlesbare Antwort, „unklar“/„null“, fehlende Angabe.
     Neue Fassung einer bekannten Dokumentreihe → gründlich; ein unbekanntes neues Dokument → nur Hinweis (20.11.2026)."""
     try:
@@ -378,11 +392,14 @@ def vor_auswerten(rohtext: str, bekannte_titel: list[str] | tuple = ()) -> tuple
     except ki.KiFehler:
         return True, {"programme": [], "pressemitteilungen": [], "neue_dokumente": [], "grund": "Antwort der Vorprüfung nicht auswertbar"}
     reihen = {dokumentreihe(t) for t in bekannte_titel if dokumentreihe(t)}
-    programme = []
+    bestaetigt = {adresse_norm(u) for u in bestaetigte_adressen if u}
+    programme, ueberstimmt = [], 0
     for p in (daten.get("programme") or [])[:60]:
         if not isinstance(p, dict):
             continue
-        art = _art(p, reihen)
+        art = _art(p, reihen, bestaetigt)
+        if art == "gleich" and adresse_norm(p.get("quelle")) in bestaetigt and p.get("art") not in (None, "gleich"):
+            ueberstimmt += 1
         programme.append({"programm": str(p.get("programm") or "")[:40], "dokument": str(p.get("dokument") or "")[:300],
                           "stand": str(p.get("stand") or "")[:100], "quelle": str(p.get("quelle") or "")[:500], "art": art,
                           "geaendert": {"neue_fassung": True, "unklar": None}.get(art, False)})
@@ -402,8 +419,9 @@ def vor_auswerten(rohtext: str, bekannte_titel: list[str] | tuple = ()) -> tuple
         ergebnis["grund"] = "Pressemitteilung zu einem geprüften Programm"
     elif moeglich is not True and moeglich is not False:
         ergebnis["grund"] = "Vorprüfung ohne klare Aussage"
-    elif moeglich is True and not neue:
-        # die KI sieht eine Änderung, ohne sie einem Dokument zuzuordnen – im Zweifel gründlich
+    elif moeglich is True and not neue and not ueberstimmt:
+        # die KI sieht eine Änderung, ohne sie einem Dokument zuzuordnen – im Zweifel gründlich (stützt sie sich nur auf ein
+        # per Prüfsumme bestätigtes Dokument, gilt die Prüfsumme)
         ergebnis["grund"] = "Vorprüfung meldet mögliche Änderung"
     return "grund" in ergebnis, ergebnis
 
@@ -479,6 +497,22 @@ def naechster_termin(db: Session, jetzt_zeit: datetime | None = None) -> datetim
     return None
 
 
+def abruf_domains() -> tuple[str, ...]:
+    """Abruf-Werkzeug ohne die Domains, deren PDFs es nicht lesen kann (Suche behält alle offiziellen Domains)."""
+    return tuple(d for d in config.FOERDERPRUEFUNG_DOMAINS if d not in quellen_abgleich.NICHT_ABRUFBAR)
+
+
+def quellen_hinweise(abgleich: list[dict]) -> list[str]:
+    aus = []
+    for a in abgleich:
+        if a["ergebnis"] == "geaendert":
+            aus.append(_kurz(f"Quelldokument „{a['titel']}“ (Stand {a['stand']}) hat sich online geändert (neue Prüfsumme) – "
+                             "bitte die neue Fassung als Quelldokument hinterlegen."))
+        elif a["ergebnis"] == "fehler":
+            aus.append(_kurz(f"Quelldokument „{a['titel']}“ konnte nicht abgeglichen werden: {a.get('fehler', 'unbekannt')}."))
+    return aus
+
+
 def lauf_ausfuehren(db: Session, ausgeloest_von_id: int | None, voll: bool = False) -> FoerderMeldung:
     """Ein Lauf (Stufe 1, bei Bedarf Stufe 2). Fehler: KiFehler mit Meldung (protokolliert), nie ein halber Datensatz.
     voll=True überspringt die Vorprüfung."""
@@ -495,13 +529,24 @@ def lauf_ausfuehren(db: Session, ausgeloest_von_id: int | None, voll: bool = Fal
     if basis is not None and jetzt() - basis.zeit >= timedelta(days=config.FOERDERPRUEFUNG_VOLL_SPAETESTENS_TAGE):
         basis = None
     vor, vor_lauf, nutzung, modell, kosten = None, None, {}, modell_cfg, {}
+    # Prüfsummen-Abgleich der Quelldokumente (ohne KI, 20.11.2026): geändert → gründlich, gleich → der Vorprüfung als bestätigt
+    abgleich, inhalte = quellen_abgleich.abgleichen(db)
+    geaendert = [a for a in abgleich if a["ergebnis"] == "geaendert"]
+    bestaetigt = [{"titel": a["titel"], "stand": a["stand"], "url": a.get("adresse") or a["url"]}
+                  for a in abgleich if a["ergebnis"] == "gleich"]
+    system_hinweise = quellen_hinweise(abgleich)
     try:
-        if basis is not None:
+        if basis is not None and geaendert:
+            voll, vor_version = True, None
+            vor = {"programme": [], "pressemitteilungen": [], "neue_dokumente": [], "begruendung": "",
+                   "grund": "Quelldokument geändert (Prüfsumme): " + ", ".join(f"„{a['titel']}“" for a in geaendert)}
+        elif basis is not None:
             vor_version, vor_system = prompt(PROMPT_STAND_DATEI)
             antwort = ki.anbieter(vor_modell_cfg).websuche(
-                vor_system, vor_eingabe_text(kond, basis), config.FOERDERPRUEFUNG_DOMAINS, config.FOERDERPRUEFUNG_VOR_SUCHEN,
-                0, VOR_ZEITLIMIT, effort="low", einfach=True)
-            voll, vor = vor_auswerten(antwort.rohtext, [m.get("titel") or "" for m in basis.ergebnis.get("merkblaetter", [])])
+                vor_system, vor_eingabe_text(kond, basis, bestaetigt), config.FOERDERPRUEFUNG_DOMAINS,
+                config.FOERDERPRUEFUNG_VOR_SUCHEN, 0, VOR_ZEITLIMIT, effort="low", einfach=True)
+            voll, vor = vor_auswerten(antwort.rohtext, [m.get("titel") or "" for m in basis.ergebnis.get("merkblaetter", [])],
+                                      [x for a in abgleich if a["ergebnis"] == "gleich" for x in (a["url"], a.get("adresse"))])
             nutzung, modell = dict(antwort.nutzung or {}), antwort.modell
             kosten["vorpruefung"] = kosten_usd(antwort.modell, nutzung)
             vor_lauf = {"prompt_version": vor_version, "modell": antwort.modell, "basis_meldung_id": basis.id,
@@ -513,11 +558,23 @@ def lauf_ausfuehren(db: Session, ausgeloest_von_id: int | None, voll: bool = Fal
             voll = True
         if voll:
             version, system = prompt()
+            geprueft = {p["programm"] for p in programme_fuer_pruefung(kond)}
+            doks, dok_hinweise = quellen_abgleich.dokumente(db, geprueft, abgleich, inhalte)
+            system_hinweise += dok_hinweise
+            beigefuegt = {d["quelle_id"] for d in doks}
+            for a in abgleich:
+                a["beigefuegt"] = a["quelle_id"] in beigefuegt
             antwort = ki.anbieter(modell_cfg).websuche(
-                system, eingabe_text(kond, bekannte_dokumente(letzte_gruendliche)), config.FOERDERPRUEFUNG_DOMAINS, config.FOERDERPRUEFUNG_MAX_SUCHEN,
-                config.FOERDERPRUEFUNG_MAX_ABRUFE, config.FOERDERPRUEFUNG_ZEITLIMIT, effort="high",
-                max_inhalt_tokens=config.FOERDERPRUEFUNG_ABRUF_MAX_TOKENS)
+                system, eingabe_text(kond, bekannte_dokumente(letzte_gruendliche), abgleich), config.FOERDERPRUEFUNG_DOMAINS,
+                config.FOERDERPRUEFUNG_MAX_SUCHEN, config.FOERDERPRUEFUNG_MAX_ABRUFE, config.FOERDERPRUEFUNG_ZEITLIMIT,
+                effort="high", max_inhalt_tokens=config.FOERDERPRUEFUNG_ABRUF_MAX_TOKENS,
+                abruf_domains=abruf_domains(),
+                dokumente=[{"titel": d["titel"], "text": d["text"],
+                            "kontext": f"Adresse: {d['url']} · Programme: {', '.join(d['programme'])} · {d['fassung']}"}
+                           for d in doks] or None)
             ergebnis = auswerten(antwort.rohtext, kond)
+            ergebnis["mitgegebene_dokumente"] = [{k: d[k] for k in ("quelle_id", "titel", "url", "programme", "fassung")}
+                                                 | {"zeichen": len(d["text"])} for d in doks]
             if not ergebnis["merkblaetter"]:
                 # Testlauf 16.11.2026: Websuche ausgefallen, die KI meldete „nichts gefunden“ – das ist kein „keine Abweichung“
                 raise ki.KiFehler(502, "Die gründliche Prüfung hat keine Quelle gelesen (Websuche ohne verwertbare Treffer). "
@@ -533,7 +590,9 @@ def lauf_ausfuehren(db: Session, ausgeloest_von_id: int | None, voll: bool = Fal
                                           "quelle": p["quelle"], "offiziell": offizielle_quelle(p["quelle"])} for p in vor["programme"]],
                         "hinweise": neue_dokumente_hinweise(vor),
                         "zusammenfassung": "Vorprüfung: Stand der Merkblätter unverändert, keine angekündigten "
-                                                           "Änderungen – keine gründliche Prüfung nötig. " + vor["begruendung"]}
+                                                           "Änderungen – keine gründliche Prüfung nötig. "
+                                           + (f"{len(bestaetigt)} Quelldokument(e) per Prüfsumme unverändert. " if bestaetigt else "")
+                                           + vor["begruendung"]}
             ergebnis["rohtext"] = vor_rohtext[:200_000]
     except ki.KiFehler as fehler:
         protokollieren(db, None, "foerderpruefung_fehlgeschlagen", ausgeloest_von_id, art=art, version=kond["version"],
@@ -542,6 +601,9 @@ def lauf_ausfuehren(db: Session, ausgeloest_von_id: int | None, voll: bool = Fal
         raise
     if vor is not None:
         ergebnis["vorpruefung"] = {**vor, "lauf": vor_lauf}
+    if abgleich:
+        ergebnis["quellen_abgleich"] = abgleich
+    ergebnis["hinweise"] = system_hinweise + list(ergebnis.get("hinweise") or [])
     ergebnis["lauf"] = {"art": art, "stufe": "voll" if voll else "vorpruefung", "modell": modell, "prompt_version": version,
                         "dauer_s": round(time.monotonic() - beginn, 1), "suchen": nutzung.get("suchen", 0),
                         "abrufe": nutzung.get("abrufe", 0), "werkzeug_fehler": nutzung.get("werkzeug_fehler", 0),

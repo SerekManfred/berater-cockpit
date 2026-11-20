@@ -53,6 +53,14 @@ def _festes_datum(monkeypatch):
 
 
 @pytest.fixture(autouse=True)
+def _kein_netz_fuer_quellen(monkeypatch):
+    """Der Prüfsummen-Abgleich der Förderprüfung lädt PDFs aus dem Netz – in Tests nie (einzelne Tests setzen einen Ersatz)."""
+    def kein_netz(url):
+        raise ValueError("kein Netz in Tests")
+    monkeypatch.setattr("app.quellen_abgleich.herunterladen", kein_netz)
+
+
+@pytest.fixture(autouse=True)
 def _leere_tabellen():
     yield
     from app.db import SessionLocal

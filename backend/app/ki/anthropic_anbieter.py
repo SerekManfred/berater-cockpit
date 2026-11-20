@@ -93,21 +93,33 @@ MAX_RUNDEN = 6                     # Fortsetzungen nach „pause_turn“ (Server
 
 
 def websuche_anfrage(modell: str, system: str, text: str, domains: tuple[str, ...], max_suchen: int, max_abrufe: int,
-                     effort: str = "high", max_inhalt_tokens: int | None = None, einfach: bool = False) -> dict:
+                     effort: str = "high", max_inhalt_tokens: int | None = None, einfach: bool = False,
+                     abruf_domains: tuple[str, ...] | None = None, dokumente: list[dict] | None = None) -> dict:
     """Anfrage für die Recherche – nur offizielle Domains, begrenzte Suchen (getrennt, damit testbar ohne Netz).
 
     Kosten: Jeder Zwischenschritt der Websuche liest alle bisherigen Treffer erneut ein. Mit cache_control oben in der
     Anfrage setzt die API die Cache-Punkte nach den Werkzeug-Ergebnissen selbst – Wiederlesen kostet dann nur einen
-    Bruchteil. max_inhalt_tokens begrenzt die Länge eines abgerufenen Dokuments (lange Richtlinien-PDFs)."""
+    Bruchteil. max_inhalt_tokens begrenzt die Länge eines abgerufenen Dokuments (lange Richtlinien-PDFs).
+    abruf_domains: Domains für den Abruf, wenn sie von der Suche abweichen (20.11.2026: ohne energiewechsel.de).
+    dokumente: [{titel, text, kontext}] – gehen als Text-Dokumente vor die Anfrage, mit eigenem Cache-Punkt nach dem letzten
+    (der feste Teil wird so in jedem Zwischenschritt aus dem Cache gelesen; die automatische Caching-Marke bleibt zusätzlich)."""
     werkzeuge = [{"type": WEBSUCHE_EINFACH if einfach else WEBSUCHE, "name": "web_search", "max_uses": max_suchen,
                   "allowed_domains": list(domains)}]
     if max_abrufe > 0:
-        abruf = {"type": WEBABRUF_EINFACH if einfach else WEBABRUF, "name": "web_fetch", "max_uses": max_abrufe, "allowed_domains": list(domains)}
+        abruf = {"type": WEBABRUF_EINFACH if einfach else WEBABRUF, "name": "web_fetch", "max_uses": max_abrufe,
+                 "allowed_domains": list(abruf_domains if abruf_domains is not None else domains)}
         if max_inhalt_tokens:
             abruf["max_content_tokens"] = max_inhalt_tokens
         werkzeuge.append(abruf)
+    inhalt: str | list = text
+    if dokumente:
+        inhalt = [{"type": "document", "source": {"type": "text", "media_type": "text/plain", "data": d["text"]},
+                   "title": d["titel"][:500], **({"context": d["kontext"][:2000]} if d.get("kontext") else {})}
+                  for d in dokumente]
+        inhalt[-1]["cache_control"] = {"type": "ephemeral"}
+        inhalt.append({"type": "text", "text": text})
     anfrage = dict(model=modell, max_tokens=MAX_TOKENS, system=system, tools=werkzeuge, cache_control={"type": "ephemeral"},
-                   output_config={"effort": effort}, messages=[{"role": "user", "content": text}])
+                   output_config={"effort": effort}, messages=[{"role": "user", "content": inhalt}])
     if modell in MIT_FALLBACK:
         anfrage.update(betas=[FALLBACK_BETA], fallbacks="default")
     return anfrage
@@ -170,10 +182,12 @@ class AnthropicAnbieter:
         return KiAntwort(daten=daten, rohtext=rohtext, modell=getattr(nachricht, "model", self.modell), nutzung=nutzung)
 
     def websuche(self, system: str, text: str, domains: tuple[str, ...], max_suchen: int, max_abrufe: int,
-                 zeitlimit: float, effort: str = "high", max_inhalt_tokens: int | None = None, einfach: bool = False) -> KiAntwort:
+                 zeitlimit: float, effort: str = "high", max_inhalt_tokens: int | None = None, einfach: bool = False,
+                 abruf_domains: tuple[str, ...] | None = None, dokumente: list[dict] | None = None) -> KiAntwort:
         _schluessel_pruefen()
         client = anthropic.Anthropic(timeout=anthropic.Timeout(zeitlimit, connect=10.0), max_retries=1)
-        anfrage = websuche_anfrage(self.modell, system, text, domains, max_suchen, max_abrufe, effort, max_inhalt_tokens, einfach)
+        anfrage = websuche_anfrage(self.modell, system, text, domains, max_suchen, max_abrufe, effort, max_inhalt_tokens, einfach,
+                                   abruf_domains, dokumente)
         frist = time.monotonic() + zeitlimit
         nutzung, texte, modell = {}, [], self.modell
         for _ in range(MAX_RUNDEN):

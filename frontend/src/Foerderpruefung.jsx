@@ -216,6 +216,14 @@ export function stufeText(e) {
   return "gründlich";
 }
 
+// Prüfsummen-Abgleich der Quelldokumente (20.11.2026) – Bewertung kommt aus dem Backend
+export function abgleichText(a) {
+  if (a?.ergebnis === "gleich") return "unverändert";
+  if (a?.ergebnis === "geaendert") return "online geändert – neue Fassung hinterlegen";
+  if (a?.ergebnis === "fehler") return `nicht abgeglichen (${a.fehler || "Fehler"})`;
+  return "–";
+}
+
 // Kosten je Stufe (Vorprüfung Sonnet, gründlich Opus – Modell je Stufe in der .env)
 export function kostenStufen(e) {
   const k = e?.lauf?.kosten_stufen;
@@ -244,6 +252,11 @@ function MeldungDetails({ m, ich, onEntwurf, onFertig }) {
       {presse.length > 0 && <>
         <h3>Pressemitteilungen (Vorprüfung)</h3>
         <ul>{presse.map((x, i) => <li key={i}>{x.titel}{x.datum && ` (${x.datum})`} {istLink(x.quelle) && <a href={x.quelle} target="_blank" rel="noopener noreferrer">öffnen</a>}</li>)}</ul>
+      </>}
+      {Array.isArray(e.quellen_abgleich) && e.quellen_abgleich.length > 0 && <>
+        <h3>Quelldokumente (Prüfsumme)</h3>
+        <ul>{e.quellen_abgleich.map(a => <li key={a.quelle_id}>{a.titel} (Stand {a.stand}): {abgleichText(a)}
+          {a.beigefuegt ? " · Inhalt mitgegeben" : ""}</li>)}</ul>
       </>}
       {e.hinweise?.length > 0 && <><h3>Hinweise der Prüfung</h3><ul>{e.hinweise.map((h, i) => <li key={i}>{h}</li>)}</ul></>}
       {e.verworfen?.length > 0 && <p className="klein">{e.verworfen.length} Angabe(n) der KI wurden nicht übernommen (unbekanntes Feld, falsches Format oder kein Unterschied).</p>}
