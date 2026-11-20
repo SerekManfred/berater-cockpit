@@ -111,7 +111,7 @@ Verbindlich zusätzlich zu den unverhandelbaren Regeln; Einzelheiten in den Absc
   Programme; 4 Merkblatt 261 – Merkblatt, ab 24.09.2026, beg_wg; 5 Infoblatt 11.1 – Richtlinie (Anlage), ab 01.11.2026,
   beg_em/beg_em_heizung/beg_wg (kfw.de: nur Prüfsumme, KI ruft selbst ab). Abgleich 20.11.2026: alle gültigen unverändert.
   **Offen (macht Manfred):** amtliche Fassung BEG EM BAnz AT 27.08.2026 B1 und die TMA hochladen; danach Quelle 1 „gültig bis“.
-- **Generator:** **0.6.2** (0.6.0 KfW 458 Paket 3, 0.6.1/0.6.2 Entscheidungen GF 20.11.2026); im Testsystem eingespielt siehe unten (Fördervergleich: WPB-Fall nach Grundlage, Kriterien nur aus den Konditionen; INIT unverändert seit 0.4.9).
+- **Generator:** **0.6.3** (0.6.0 KfW 458 Paket 3, 0.6.1/0.6.2 Entscheidungen GF 20.11.2026, 0.6.3 Satz FAQ Nr. 9.15) (Fördervergleich: WPB-Fall nach Grundlage, Kriterien nur aus den Konditionen; INIT unverändert seit 0.4.9).
   Prompts: Schnellweg `init-4`, Detailbearbeitung `init-1`.
 - **Konditionen:** Version **6 aktiv** (Stand 17.11.2026), Version **7 geplant** ab 01.02.2027, Version **8 Entwurf** (Kopie von V7 +
   WPB-Kriterien nach Infoblatt 11.1 mit Fundstellen) – **nicht eingereicht**. Quelldokumente 1–5: Richtlinie BEG EM 17.07.2026,
@@ -130,7 +130,7 @@ Verbindlich zusätzlich zu den unverhandelbaren Regeln; Einzelheiten in den Absc
   - **Quelle KfW 458** (GF 20.11.2026): Konditionen nicht ändern ohne Vier-Augen-Freigabe; Vorschlag
     `app/konditionen/vorschlag_quelle_kfw458.json` (Quelle Richtlinie BEG EM Nr. 8.4, S. 18–21, nur Feld `quelle`) – nicht
     eingespielt; bis dahin „Quelle nicht geprüft“ im Fördervergleich. Offen: nach Hochladen der BAnz-Fassung deren Seiten nennen.
-  - **FAQ-Satz Nr. 9.15** (Bilanzierung als Elektro-Direktheizung): erst nach Hochladen der beiden FAQ-Dateien, als eigener Commit.
+  - **FAQ-Satz Nr. 9.15:** erledigt mit Generator 0.6.3 (20.11.2026, Quelldokument 8 hochgeladen und geprüft).
   - **Laufzeitende 31.12.2030** (Vorschlag-Dateien, siehe Konditionen-Zentrale) – in Entwurf V8 oder die nächste Version
     einspielen? (Entscheidung offen.)
   - **Maßnahmenkatalog** (Bauteil, Standardtext, Kostenkennwert) – Vorschlag gemacht; festgelegt: Kostenkennwerte ohne Vier-Augen
@@ -833,7 +833,7 @@ Stufe 2 Variante B (Staffelwert in der Version nach `antrag_geplant_am`, leer = 
   `docs/auftraege/Auftrag_EH_systemneutral_Paket3.md`): keine Zulässigkeitsregel für irgendeine Heizart, maßgeblich ist die
   Bilanz (Qp, H′T); kein Ausschluss, kein eigener Zuschuss, **kein Prüfhinweis**. Eingabe `stromdirekt_alleiniges_heizsystem`
   (ja/nein/leer) bleibt als reine Angabe ohne Auswirkung. Aussage einmal im Word (Generator 0.6.0, Kapitel 5); Fundstelle
-  „Technische FAQ Nr. 9.15“ erst nach Hochladen und Prüfung des Dokuments. **Nichtwohngebäude** (Gebäudeart des Projekts):
+  „Technische FAQ Effizienzhaus Nr. 9.15, S. 53“ seit Generator 0.6.3. **Nichtwohngebäude** (Gebäudeart des Projekts):
   Hinweis „Förderung ab 12/2026 angekündigt, noch nicht in Kraft“ (Infoblatt 11.1 Nr. 4.1.9, S. 30; Richtlinie BEG EM Nr. 5.3 j,
   Räume > 4 m). INIT: `foerder.heizung_stromdirekt` (Detailbearbeitung, Schnellweg-Rückfrage `stromdirekt` bei Fundstelle in
   Checkliste/Notizen) → Heizungszuschuss 0 mit Hinweis. Tests: `tests/test_stromdirekt.py`, `HeizungKfw458.test.jsx`.
@@ -844,8 +844,9 @@ Stufe 2 Variante B (Staffelwert in der Version nach `antrag_geplant_am`, leer = 
   Kapitel 5 systemneutral (Infoblatt 11.1 Nr. 9.2 S. 45). INIT: 7.5 „Förderpotenzial (Obergrenzen)“, Anhang Weg A aus
   `werte.zuschuss`, Eigenanteil nur aus echten Kosten, Termine der Fußnote aus `saetze.heizung_klima_hinweis`/`_kosten_hinweis`.
   Ältere Daten wie 0.5.1 (Textvergleich), Generator-Tests mit Fixtures aus dem Rechenkern (`generator/test/fixtures_kfw458/`).
-  **Offen:** Satz „Im Effizienzhaus wird sie als Elektro-Direktheizung bilanziert (Technische FAQ, Nr. 9.15)“ erst nach Hochladen
-  und Prüfung der Technischen FAQ; Quelle `kfw_458.quelle` nennt eine Sekundärquelle (Ökozentrum NRW) und erscheint im Bericht.
+  **Generator 0.6.3** (20.11.2026): Kapitel 5 bei Stromdirektheizung zusätzlich „Im Effizienzhaus wird eine Infrarotheizung als
+  Elektro-Direktheizung nach DIN V 18599-5 bilanziert (Technische FAQ Effizienzhaus, Version 7.0, Nr. 9.15, S. 53).“
+  (Quelldokument 8). Quelle `kfw_458.quelle` (Sekundärquelle) trägt im Bericht „– Quelle nicht geprüft“ (0.6.1/0.6.2).
 - **INIT-Skill im Chat hat denselben Fehler** (`generate_report.js`/`foerder_rechnung.js` im Skill-Paket „energieberatungsbericht“):
   `heizMax` und `em_foerder_mit` auf Höchstkosten, als „Zuschuss“ beschriftet, „Geschätzter Eigenanteil“ = Kosten − Potenzial,
   Boni höchstens für eine WE. Nach Stufe 1 den korrigierten Generator als Skill-Paket bereitstellen (Zip nicht einchecken).

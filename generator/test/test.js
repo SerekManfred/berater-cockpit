@@ -198,6 +198,10 @@ async function text(daten) {
     for (const z of [W1, "nicht förderfähig (Stromdirektheizung)", "Nr. 9.2, S. 45 (Elektro-Direktheizungen in Einzelmaßnahmen)",
       "„Infrarotheizung“: in Einzelmaßnahmen nicht förderfähig (Stromdirektheizung)"]) assert(ts.includes(z), "Stromdirekt: " + z);
     for (const z of ["Nachweis über die Bilanzierung erforderlich", "alleinige", "Vorgabe GF", "Für die EE-Klasse zählen nur"]) assert(!ts.includes(z), "Stromdirekt alt: " + z);
+    // ab 0.6.3: Satz zur Bilanzierung nach Technischer FAQ Effizienzhaus Nr. 9.15 – nur bei Stromdirektheizung
+    const S915 = "Im Effizienzhaus wird eine Infrarotheizung als Elektro-Direktheizung nach DIN V 18599-5 bilanziert (Technische FAQ Effizienzhaus, Version 7.0, Nr. 9.15, S. 53).";
+    assert(ts.includes(S915), "Stromdirekt: Satz Nr. 9.15");
+    for (const n of ["fall_a", "fall_c", "fall_e", "efh_wp_20000", "eh_heizung"]) assert(!(await text(kx(n))).includes("9.15"), n + ": ohne Stromdirektheizung kein Satz Nr. 9.15");
     const tn = await text(kx("stromdirekt_nwg"));
     assert(tn.includes("Förderung ab 12/2026 angekündigt, noch nicht in Kraft (Infoblatt 11.1, Nr. 4.1.9, S. 30"), "NWG: Ankündigung");
     // Kennung gilt vor der Bezeichnung; ohne Kennung (ältere Daten) Erkennung wie 0.5.1

@@ -224,3 +224,12 @@ Geschäftsführung 20.11.2026: Der Vermerk „– Quelle nicht geprüft“ häng
 `quellen_ungeprueft` steht (BEG EM, BEG EM Heizung, KfW 458, iSFP, BEG WG, KfW 266) – bis 0.6.1 nur an KfW 458. Das Cockpit
 meldet derzeit `beg_em` und `kfw_458` (Sekundärquelle „Ökozentrum NRW“). Ohne das Feld unverändert.
 
+## Bilanzierung der Infrarotheizung im Effizienzhaus (ab 0.6.3)
+Geschäftsführung 20.11.2026, nach Hochladen der Technischen FAQ Effizienzhaus/-gebäude Version 7.0 (Quelldokument 8,
+Nr. 9.15, S. 53: „Bei elektrischen Infrarotheizungen handelt es sich im Sinne der DIN V 18599-5 um Elektro-Direktheizungen …“).
+Fördervergleich Kapitel 5, nur bei Stromdirektheizung, direkt nach dem Satz zum Infoblatt 11.1 Nr. 9.2: „Im Effizienzhaus wird
+eine Infrarotheizung als Elektro-Direktheizung nach DIN V 18599-5 bilanziert (Technische FAQ Effizienzhaus, Version 7.0,
+Nr. 9.15, S. 53).“ Ohne Stromdirektheizung unverändert.
+Textvergleich gegen 0.6.2 (Daten des Word-Durchlaufs 20.11.2026): Fall C, Fall E, EFH, INIT mit Kosten gleich; Stromdirekt nur
+der neue Satz.
+

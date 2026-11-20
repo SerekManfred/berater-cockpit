@@ -297,7 +297,10 @@ function erstelleFoerdervergleich(d) {
   if (wg.ee_klasse_pflicht) bes.push(`**EE-Klasse:** Für die Effizienzhaus-Förderung ist sie Pflicht${mit266 ? ", für KfW 266 ebenfalls (auch bei Einzelmaßnahmen)" : ""}. ${ee ? "Sie muss vor dem Antrag rechnerisch nachgewiesen werden." : "Laut Eingabe ist sie **nicht erreichbar**."}`);
   // ab 0.6.0: Effizienzhaus systemneutral (Entscheidung Geschäftsführung 20.11.2026) – keine Regel je Heizart, maßgeblich ist die
   // Bilanz. Satz zur Bilanzierung als Elektro-Direktheizung (Technische FAQ Nr. 9.15) erst nach Hochladen und Prüfung der FAQ.
-  if (istIR) bes.push("**Infrarot-/Stromdirektheizung:** in BEG EM nicht förderfähig (Infoblatt 11.1, Nr. 9.2, S. 45). Der Bilanznachweis durch den Experten gilt für alle Heizsysteme.");
+  // ab 0.6.3 (Geschäftsführung 20.11.2026, nach Hochladen der Technischen FAQ Effizienzhaus 7.0 als Quelldokument 8, Nr. 9.15 S. 53):
+  // Satz zur Bilanzierung – nur bei Stromdirektheizung, wörtlich wie freigegeben
+  if (istIR) bes.push("**Infrarot-/Stromdirektheizung:** in BEG EM nicht förderfähig (Infoblatt 11.1, Nr. 9.2, S. 45). Der Bilanznachweis durch den Experten gilt für alle Heizsysteme. "
+    + "Im Effizienzhaus wird eine Infrarotheizung als Elektro-Direktheizung nach DIN V 18599-5 bilanziert (Technische FAQ Effizienzhaus, Version 7.0, Nr. 9.15, S. 53).");
   const isfpMin = (s.EM_ohne_WPB.hinweise || []).find(h => /^iSFP-Bonus erst ab/.test(h));
   if (isfpMin) bes.push(`**iSFP-Bonus:** ${isfpMin.replace(/^iSFP-Bonus /, "")}.`);
   if (hatBWWP) bes.push("**Brauchwasser-Wärmepumpe:** in BEG EM nur als Umfeldmaßnahme einer förderfähigen Heizung förderfähig.");
