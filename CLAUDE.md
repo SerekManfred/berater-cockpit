@@ -797,9 +797,11 @@ Stufe 2 Variante B (Staffelwert in der Version nach `antrag_geplant_am`, leer = 
   `beg_em_heizung.stromdirektheizung_foerderfaehig` nein ist (seit Version 1; Beleg Infoblatt 11.1 Nr. 9.2, S. 45). Erkennung an der
   Bezeichnung (`STROMDIREKT`, `ist_stromdirekt()` in `app/rechnen.py` → `Massnahme.stromdirektheizung`, `em_massnahmen()` im
   Rechenkern); Rechnen liefert `stromdirekt_hinweise`, **Speichern nur mit `stromdirekt_bestaetigt`** (sonst 422; Haken
-  „Stromdirektheizung geprüft“). **Effizienzhaus:** zulässig als alleiniges Heizsystem, kein Ausschluss, kein eigener Zuschuss;
-  Eingabe `stromdirekt_alleiniges_heizsystem` (ja/nein/leer) → bei nein bzw. leer Prüfhinweis – **„Vorgabe GF“, Fundstelle
-  BEG WG offen** (Richtlinie BEG WG nicht hinterlegt, Merkblatt 261 ohne Aussage). **Nichtwohngebäude** (Gebäudeart des Projekts):
+  „Stromdirektheizung geprüft“). **Effizienzhaus systemneutral** (Entscheidung Geschäftsführung 20.11.2026,
+  `docs/auftraege/Auftrag_EH_systemneutral_Paket3.md`): keine Zulässigkeitsregel für irgendeine Heizart, maßgeblich ist die
+  Bilanz (Qp, H′T); kein Ausschluss, kein eigener Zuschuss, **kein Prüfhinweis**. Eingabe `stromdirekt_alleiniges_heizsystem`
+  (ja/nein/leer) bleibt als reine Angabe ohne Auswirkung. Aussage einmal im Word (Generator 0.6.0, Kapitel 5); Fundstelle
+  „Technische FAQ Nr. 9.15“ erst nach Hochladen und Prüfung des Dokuments. **Nichtwohngebäude** (Gebäudeart des Projekts):
   Hinweis „Förderung ab 12/2026 angekündigt, noch nicht in Kraft“ (Infoblatt 11.1 Nr. 4.1.9, S. 30; Richtlinie BEG EM Nr. 5.3 j,
   Räume > 4 m). INIT: `foerder.heizung_stromdirekt` (Detailbearbeitung, Schnellweg-Rückfrage `stromdirekt` bei Fundstelle in
   Checkliste/Notizen) → Heizungszuschuss 0 mit Hinweis. Tests: `tests/test_stromdirekt.py`, `HeizungKfw458.test.jsx`.

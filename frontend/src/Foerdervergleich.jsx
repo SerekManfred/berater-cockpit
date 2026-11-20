@@ -527,12 +527,12 @@ export function Foerdervergleich({ titel = "Fördervergleich Einzelmaßnahmen / 
       </div>}
       {stromHinweise.length > 0 && <div className="warnung karte" role="alert">
         {stromHinweise.map(h => <p key={h} style={{ margin: "0 0 6px" }}>{h}</p>)}
-        <label>Im Effizienzhaus: Stromdirektheizung ist das alleinige Heizsystem
+        <label>Im Effizienzhaus: alleiniges Heizsystem (nur Angabe, ohne Auswirkung auf die Berechnung)
           <select value={d.stromdirekt_alleiniges_heizsystem === true ? "ja" : d.stromdirekt_alleiniges_heizsystem === false ? "nein" : ""}
             onChange={e => setOpt("stromdirekt_alleiniges_heizsystem", e.target.value === "" ? null : e.target.value === "ja")}>
             <option value="">keine Angabe</option><option value="ja">ja</option><option value="nein">nein</option>
           </select></label>
-        <p className="klein" style={{ margin: "6px 0" }}>Nach einer Änderung bitte neu berechnen. Bei „nein“ erscheint im Effizienzhaus ein Prüfhinweis.</p>
+        <p className="klein" style={{ margin: "6px 0" }}>Maßgeblich im Effizienzhaus ist die Bilanz (Qp, H′T) – für alle Heizsysteme gleich. Nach einer Änderung bitte neu berechnen (die Angabe wird mit dem Bericht gespeichert).</p>
         {onSpeichern && <label><input type="checkbox" checked={stromGeprueft} onChange={e => setStromGeprueft(e.target.checked)} />
           {" "}Stromdirektheizung geprüft – im Weg Einzelmaßnahmen ohne Förderung</label>}
       </div>}

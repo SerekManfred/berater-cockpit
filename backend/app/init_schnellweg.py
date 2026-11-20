@@ -67,7 +67,7 @@ def defekt_hinweis(d: dict) -> str | None:
 
 
 STROMDIREKT_FRAGE = ("Ist die neue Heizung eine Stromdirekt- oder Infrarotheizung? In Einzelmaßnahmen (Weg A) ist sie nicht "
-                     "förderfähig – „ja“ setzt den Heizungszuschuss auf 0; im Effizienzhaus ist sie als alleiniges Heizsystem zulässig.")
+                     "förderfähig – „ja“ setzt den Heizungszuschuss auf 0.")
 
 
 def stromdirekt_hinweis(d: dict) -> str | None:

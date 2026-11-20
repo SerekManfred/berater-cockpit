@@ -101,7 +101,7 @@ describe("Heizung KfW 458 im Fördervergleich", () => {
     expect(gespeichert.mock.calls[0][0].waermeerzeuger_bestaetigt).toBe(true);
   });
 
-  it("Stromdirektheizung: Warnung, „alleiniges Heizsystem“ wählbar, Speichern erst nach „Stromdirektheizung geprüft“", async () => {
+  it("Stromdirektheizung: Warnung, „alleiniges Heizsystem“ nur Angabe ohne Prüfhinweis, Speichern erst nach „Stromdirektheizung geprüft“", async () => {
     const hinweis = "„Infrarotheizung“: in Einzelmaßnahmen nicht förderfähig (Stromdirektheizung).";
     const gespeichert = vi.fn(async () => {});
     const start = { ...LEER, ohne_angebote: { grund: "extern beauftragt" },
@@ -112,7 +112,12 @@ describe("Heizung KfW 458 im Fördervergleich", () => {
     fireEvent.click(screen.getByRole("button", { name: "Berechnen" }));
     await warten();
     expect(screen.getByText(hinweis)).toBeTruthy();
-    expect(screen.getByLabelText(/alleinige Heizsystem/)).toBeTruthy();
+    const auswahl = screen.getByLabelText(/alleiniges Heizsystem \(nur Angabe/);
+    expect(screen.queryByText(/Prüfhinweis/)).toBeNull();
+    fireEvent.change(auswahl, { target: { value: "nein" } });
+    fireEvent.click(screen.getByRole("button", { name: "Berechnen" }));                 // gespeichert wird der berechnete Stand
+    await warten();
+    expect(rechnen.mock.calls.at(-1)[0].stromdirekt_alleiniges_heizsystem).toBe(false);
     const speichern = screen.getByRole("button", { name: "Speichern" });
     expect(speichern.disabled).toBe(true);
     fireEvent.click(screen.getByLabelText(/Stromdirektheizung geprüft/));
@@ -120,5 +125,6 @@ describe("Heizung KfW 458 im Fördervergleich", () => {
     fireEvent.click(speichern);
     await warten();
     expect(gespeichert.mock.calls[0][0].stromdirekt_bestaetigt).toBe(true);
+    expect(gespeichert.mock.calls[0][0].stromdirekt_alleiniges_heizsystem).toBe(false);
   });
 });

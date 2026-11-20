@@ -268,7 +268,10 @@ Effizienzhaus (FAQ 1.5); beim Zuschuss stellt die WEG den Basisantrag. Sondereig
   Elektro-Direktheizungen nicht förderfähig: • Elektro-Speicherheizungen • Nachtstromspeicherheizungen • Elektro-Heizstrahler
   • Infrarot-Heizungen (Ausnahme Strahlungsheizungen in Nichtwohngebäude gemäß Nummer 4.1.9), etc.“ (gleich im Infoblatt 10.0,
   S. 37; BEG-FAQ S. 39: „Nicht förderfähig sind Stromdirektheizungen.“). Warnung, Speichern nur mit Bestätigung.
-- **Effizienzhaus:** zulässig als alleiniges Heizsystem, kein Ausschluss, kein eigener Heizungszuschuss – **Vorgabe GF**, Fundstelle
+- **Effizienzhaus (geändert 20.11.2026, Entscheidung Geschäftsführung): systemneutral** – keine Zulässigkeitsregel für
+  irgendeine Heizart (Wärmepumpe, Gas, Öl, Infrarot), maßgeblich ist die Bilanz (Qp, H′T); kein Ausschluss, kein eigener
+  Heizungszuschuss, kein Prüfhinweis; die Angabe „alleiniges Heizsystem“ bleibt ohne Auswirkung. Fundstelle Technische FAQ
+  Nr. 9.15 erst nach Hochladen prüfen. *Bisher (überholt):* zulässig als alleiniges Heizsystem – Vorgabe GF, Fundstelle
   offen (Richtlinie BEG WG nicht als Quelldokument hinterlegt; Merkblatt 261 ohne Treffer).
 - **Nichtwohngebäude:** Richtlinie BEG EM Nr. 5.3 j (S. 10) „Strahlungsheizungen in Nichtwohngebäuden … mit mehr als 4 Meter
   Raumhöhe“; Anlage Nr. 3.10.1 (S. 56) „Der konkrete Zeitpunkt, ab dem Strahlungsheizungssysteme förderfähig sind, wird … von der

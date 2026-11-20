@@ -40,7 +40,7 @@ fachregeln:
   - wenn: "bestandsheizung == 'fossil, älter als 5 Jahre' and kfw266"
     meldung: "KfW 266 verlangt die EE-Klasse (mindestens EH 85 EE)."
   - wenn: "massnahmen enthält Infrarot/Stromdirektheizung"
-    meldung: "Stromdirektheizung ist in BEG EM nicht förderfähig; EE-Klasse nur über WRG, Brauchwasser-WP und PV-Eigenstrom erreichbar."
+    meldung: "Stromdirektheizung ist in BEG EM nicht förderfähig (Infoblatt 11.1, Nr. 9.2); im Effizienzhaus gilt der Bilanznachweis wie für alle Heizsysteme."
   - wenn: "massnahmen enthält Wärmeerzeuger als anlagentechnik"
     meldung: "Wärmeerzeuger als „Heizung – Wärmeerzeuger (KfW 458)“ einordnen; Speichern nur mit „Einordnung geprüft“ (app/rechnen.py)."
   - wenn: "wpb_status == 'ja'"

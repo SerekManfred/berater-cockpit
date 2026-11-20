@@ -3,7 +3,8 @@ Einzelmaßnahmen: nie gefördert, egal unter welcher Einordnung – Infoblatt f�
 S. 45: „Zusätzlich sind bei Einzelmaßnahmen (BEG EM) Elektro-Direktheizungen nicht förderfähig: • Elektro-Speicherheizungen
 • Nachtstromspeicherheizungen • Elektro-Heizstrahler • Infrarot-Heizungen (Ausnahme Strahlungsheizungen in Nichtwohngebäude gemäß
 Nummer 4.1.9), etc.“ Konditionen: beg_em_heizung.stromdirektheizung_foerderfaehig = nein (seit Version 1).
-Effizienzhaus: zulässig als alleiniges Heizsystem, kein Ausschluss – Vorgabe GF (Fundstelle BEG WG offen).
+Effizienzhaus: systemneutral, maßgeblich ist die Bilanz (Qp, H′T) – keine Zulässigkeitsregel je Heizart, kein Prüfhinweis
+(Entscheidung Geschäftsführung 20.11.2026, docs/auftraege/Auftrag_EH_systemneutral_Paket3.md).
 Nichtwohngebäude: Infoblatt 11.1 Nr. 4.1.9, S. 30 „voraussichtlich ab Dezember 2026“ – Hinweis, noch nicht in Kraft."""
 import copy
 import json
@@ -40,19 +41,25 @@ def test_einzelmassnahmen_nie_gefoerdert_egal_welche_einordnung(kategorie):
     assert s["kosten_energetisch"] == 60000                                      # Kosten zählen, Förderung nicht
 
 
-def test_effizienzhaus_zulaessig_kein_ausschluss_und_hinweis_je_angabe():
+def test_effizienzhaus_systemneutral_ohne_pruefhinweis():
     ohne = Eingaben(we_nach_sanierung=1, massnahmen=[Massnahme("Dach", 40000, "daemmung")], isfp=False)
-    mit = fall("nicht_foerderfaehig")
-    eh_ohne, eh_mit = sz(ohne, "EH_ohne_WPB"), sz(mit, "EH_ohne_WPB")
-    # Infrarotheizung zählt im Effizienzhaus zu den förderfähigen Kosten (kein Ausschluss, kein eigener Heizungszuschuss)
-    assert eh_mit["zuschuesse"]["tilgungszuschuss"] == pytest.approx(eh_ohne["zuschuesse"]["tilgungszuschuss"] * 60000 / 40000)
-    assert "kfw_458" not in eh_mit["zuschuesse"]
-    assert any("bitte angeben, ob sie das alleinige Heizsystem ist" in h for h in eh_mit["hinweise"])
-    nein = sz(fall("nicht_foerderfaehig", stromdirekt_alleiniges_heizsystem=False), "EH_ohne_WPB")
-    assert any("nicht das alleinige Heizsystem" in h for h in nein["hinweise"])
-    ja = sz(fall("nicht_foerderfaehig", stromdirekt_alleiniges_heizsystem=True), "EH_ohne_WPB")
-    assert not any("alleinige Heizsystem" in h for h in ja["hinweise"])
-    assert ja["zuschuesse"] == eh_mit["zuschuesse"]
+    eh_ohne = sz(ohne, "EH_ohne_WPB")
+    ergebnisse = [sz(fall("nicht_foerderfaehig", stromdirekt_alleiniges_heizsystem=w), "EH_ohne_WPB") for w in (True, False, None)]
+    for eh in ergebnisse:
+        # Infrarotheizung zählt im Effizienzhaus zu den förderfähigen Kosten (kein Ausschluss, kein eigener Heizungszuschuss)
+        assert eh["zuschuesse"]["tilgungszuschuss"] == pytest.approx(eh_ohne["zuschuesse"]["tilgungszuschuss"] * 60000 / 40000)
+        assert "kfw_458" not in eh["zuschuesse"]
+        assert not any("alleinige" in h or "Vorgabe GF" in h for h in eh["hinweise"])
+        assert eh["zuschuesse"] == ergebnisse[0]["zuschuesse"] and eh["hinweise"] == ergebnisse[0]["hinweise"]
+
+
+def test_hinweise_mit_fundstelle_und_ankuendigung():
+    em = sz(fall("anlagentechnik"), "EM_ohne_WPB")
+    assert any("Nr. 9.2, S. 45" in h for h in em["hinweise"])
+    nwg = sz(fall("anlagentechnik", nichtwohngebaeude=True), "EM_ohne_WPB")
+    assert any("angekündigt, noch nicht in Kraft" in h and "Nr. 4.1.9, S. 30" in h for h in nwg["hinweise"])
+    from app.init_schnellweg import STROMDIREKT_FRAGE
+    assert "Effizienzhaus" not in STROMDIREKT_FRAGE
 
 
 def test_regel_kommt_aus_den_konditionen():
@@ -102,7 +109,9 @@ def test_api_warnung_und_speichern_nur_mit_bestaetigung():
     c = nutzer("berater")
     r = c.post("/module/foerderung-em-eh/berechnen", json=EINGABEN)
     assert r.status_code == 200, r.text
-    assert "in Einzelmaßnahmen nicht förderfähig (Stromdirektheizung)" in r.json()["stromdirekt_hinweise"][0]
+    warnung = r.json()["stromdirekt_hinweise"][0]
+    assert "in Einzelmaßnahmen nicht förderfähig (Stromdirektheizung" in warnung
+    assert "Bilanznachweis" in warnung and "zulässig, wenn" not in warnung
     assert "waermeerzeuger_hinweise" not in r.json()                                 # keine doppelte Warnung
     p = projekt(c)
     r = c.post(f"/projekte/{p['id']}/berichte", json={"modul": MODUL, "eingaben": EINGABEN})
@@ -146,3 +155,4 @@ def test_init_foerder_vorschau_mit_stromdirekt(v3_aktiv):
     fertiger_entwurf(berater, p, klimabonus=True, heizung_stromdirekt=True)
     w = berater.get(ENTWURF.format(p["id"]) + "/foerder-vorschau").json()["werte"]["zuschuss"]
     assert w["heiz_zuschuss"] == 0 and w["hinweise"]
+

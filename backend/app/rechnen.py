@@ -245,7 +245,8 @@ class FoerdervergleichEingaben(BaseModel):
     heizung_bonus_we: int = Field(1, ge=0, le=9999)
     klimabonus: bool = False
     einkommensbonus: float = Field(0, ge=0, le=1)
-    # Stromdirektheizung im Effizienzhaus zulässig als alleiniges Heizsystem (Vorgabe GF 20.11.2026); leer = nicht angegeben
+    # „alleiniges Heizsystem“: nur Angabe, keine Auswirkung – im Effizienzhaus ist die Bilanz (Qp, H′T) maßgeblich,
+    # systemneutral (Entscheidung Geschäftsführung 20.11.2026); leer = nicht angegeben
     stromdirekt_alleiniges_heizsystem: bool | None = None
     # Optional: unsere Angebote A–D. Ersetzen kosten_baubegleitung und liefern den Ablauf im Bericht.
     angebote: AngeboteIn | None = None
@@ -321,10 +322,11 @@ def ist_stromdirekt(name: str | None) -> bool:
 
 
 def stromdirekt_hinweise(daten: "FoerdervergleichEingaben") -> list[str]:
-    """Stromdirektheizungen, egal unter welcher Einordnung (Vorgabe GF 20.11.2026): Warnung beim Rechnen, Speichern nur mit
+    """Stromdirektheizungen, egal unter welcher Einordnung (Vorgabe Geschäftsführung 20.11.2026): Warnung beim Rechnen, Speichern nur mit
     Bestätigung (stromdirekt_bestaetigt). Gefördert wird im Weg Einzelmaßnahmen nichts (Rechenkern)."""
-    return [f"„{m.name}“: in Einzelmaßnahmen nicht förderfähig (Stromdirektheizung). Im Weg Einzelmaßnahmen wird keine "
-            "Förderung angesetzt; im Effizienzhaus zulässig, wenn sie das alleinige Heizsystem ist."
+    return [f"„{m.name}“: in Einzelmaßnahmen nicht förderfähig (Stromdirektheizung; Infoblatt 11.1, Nr. 9.2, S. 45). Im Weg "
+            "Einzelmaßnahmen wird keine Förderung angesetzt. Im Effizienzhaus gilt, wie für alle Heizsysteme, der "
+            "Bilanznachweis (Qp, H′T)."
             for m in daten.massnahmen if ist_stromdirekt(m.name)]
 
 

@@ -72,7 +72,8 @@ class Eingaben:
     heizung_bonus_we: int = 1
     klimabonus: bool = False
     einkommensbonus: float = 0.0
-    # Stromdirektheizung im Effizienzhaus: zulässig als alleiniges Heizsystem (Vorgabe GF 20.11.2026); None = nicht angegeben
+    # „alleiniges Heizsystem“: nur Angabe, keine Auswirkung – im Effizienzhaus ist die Bilanz (Qp, H′T) maßgeblich,
+    # systemneutral für alle Heizsysteme (Entscheidung Geschäftsführung 20.11.2026); None = nicht angegeben
     stromdirekt_alleiniges_heizsystem: bool | None = None
     nichtwohngebaeude: bool = False
 
@@ -202,13 +203,9 @@ def wpb_em_angekuendigt(kond: dict) -> tuple[bool, str | None]:
 
 # Texte mit Fundstelle (lokal gesucht 20.11.2026). Keine Sätze oder Fristen als Rechenwert – nur Hinweise.
 STROMDIREKT_EM = ("„{name}“: in Einzelmaßnahmen nicht förderfähig (Stromdirektheizung) – im Weg Einzelmaßnahmen keine Förderung "
-                  "angesetzt (Infoblatt förderfähige Maßnahmen 11.1, Nr. 9.2)")
+                  "angesetzt (Infoblatt förderfähige Maßnahmen 11.1, Nr. 9.2, S. 45)")
 STROMDIREKT_NWG = ("Strahlungsheizungen in Nichtwohngebäuden (Räume über 4 m Raumhöhe): Förderung ab 12/2026 angekündigt, noch nicht "
-                   "in Kraft (Infoblatt 11.1, Nr. 4.1.9; Richtlinie BEG EM Nr. 5.3 j)")
-STROMDIREKT_EH_NEIN = ("Stromdirektheizung ist nicht das alleinige Heizsystem – Zulässigkeit im Effizienzhaus bitte prüfen "
-                       "(Vorgabe GF, Fundstelle BEG WG offen)")
-STROMDIREKT_EH_OFFEN = ("Stromdirektheizung im Effizienzhaus: bitte angeben, ob sie das alleinige Heizsystem ist "
-                        "(Vorgabe GF, Fundstelle BEG WG offen)")
+                   "in Kraft (Infoblatt 11.1, Nr. 4.1.9, S. 30; Richtlinie BEG EM Nr. 5.3 j)")
 
 
 def stromdirekt_ausgeschlossen(kond: dict) -> bool:
@@ -373,12 +370,8 @@ def effizienzhaus(e: Eingaben, kond: dict, wpb: bool) -> Szenario:
         s.zuschuesse["wpb_bonus"] = _r(wpb_satz * ff)
     s.zuschuesse["baubegleitung"] = _baubegleitung(e.we_nach_sanierung, e.bb_kosten("EH"), wg["baubegleitung"])
     s.angebotsweg = _angebotsweg(e, "EH", s.zuschuesse["baubegleitung"], wg["baubegleitung"]["satz"])
-    if any(m.stromdirektheizung and m.eh_foerderfaehig for m in e.massnahmen):
-        # Effizienzhaus: zulässig als alleiniges Heizsystem, kein eigener Heizungszuschuss, kein Ausschluss (Vorgabe GF 20.11.2026)
-        if e.stromdirekt_alleiniges_heizsystem is False:
-            s.hinweise.append(STROMDIREKT_EH_NEIN)
-        elif e.stromdirekt_alleiniges_heizsystem is None:
-            s.hinweise.append(STROMDIREKT_EH_OFFEN)
+    # Effizienzhaus systemneutral (Entscheidung Geschäftsführung 20.11.2026): keine Zulässigkeitsregel je Heizart, kein
+    # Prüfhinweis – maßgeblich ist die Bilanz (Qp, H′T); die Aussage steht einmal im Bericht (Generator, Kapitel 5)
     if any(m.em_kategorie == "heizung" and m.eh_foerderfaehig and not m.stromdirektheizung for m in e.massnahmen):
         s.hinweise.append("Heizung im Effizienzhaus-Paket (KfW 261) – kein zusätzlicher Zuschuss KfW 458 für dieselbe Heizung")
     s.kreditprogramm, s.kredit_pflicht = "KfW 261", True
