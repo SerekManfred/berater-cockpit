@@ -434,7 +434,10 @@ function erstelleFoerdervergleich(d) {
 
   // ---------- Quellen ----------
   ch.push(H1("Quellen"));
-  const quellen = [em.quelle, k["beg_em_heizung"]?.quelle, mit458 ? k.kfw_458?.quelle : null, k.isfp_beratung?.quelle, wg.quelle, mit266 ? k266.quelle : null, FT.quelle_tma_em,
+  // ab 0.6.1: Sekundärquellen kennzeichnet das Cockpit (quellen_ungeprueft, GF 20.11.2026) – der Generator hängt nur den Vermerk an
+  const ungeprueft = new Set(Array.isArray(d.quellen_ungeprueft) ? d.quellen_ungeprueft : []);
+  const vermerk = (pid, q) => (q && ungeprueft.has(pid)) ? q + " – Quelle nicht geprüft" : q;
+  const quellen = [em.quelle, k["beg_em_heizung"]?.quelle, mit458 ? vermerk("kfw_458", k.kfw_458?.quelle) : null, k.isfp_beratung?.quelle, wg.quelle, mit266 ? k266.quelle : null, FT.quelle_tma_em,
     istIR ? "BEG – Infoblatt zu den förderfähigen Maßnahmen und Leistungen, Version 11.1 (11/2026), Nr. 9.2, S. 45 (Elektro-Direktheizungen in Einzelmaßnahmen)" : null]
     .filter(Boolean);
   [...new Set(quellen)].forEach(q => ch.push(bullet(q, { size: 16 })));

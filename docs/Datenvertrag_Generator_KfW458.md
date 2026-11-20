@@ -29,3 +29,12 @@ Eingabe `stromdirekt_alleiniges_heizsystem` wird nicht ausgewertet.
 
 ## Gespeicherte Berichte
 Eingefroren (Word mit sha256). 0.6.0 wirkt nur auf neue Berichte und neue Versionen.
+
+## Nachtrag 0.6.1 (Entscheidungen Geschäftsführung 20.11.2026)
+- `foerderung.rechenkern.werte.zuschuss_eh` (INIT, neu): `null` oder {`kosten`, `foerderfaehig` (= min(Kosten, `eh_kredit`)),
+  `satz` (= `eh_tilgung`), `tilgungszuschuss`, `eigenanteil` (= Kosten − Tilgungszuschuss)}. Grundlage: Eingabe
+  `kosten_effizienzhaus` (Investitionskosten Weg B, nur vom Berater; bei „kein Effizienzhaus-Vergleich“ nicht übergeben).
+  Der Generator zeigt Eigenanteil B nur aus diesem Wert, sonst „—“.
+- `quellen_ungeprueft` (Fördervergleich, neu, optional): Liste von Programm-IDs, deren Quelle eine Sekundärquelle nennt
+  (`app/word.py: SEKUNDAERQUELLEN`); der Generator hängt „– Quelle nicht geprüft“ an die Quellenangabe.
+

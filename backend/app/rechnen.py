@@ -433,6 +433,7 @@ class InitFoerderEingaben(BaseModel):
     kosten_huelle: float | None = Field(None, ge=0)
     kosten_heizung: float | None = Field(None, ge=0)
     kosten_baubegleitung_heizung: float | None = Field(None, ge=0)
+    kosten_effizienzhaus: float | None = Field(None, ge=0)  # Weg B: Eigenanteil aus echten Kosten (GF 20.11.2026)
     # Neue Heizung ist eine Stromdirekt-/Infrarotheizung: im Weg A kein Heizungszuschuss (Infoblatt 11.1 Nr. 9.2)
     heizung_stromdirekt: bool = False
 

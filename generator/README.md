@@ -205,3 +205,17 @@ KfW 458 Stufe 1, Paket 3 (20.11.2026), Datenvertrag `docs/Datenvertrag_Generator
   Weg B (Effizienzhaus) unverändert als Höchstbetrag.
 - **Ältere Daten** (ohne `kfw_458`, ohne `potenzial`): Text wie 0.5.1, außer dem Stromdirekt-Absatz in Kapitel 5 und der
   zusätzlichen Quelle (Textvergleich 20.11.2026).
+
+## INIT Weg B aus echten Kosten, Fördervergleich „Quelle nicht geprüft“ (ab 0.6.1)
+Entscheidungen der Geschäftsführung vom 20.11.2026. Der Generator rechnet weiter nichts.
+- **INIT, nur mit `foerderung.rechenkern.werte.potenzial`:** „Gegenüberstellung der beiden Wege“ mit neuer Zeile
+  „Tilgungszuschuss aus Ihren Kosten (B)“ und „Geschätzter Eigenanteil“ Weg B aus `werte.zuschuss_eh` {kosten, foerderfaehig,
+  satz, tilgungszuschuss, eigenanteil} (Rechenkern: Tilgungszuschuss auf min(Kosten, Kreditbetrag)). Fehlt `zuschuss_eh`
+  (keine Kosten, kein Effizienzhaus-Ziel, NH-Bonus fehlt): „—“ – nie mehr „Kosten − Tilgungszuschuss auf den Höchstbetrag“.
+  Hinweis darunter „Weg B: x % Tilgungszuschuss auf … förderfähige Kosten = …“. Ältere Daten ohne `potenzial` unverändert.
+- **Fördervergleich:** `quellen_ungeprueft` (Liste von Programm-IDs, vom Cockpit aus dem Konditionen-Snapshot, `app/word.py`):
+  an der Quellenangabe dieser Programme „– Quelle nicht geprüft“ (derzeit nur `kfw_458` mit der Sekundärquelle
+  „Ökozentrum NRW“). Ohne das Feld unverändert.
+- Textvergleich gegen 0.6.0 (gleiche Eingaben): Fördervergleich Fälle A/B/C/E/EFH/EH/Stromdirekt gleich; INIT nur die neue
+  Zeile (ohne `zuschuss_eh` mit „—“). PDF-Sichtprüfung der Gegenüberstellung (cockpit-pdf) am 20.11.2026.
+

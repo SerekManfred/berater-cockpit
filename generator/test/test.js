@@ -233,6 +233,26 @@ async function text(daten) {
     // alter Datenstand (ohne werte.potenzial): INIT unverändert
     assert(bt.includes("7.5 Übersicht der maximal möglichen Förderung nach Wohneinheiten") && bt.includes("Summe Weg A (max. direkte Zuschüsse)"), "INIT alt unverändert");
   }
+  // ab 0.6.1 (GF 20.11.2026): INIT Weg B Eigenanteil aus echten Kosten (werte.zuschuss_eh), Fördervergleich „Quelle nicht geprüft“
+  {
+    const kx = n => JSON.parse(fs.readFileSync(path.join(__dirname, "fixtures_kfw458", n + ".json"), "utf8"));
+    const mitRk = (n, extra = {}) => { const x = JSON.parse(JSON.stringify(bd)); x.foerderung.rechenkern = kx(n);
+      Object.assign(x.foerderung, extra); return x; };
+    const tb = await alles(await erzeugeBericht("init", { daten: mitRk("init_eh_kosten", { kosten_einzel: "70.000 €", kosten_effizienzhaus: "120.000 €" }), bilder }));
+    for (const z of ["Tilgungszuschuss aus Ihren Kosten (B)", "6.000 €", "114.000 €",
+      "Weg B: 5 % Tilgungszuschuss auf 120.000 € förderfähige Kosten = 6.000 €."]) assert(tb.includes(z), "INIT 0.6.1 Weg B: " + z);
+    // nicht mehr aus dem Höchstbetrag: 120.000 € − 7.500 € (5 % von 150.000 €) = 112.500 €
+    assert(!tb.includes("112.500 €"), "INIT 0.6.1: Eigenanteil B nicht aus dem Höchstbetrag");
+    const tbo = await alles(await erzeugeBericht("init", { daten: mitRk("init_eh_ohne_kosten", { kosten_einzel: "70.000 €", kosten_effizienzhaus: "120.000 €" }), bilder }));
+    assert(!tbo.includes("112.500 €") && !tbo.includes("114.000 €") && tbo.includes("Tilgungszuschuss aus Ihren Kosten (B)"), "INIT 0.6.1: ohne Werte des Rechenkerns „—“");
+    assert(!/undefined|NaN|null/.test(tb + tbo), "INIT 0.6.1: undefined/NaN/null");
+    const fa = kx("fall_a");
+    const ohne = await text(fa);
+    assert(!ohne.includes("Quelle nicht geprüft"), "ohne Kennzeichnung kein Vermerk");
+    const mit = await text({ ...fa, quellen_ungeprueft: ["kfw_458"] });
+    assert(mit.includes(fa.konditionen.kfw_458.quelle + " – Quelle nicht geprüft"), "KfW 458: „Quelle nicht geprüft“ an der Quelle");
+    assert((mit.match(/Quelle nicht geprüft/g) || []).length === 1, "Vermerk nur an KfW 458");
+  }
   // ab 0.4.9: Versionsmeldung und Dokumenteigenschaften (nie im Text)
   {
     const JSZipV = require("jszip");

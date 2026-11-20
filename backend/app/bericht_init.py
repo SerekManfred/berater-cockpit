@@ -334,6 +334,7 @@ def _foerder_eingaben(d: dict) -> InitFoerderEingaben:
                                    we_bonus=f.get("we_bonus"), kosten_huelle=f.get("kosten_huelle"),
                                    kosten_heizung=f.get("kosten_heizung"),
                                    kosten_baubegleitung_heizung=f.get("kosten_baubegleitung_heizung"),
+                                   kosten_effizienzhaus=None if f.get("eh_kein_vergleich") else f.get("kosten_effizienzhaus"),
                                    heizung_stromdirekt=bool(f.get("heizung_stromdirekt")))
     except ValidationError as fehler:
         meldung = "; ".join(str(x.get("msg", "")).removeprefix("Value error, ") for x in fehler.errors())

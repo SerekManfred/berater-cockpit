@@ -33,6 +33,7 @@ class InitEingaben:
     kosten_huelle: float | None = None                 # förderfähige Kosten Gebäudehülle/Anlagentechnik (BEG EM, mit iSFP)
     kosten_heizung: float | None = None                # Wärmeerzeuger KfW 458
     kosten_baubegleitung_heizung: float | None = None  # KfW-Baubegleitung Heizung, zählt zu den Heizungskosten
+    kosten_effizienzhaus: float | None = None          # Investitionskosten Effizienzhaus (Weg B), nur vom Berater
     # Neue Heizung = Stromdirekt-/Infrarotheizung (Berater): in Einzelmaßnahmen nicht förderfähig, wenn die Konditionen sie
     # ausschließen (beg_em_heizung.stromdirektheizung_foerderfaehig nein; Infoblatt 11.1 Nr. 9.2) → Heizungszuschuss 0
     heizung_stromdirekt: bool = False
@@ -149,6 +150,19 @@ def zuschuss_echte_kosten(fs: dict, w: dict, e: InitEingaben) -> dict | None:
     return aus
 
 
+def zuschuss_eh_echte_kosten(w: dict, e: InitEingaben) -> dict | None:
+    """Weg B aus den Kosten des Beraters (Geschäftsführung 20.11.2026): Tilgungszuschuss auf die förderfähigen Kosten
+    (Investitionskosten, höchstens der Kredithöchstbetrag eh_kredit), Eigenanteil = Kosten − Tilgungszuschuss.
+    Nie aus dem Höchstbetrag: ohne Kosten oder ohne Satz (kein Effizienzhaus-Ziel, NH-Bonus fehlt) → None (Bericht „—“)."""
+    if e.kosten_effizienzhaus is None or w.get("eh_tilgung") is None:
+        return None
+    kosten = float(e.kosten_effizienzhaus)
+    ff = min(kosten, w["eh_kredit"])
+    zuschuss = _js_round(w["eh_tilgung"] * ff)
+    return {"kosten": kosten, "foerderfaehig": ff, "satz": w["eh_tilgung"], "tilgungszuschuss": zuschuss,
+            "eigenanteil": kosten - zuschuss}
+
+
 def init_foerderung(e: InitEingaben, kond: dict) -> dict:
     """Ergebnis für den Bericht: {konditionen_version, saetze, werte} → wird als foerderung.rechenkern übergeben."""
     if e.einkommensbonus not in (0, 0.0, 0.10, 0.30, 0.40):
@@ -203,4 +217,5 @@ def init_foerderung(e: InitEingaben, kond: dict) -> dict:
     # Stufe 1: alles aus rechne() ist Förderpotenzial (Obergrenzen); Zuschüsse nur aus echten Kosten
     werte["potenzial"] = True
     werte["zuschuss"] = zuschuss_echte_kosten(fs, werte, e)
+    werte["zuschuss_eh"] = zuschuss_eh_echte_kosten(werte, e)
     return {"konditionen_version": kond["version"], "saetze": fs, "werte": werte}

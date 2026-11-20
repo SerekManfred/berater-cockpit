@@ -1,0 +1,6 @@
+{
+ "_hinweis": "Vorschlag für die nächste Konditionen-Version (Entscheidung Geschäftsführung 20.11.2026, NICHT eingespielt): Die Quelle von KfW 458 nennt bisher die Sekundärquelle „Ökozentrum NRW Zusammenfassung BEG-Reform 18.08.2026“; bis zur Vier-Augen-Freigabe steht im Fördervergleich „Quelle nicht geprüft“ (app/word.py, SEKUNDAERQUELLEN). Neu als Primärquelle: Richtlinie BEG EM vom 17.07.2026 (Quelldokument 1 im Testsystem), Nr. 8.4 „Fördersätze des Investitionszuschusses“, S. 18–21 (8.4.1 Fördersätze Einzelmaßnahme S. 18, 8.4.4 Klimageschwindigkeits-Bonus S. 20, 8.4.5 Einkommens-Bonus S. 21). Sobald die amtliche Fassung BAnz AT 27.08.2026 B1 hochgeladen ist, diese Fassung und ihre Seiten nennen. Werte bleiben unverändert (nur das Feld quelle; Quelle braucht keine Fundstelle). Einspielen nur per Kommandozeile in einen offenen Entwurf (konditionen-entwurf-ergaenzen VERSION DATEI --notiz …), Freigabe Vier-Augen durch einen Menschen – das technische Konto darf weder bearbeiten noch einreichen noch freigeben.",
+ "kfw_458": {
+  "quelle": "Richtlinie BEG EM vom 17.07.2026 (in Kraft 21.07.2026), Nr. 8.4 Fördersätze des Investitionszuschusses (S. 18–21); KfW-Produktseite 458 und Hausbankenmitteilung 61/2026"
+ }
+}

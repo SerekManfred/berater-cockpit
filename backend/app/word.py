@@ -23,6 +23,19 @@ GENERATOR_PFAD = {"foerderung-em-eh": "/foerdervergleich"}
 DATEINAME = {"foerderung-em-eh": "Foerdervergleich"}
 TRANSPORT: httpx.BaseTransport | None = None  # nur für Tests austauschbar
 
+# Sekundärquellen in den Konditionen (Geschäftsführung 20.11.2026): bis eine Konditionen-Version mit Primärquelle
+# (Richtlinie BEG EM Nr. 8.4) die Vier-Augen-Freigabe hat, steht die Quelle im Bericht mit „Quelle nicht geprüft“.
+# Die Konditionen selbst bleiben unverändert; die Kennzeichnung entfällt von selbst, sobald die Quelle ersetzt ist.
+SEKUNDAERQUELLEN = {"kfw_458": ("Ökozentrum NRW",)}
+QUELLE_NICHT_GEPRUEFT = "Quelle nicht geprüft"
+
+
+def quellen_ungeprueft(konditionen: dict | None) -> list[str]:
+    """Programme, deren hinterlegte Quelle eine Sekundärquelle nennt (aus dem eingefrorenen Konditionen-Snapshot)."""
+    return [pid for pid, marken in SEKUNDAERQUELLEN.items()
+            if any(m in str(((konditionen or {}).get(pid) or {}).get("quelle") or "") for m in marken)]
+
+
 NICHT_ERREICHBAR = ("Der Word-Generator ist gerade nicht erreichbar. Bitte in einigen Minuten erneut versuchen; "
                     "besteht das Problem weiter, einen Admin informieren.")
 
@@ -58,6 +71,8 @@ def generator_daten(b: Bericht, p: Projekt, ersteller: str | None) -> dict:
         # Weg voran; ältere Berichte ohne Grundlage bleiben unverändert
         **({"wpb_grundlage_text": wpb_grundlage_text((b.eingaben or {}).get("wpb_grundlage"))}
            if (b.eingaben or {}).get("wpb_grundlage") and (b.eingaben or {}).get("wpb_status") in ("ja", "nein") else {}),
+        # Generator 0.6.1: Kennzeichnung „Quelle nicht geprüft“ an der Quellenangabe dieser Programme
+        **({"quellen_ungeprueft": quellen_ungeprueft(b.konditionen_snapshot)} if quellen_ungeprueft(b.konditionen_snapshot) else {}),
     }
 
 

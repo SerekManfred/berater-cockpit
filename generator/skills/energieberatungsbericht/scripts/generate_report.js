@@ -641,6 +641,9 @@ bodyText(foe.steuer).forEach(p => children.push(p));
 // Kennung (Skill im Chat, ältere Daten) bleibt der Bericht wie bis 0.5.1.
 const POT = !!(foe.rechenkern && foe.rechenkern.werte && foe.rechenkern.werte.potenzial);
 const ZK = POT ? (foe.rechenkern.werte.zuschuss || {}) : null;
+// ab 0.6.1 (GF 20.11.2026): Weg B aus den Kosten des Beraters (werte.zuschuss_eh: Tilgungszuschuss und Eigenanteil aus dem
+// Rechenkern) – nie aus dem Höchstbetrag; fehlt der Wert (keine Kosten eingetragen), steht „—“
+const ZE = POT ? (foe.rechenkern.werte.zuschuss_eh || null) : null;
 children.push(h2(POT ? "7.5 Förderpotenzial nach Wohneinheiten (Obergrenzen)" : "7.5 Übersicht der maximal möglichen Förderung nach Wohneinheiten"));
 // Overrides aus foerderung.saetze: leere Felder und Hinweis-Schlüssel ("_...") ignorieren,
 // damit die leere Vorlage die hinterlegten Standardwerte nicht mit "" überschreibt.
@@ -953,13 +956,17 @@ const anhang = D.anhang_fotos || [];
     ], [
       { k: POT ? "Förderung (A: Zuschüsse aus Ihren Kosten, B: höchstens)" : "Max. Förderung", a: _wert(wegAZ), b: (ehFoerder === null ? EM : eur(ehFoerder)) },
       { k: "Grobe Investitionskosten", a: (nA === null ? EM : eur(nA)), b: (nB === null ? EM : eur(nB)) },
-      { k: "Geschätzter Eigenanteil", a: ((nA === null || wegAZ == null) ? EM : eur(nA - wegAZ)), b: ((nB === null || ehFoerder === null) ? EM : eur(nB - ehFoerder)) },
+      ...(POT ? [{ k: "Tilgungszuschuss aus Ihren Kosten (B)", a: "—", b: ZE ? eur(ZE.tilgungszuschuss) : EM }] : []),
+      { k: "Geschätzter Eigenanteil", a: ((nA === null || wegAZ == null) ? EM : eur(nA - wegAZ)),
+        b: POT ? (ZE ? eur(ZE.eigenanteil) : EM) : ((nB === null || ehFoerder === null) ? EM : eur(nB - ehFoerder)) },
       { k: "Förderform", a: "direkte Zuschüsse", b: "Kredit + Tilgungszuschuss" },
       { k: "Umsetzung", a: "schrittweise", b: "gebündelt (EH-Standard)" },
     ]));
     children.push(spacer(60));
-    const _offen = nA === null || nB === null || ehFoerder === null || wegAZ == null;
+    const _offen = nA === null || nB === null || (POT ? ZE === null : ehFoerder === null) || wegAZ == null;
     children.push(noteBox((POT ? "Geschätzter Eigenanteil = Investitionskosten nach Angabe des Beraters abzüglich der Zuschüsse aus den eingetragenen Kosten. " : "")
+      + (POT && ZE ? "Weg B: " + Math.round(ZE.satz * 100) + " % Tilgungszuschuss auf " + eur(ZE.foerderfaehig) + " förderfähige Kosten"
+        + (ZE.foerderfaehig < ZE.kosten ? " (höchstens der Kreditbetrag)" : "") + " = " + eur(ZE.tilgungszuschuss) + ". " : "")
       + (_offen ? "Investitionskosten und Eigenanteil sind vom Berater einzutragen (\u201e\u2014\u201c = noch offen). " : "Investitionskosten nach Angabe des Beraters (grobe Schätzung). ")
       + "Die KfW-261-Förderung ist ein Tilgungszuschuss auf einen Förderkredit, die Einzelmaßnahmen-Zuschüsse werden "
       + "direkt ausgezahlt. Welcher Weg wirtschaftlicher ist, hängt von den konkreten Kosten, der Finanzierung und – "
