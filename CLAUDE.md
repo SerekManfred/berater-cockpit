@@ -111,7 +111,7 @@ Verbindlich zusätzlich zu den unverhandelbaren Regeln; Einzelheiten in den Absc
   Programme; 4 Merkblatt 261 – Merkblatt, ab 24.09.2026, beg_wg; 5 Infoblatt 11.1 – Richtlinie (Anlage), ab 01.11.2026,
   beg_em/beg_em_heizung/beg_wg (kfw.de: nur Prüfsumme, KI ruft selbst ab). Abgleich 20.11.2026: alle gültigen unverändert.
   **Offen (macht Manfred):** amtliche Fassung BEG EM BAnz AT 27.08.2026 B1 und die TMA hochladen; danach Quelle 1 „gültig bis“.
-- **Generator:** **0.5.1** eingespielt, **0.6.1** lokal (0.6.0 KfW 458 Paket 3, 0.6.1 Entscheidungen GF 20.11.2026; nicht eingespielt) (Fördervergleich: WPB-Fall nach Grundlage, Kriterien nur aus den Konditionen; INIT unverändert seit 0.4.9).
+- **Generator:** **0.6.2** (0.6.0 KfW 458 Paket 3, 0.6.1/0.6.2 Entscheidungen GF 20.11.2026); im Testsystem eingespielt siehe unten (Fördervergleich: WPB-Fall nach Grundlage, Kriterien nur aus den Konditionen; INIT unverändert seit 0.4.9).
   Prompts: Schnellweg `init-4`, Detailbearbeitung `init-1`.
 - **Konditionen:** Version **6 aktiv** (Stand 17.11.2026), Version **7 geplant** ab 01.02.2027, Version **8 Entwurf** (Kopie von V7 +
   WPB-Kriterien nach Infoblatt 11.1 mit Fundstellen) – **nicht eingereicht**. Quelldokumente 1–5: Richtlinie BEG EM 17.07.2026,
@@ -462,7 +462,8 @@ Verbindlich zusätzlich zu den unverhandelbaren Regeln; Einzelheiten in den Absc
 - **INIT Weg B** (gleiche Entscheidung): Eigenanteil aus echten Kosten – Rechenkern `werte.zuschuss_eh`
   (`zuschuss_eh_echte_kosten()`: Tilgungszuschuss auf min(`kosten_effizienzhaus`, Kreditbetrag), Eigenanteil = Kosten −
   Zuschuss; ohne Kosten/Satz `None` → „—“), Generator 0.6.1. **Sekundärquelle** in Konditionen: `word.SEKUNDAERQUELLEN`
-  (`kfw_458`: „Ökozentrum NRW“) → `quellen_ungeprueft` → „– Quelle nicht geprüft“ im Fördervergleich (Quellen).
+  (`beg_em` und `kfw_458`: „Ökozentrum NRW“; BEG EM ergänzt 20.11.2026, Konditionen unverändert) → `quellen_ungeprueft` →
+  „– Quelle nicht geprüft“ im Fördervergleich (Quellen; ab Generator 0.6.2 für jedes gemeldete Programm).
   Tests: `tests/test_entscheidungen_20261120.py`.
 
 ## Zahlenfelder in der Oberfläche (Stand 14.11.2026)

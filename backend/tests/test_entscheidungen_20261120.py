@@ -51,7 +51,8 @@ def test_bericht_init_uebergibt_kosten_effizienzhaus_ausser_bei_kein_vergleich()
 # ---------- 3. Sekundärquelle kfw_458: „Quelle nicht geprüft“ bis zur Freigabe ----------
 
 def test_sekundaerquelle_wird_gekennzeichnet():
-    assert word.quellen_ungeprueft(KOND) == ["kfw_458"]                       # Startbestand nennt „Ökozentrum NRW“
+    assert word.quellen_ungeprueft(KOND) == ["beg_em", "kfw_458"]             # Startbestand nennt „Ökozentrum NRW“ (beide)
+    assert word.quellen_ungeprueft({"beg_em": {"quelle": "Richtlinie BEG EM vom 17.07.2026"}}) == []
     assert word.quellen_ungeprueft({"kfw_458": {"quelle": "Richtlinie BEG EM Nr. 8.4"}}) == []
     assert word.quellen_ungeprueft({}) == [] and word.quellen_ungeprueft(None) == []
 
@@ -62,7 +63,7 @@ def test_vorschlag_quelle_richtlinie_ersetzt_die_kennzeichnung_und_aendert_keine
     assert "Nr. 8.4" in vorschlag["kfw_458"]["quelle"] and "Ökozentrum" not in vorschlag["kfw_458"]["quelle"]
     neu = json.loads(json.dumps(KOND))
     neu["kfw_458"].update(vorschlag["kfw_458"])
-    assert word.quellen_ungeprueft(neu) == []
+    assert word.quellen_ungeprueft(neu) == ["beg_em"]                         # KfW 458 frei, BEG EM bleibt gekennzeichnet
     assert {k: v for k, v in neu["kfw_458"].items() if k != "quelle"} == {k: v for k, v in KOND["kfw_458"].items() if k != "quelle"}
 
 
@@ -74,6 +75,7 @@ def test_generator_daten_mit_kennzeichnung(monkeypatch):
     b = SimpleNamespace(eingaben={"massnahmen": []}, ergebnis={"szenarien": []}, konditionen_snapshot=KOND, versionsnummer=1,
                         erstellt_am=datetime(2026, 11, 20, tzinfo=timezone.utc))
     p = SimpleNamespace(projektnummer="2026-0001", objekt_strasse="", objekt_plz="", objekt_ort="", gebaeudeart="MFH")
-    assert word.generator_daten(b, p, "Berater")["quellen_ungeprueft"] == ["kfw_458"]
-    b.konditionen_snapshot = {**KOND, "kfw_458": {**KOND["kfw_458"], "quelle": "Richtlinie BEG EM Nr. 8.4"}}
+    assert word.generator_daten(b, p, "Berater")["quellen_ungeprueft"] == ["beg_em", "kfw_458"]
+    b.konditionen_snapshot = {**KOND, "kfw_458": {**KOND["kfw_458"], "quelle": "Richtlinie BEG EM Nr. 8.4"},
+                              "beg_em": {**KOND["beg_em"], "quelle": "Richtlinie BEG EM vom 17.07.2026"}}
     assert "quellen_ungeprueft" not in word.generator_daten(b, p, "Berater")

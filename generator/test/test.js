@@ -252,6 +252,10 @@ async function text(daten) {
     const mit = await text({ ...fa, quellen_ungeprueft: ["kfw_458"] });
     assert(mit.includes(fa.konditionen.kfw_458.quelle + " – Quelle nicht geprüft"), "KfW 458: „Quelle nicht geprüft“ an der Quelle");
     assert((mit.match(/Quelle nicht geprüft/g) || []).length === 1, "Vermerk nur an KfW 458");
+    // ab 0.6.2: Vermerk für jedes gemeldete Programm, z. B. BEG EM (Quelle nennt neben der Richtlinie das Ökozentrum NRW)
+    const beide = await text({ ...fa, quellen_ungeprueft: ["beg_em", "kfw_458"] });
+    assert(beide.includes(fa.konditionen.beg_em.quelle + " – Quelle nicht geprüft"), "BEG EM: „Quelle nicht geprüft“");
+    assert((beide.match(/Quelle nicht geprüft/g) || []).length === 2, "Vermerk an BEG EM und KfW 458");
   }
   // ab 0.4.9: Versionsmeldung und Dokumenteigenschaften (nie im Text)
   {

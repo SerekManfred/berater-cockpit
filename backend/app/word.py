@@ -26,7 +26,8 @@ TRANSPORT: httpx.BaseTransport | None = None  # nur für Tests austauschbar
 # Sekundärquellen in den Konditionen (Geschäftsführung 20.11.2026): bis eine Konditionen-Version mit Primärquelle
 # (Richtlinie BEG EM Nr. 8.4) die Vier-Augen-Freigabe hat, steht die Quelle im Bericht mit „Quelle nicht geprüft“.
 # Die Konditionen selbst bleiben unverändert; die Kennzeichnung entfällt von selbst, sobald die Quelle ersetzt ist.
-SEKUNDAERQUELLEN = {"kfw_458": ("Ökozentrum NRW",)}
+# 20.11.2026 (Geschäftsführung): auch BEG EM – deren Quelle nennt neben der Richtlinie die Zusammenfassung des Ökozentrums.
+SEKUNDAERQUELLEN = {"beg_em": ("Ökozentrum NRW",), "kfw_458": ("Ökozentrum NRW",)}
 QUELLE_NICHT_GEPRUEFT = "Quelle nicht geprüft"
 
 

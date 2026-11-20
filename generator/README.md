@@ -219,3 +219,8 @@ Entscheidungen der Geschäftsführung vom 20.11.2026. Der Generator rechnet weit
 - Textvergleich gegen 0.6.0 (gleiche Eingaben): Fördervergleich Fälle A/B/C/E/EFH/EH/Stromdirekt gleich; INIT nur die neue
   Zeile (ohne `zuschuss_eh` mit „—“). PDF-Sichtprüfung der Gegenüberstellung (cockpit-pdf) am 20.11.2026.
 
+## „Quelle nicht geprüft“ für alle gemeldeten Programme (ab 0.6.2)
+Geschäftsführung 20.11.2026: Der Vermerk „– Quelle nicht geprüft“ hängt an jeder Quellenangabe, deren Programm in
+`quellen_ungeprueft` steht (BEG EM, BEG EM Heizung, KfW 458, iSFP, BEG WG, KfW 266) – bis 0.6.1 nur an KfW 458. Das Cockpit
+meldet derzeit `beg_em` und `kfw_458` (Sekundärquelle „Ökozentrum NRW“). Ohne das Feld unverändert.
+
