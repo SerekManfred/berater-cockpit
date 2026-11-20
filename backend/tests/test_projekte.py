@@ -175,7 +175,7 @@ def test_neu_rechnen_erzeugt_neue_version_statt_ueberschreiben():
     v2 = c.post(f"/berichte/{v1['id']}/neue-version", json={"eingaben": geaendert})
     assert v2.status_code == 201
     v2 = v2.json()
-    assert v2["id"] != v1["id"] and v2["versionsnummer"] == 2 and v2["ergebnis"] == vorschau
+    assert v2["id"] != v1["id"] and v2["versionsnummer"] == 2 and v2["ergebnis"] == {k: v for k, v in vorschau.items() if k != "eingabe_hash"}
     assert summen(v2) != SUMMEN_V1
     # aus einer älteren Version neu rechnen: nächste freie Nummer, nicht v1+1
     v3 = c.post(f"/berichte/{v1['id']}/neue-version", json={"eingaben": REFERENZFALL}).json()

@@ -53,6 +53,14 @@ def _festes_datum(monkeypatch):
 
 
 @pytest.fixture(autouse=True)
+def _speichern_ohne_berechnung(monkeypatch):
+    """Ältere Tests speichern Berichte direkt, ohne vorher zu berechnen. Die Regel „Speichern nur mit aktuellem
+    Berechnungsergebnis“ (Geschäftsführung 20.11.2026) prüfen eigene Tests mit eingeschalteter Regel
+    (tests/test_speichern_nach_berechnung.py); im Betrieb ist sie immer an."""
+    monkeypatch.setattr("app.rechnen.SPEICHERN_NUR_NACH_BERECHNUNG", False)
+
+
+@pytest.fixture(autouse=True)
 def _kein_netz_fuer_quellen(monkeypatch):
     """Der Prüfsummen-Abgleich der Förderprüfung lädt PDFs aus dem Netz – in Tests nie (einzelne Tests setzen einen Ersatz)."""
     def kein_netz(url):

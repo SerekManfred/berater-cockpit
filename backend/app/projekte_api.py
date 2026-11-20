@@ -26,6 +26,7 @@ from app.parteien import berichtskunde
 from app.protokoll import protokollieren
 from app import wohneinheiten
 from app.rechnen import MIT_PROJEKT_WE, NUR_UEBER_ENTWURF, RECHNER, angebote_entscheidung, kennzeichnung_nachtragen, wpb_grundlage_text, konditionen_stand, lade_konditionen
+from app.rechnen import berechnung_pruefen, eingabe_hash
 
 router = APIRouter(tags=["Projektakte"])
 
@@ -160,12 +161,14 @@ class BerichtNeu(BaseModel):
     eingaben: dict
     konditionen_version: int | None = None  # leer = aktuelle Version
     we_geprueft: bool = False  # „Wohneinheiten geprüft“ für die aktuellen Warnungen (app/wohneinheiten.py)
+    berechnet_hash: str | None = Field(None, max_length=64)  # eingabe_hash der letzten Berechnung (Pflicht, 20.11.2026)
 
 
 class NeuRechnen(BaseModel):
     eingaben: dict
     aktuelle_konditionen: bool = False  # nur auf ausdrücklichen Wunsch; sonst eingefrorene Version
     we_geprueft: bool = False
+    berechnet_hash: str | None = Field(None, max_length=64)  # eingabe_hash der letzten Berechnung (Pflicht, 20.11.2026)
 
 
 # ---------- Hilfen ----------
@@ -442,6 +445,7 @@ def bericht_speichern(projekt_id: int, daten: BerichtNeu, request: Request, ich:
     if daten.konditionen_version is not None and kond["version"] != lade_konditionen(db=db)["version"]:
         raise HTTPException(409, f"Inzwischen gilt eine neue Konditionen-Version (statt Version {kond['version']}). "
                                  "Bitte neu berechnen und dann speichern.")
+    berechnung_pruefen(daten.modul, daten.eingaben, kond["version"], daten.berechnet_hash)
     b = _bericht_speichern(db, request, p, daten.modul, daten.eingaben, kond, ich, we_geprueft=daten.we_geprueft)
     return bericht_lesen(b.id, ich, db)
 
@@ -497,7 +501,9 @@ def bericht_vorschau(bericht_id: int, daten: NeuRechnen, _: Benutzer = Depends(b
     """Vorschau für „Als neue Version bearbeiten“ – speichert nichts."""
     b, p = _bericht_laden(db, bericht_id)
     _nicht_ueber_entwurf(b.modul)
-    return _rechnen(b.modul, daten.eingaben, _kond_fuer_neu(b, daten.aktuelle_konditionen, db), p)[1]
+    kond = _kond_fuer_neu(b, daten.aktuelle_konditionen, db)
+    erg = _rechnen(b.modul, daten.eingaben, kond, p)[1]
+    return {**erg, "eingabe_hash": eingabe_hash(b.modul, daten.eingaben, kond["version"])}
 
 
 @router.post("/berichte/{bericht_id}/neue-version", status_code=201)
@@ -508,6 +514,7 @@ def bericht_neu_rechnen(bericht_id: int, daten: NeuRechnen, request: Request, ic
     _nicht_ueber_entwurf(b.modul)
     p = _projekt_laden(db, b.projekt_id, sperren=True)
     kond = _kond_fuer_neu(b, daten.aktuelle_konditionen, db)
+    berechnung_pruefen(b.modul, daten.eingaben, kond["version"], daten.berechnet_hash)
     neu = _bericht_speichern(db, request, p, b.modul, daten.eingaben, kond, ich, we_geprueft=daten.we_geprueft,
                              basis_bericht_id=b.id,
                              basis_versionsnummer=b.versionsnummer, aktuelle_konditionen=daten.aktuelle_konditionen)

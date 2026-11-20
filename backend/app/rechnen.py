@@ -470,3 +470,39 @@ RECHNER = {
 }
 # Diese Module entstehen nur über den Bericht-Assistenten (Entwurf → Freigabe → Erzeugen), nie über /berichte direkt
 NUR_UEBER_ENTWURF = {"bericht-init"}
+
+# Speichern nur mit aktuellem Berechnungsergebnis (Geschäftsführung 20.11.2026): Berechnen liefert eingabe_hash, Speichern
+# vergleicht ihn mit den gesendeten Eingaben. Nicht im Hash: Bestätigungen, die sich auf das angezeigte Ergebnis beziehen
+# (Haken nach dem Berechnen), und die Konditionen-Version als Eingabefeld (sie geht als tatsächlich genutzte Version ein).
+HASH_OHNE = {"waermeerzeuger_bestaetigt", "stromdirekt_bestaetigt", "konditionen_version"}
+NEU_BERECHNEN = "Die Eingaben wurden nach der letzten Berechnung geändert. Bitte neu berechnen und dann speichern."
+ZUERST_BERECHNEN = "Bitte zuerst berechnen und dann speichern (Speichern nur mit aktuellem Berechnungsergebnis)."
+# Nur Tests ohne eigene Berechnung schalten das ab (conftest); im Betrieb immer an – keine Einstellung in der .env.
+SPEICHERN_NUR_NACH_BERECHNUNG = True
+
+
+def eingabe_hash(modul: str, eingaben: dict, konditionen_version: int) -> str:
+    """sha256 über die bereinigten Eingaben (wie gespeichert), das Modul und die genutzte Konditionen-Version."""
+    import hashlib
+    import json
+    schema = RECHNER[modul][0]
+    werte = schema.model_validate({k: v for k, v in eingaben.items() if k != "konditionen_version"}).model_dump(
+        mode="json", exclude_none=True)
+    werte = {k: v for k, v in werte.items() if k not in HASH_OHNE}
+    text = json.dumps({"modul": modul, "konditionen_version": konditionen_version, "eingaben": werte},
+                      sort_keys=True, ensure_ascii=False, separators=(",", ":"))
+    return hashlib.sha256(text.encode("utf-8")).hexdigest()
+
+
+def berechnung_pruefen(modul: str, eingaben: dict, konditionen_version: int, berechnet_hash: str | None):
+    """409, wenn nicht oder mit anderen Eingaben/anderer Konditionen-Version berechnet wurde."""
+    if not SPEICHERN_NUR_NACH_BERECHNUNG:
+        return
+    if not berechnet_hash:
+        raise HTTPException(409, ZUERST_BERECHNEN)
+    try:
+        aktuell = eingabe_hash(modul, eingaben, konditionen_version)
+    except ValidationError:
+        return          # ungültige Eingaben: das Speichern lehnt sie mit der Feldmeldung ab (422), nicht mit „neu berechnen“
+    if berechnet_hash != aktuell:
+        raise HTTPException(409, NEU_BERECHNEN)

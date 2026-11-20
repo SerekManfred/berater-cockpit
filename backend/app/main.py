@@ -10,7 +10,8 @@ from app import (angebotsvorlagen_api, konditionen_quellen, auth, bericht_init, 
 from app import init_schnellweg, ki_referenzen_api, systeminfo, wohneinheiten
 from app.auth import aktueller_benutzer, rolle
 from app.db import get_db
-from app.rechnen import FoerdervergleichEingaben, FoerdervergleichIn, foerdervergleich_rechnen, lade_geplante, lade_konditionen
+from app.rechnen import (FoerdervergleichEingaben, FoerdervergleichIn, eingabe_hash, foerdervergleich_rechnen, lade_geplante,
+                         lade_konditionen)
 from app.sicherheit import schluessel_pruefen
 
 
@@ -57,8 +58,11 @@ def berechnen(daten: FoerdervergleichIn, projekt_id: int | None = None, db: Sess
     """Schnellrechnung ohne Speichern (auch Vorschau vor dem Speichern in der Projektakte).
     Mit projekt_id prüft die Plausibilität auch die Wohneinheiten des Projekts."""
     p = projekte_api._projekt_laden(db, projekt_id) if projekt_id is not None else None
-    return foerdervergleich_rechnen(daten, lade_konditionen(daten.konditionen_version, db=db),
-                                    projekt_we=p.wohneinheiten if p else None, projekt_gebaeudeart=p.gebaeudeart if p else None)
+    kond = lade_konditionen(daten.konditionen_version, db=db)
+    erg = foerdervergleich_rechnen(daten, kond, projekt_we=p.wohneinheiten if p else None,
+                                   projekt_gebaeudeart=p.gebaeudeart if p else None)
+    # Speichern nur mit aktuellem Berechnungsergebnis: die Oberfläche schickt diesen Hash beim Speichern mit
+    return {**erg, "eingabe_hash": eingabe_hash("foerderung-em-eh", daten.model_dump(), kond["version"])}
 
 
 @app.post("/module/foerderung-em-eh/vorschau-geplant", dependencies=[Depends(rolle("berater"))])

@@ -447,8 +447,8 @@ function BerichtRechnen({ projektId, projekt, basis = null, onFertig, onAbbreche
     // neuer Bericht: Vorschau mit aktueller Konditionen-Version, Wohneinheiten gegen das Projekt geprüft
     : d => api(`/module/foerderung-em-eh/berechnen?projekt_id=${projektId}`, { method: "POST", body: d });
   const speichern = async (eingaben, erg, we_geprueft) => onFertig(basis
-    ? await api(`/berichte/${basis.id}/neue-version`, { method: "POST", body: { eingaben, aktuelle_konditionen: aktuelle, we_geprueft } })
-    : await api(`/projekte/${projektId}/berichte`, { method: "POST", body: { modul: "foerderung-em-eh", eingaben, konditionen_version: erg.konditionen_version, we_geprueft } }));
+    ? await api(`/berichte/${basis.id}/neue-version`, { method: "POST", body: { eingaben, aktuelle_konditionen: aktuelle, we_geprueft, berechnet_hash: erg.eingabe_hash } })
+    : await api(`/projekte/${projektId}/berichte`, { method: "POST", body: { modul: "foerderung-em-eh", eingaben, konditionen_version: erg.konditionen_version, we_geprueft, berechnet_hash: erg.eingabe_hash } }));
 
   const neuere = basis && basis.aktuelle_konditionen_version !== basis.konditionen_version;
   const zusatz = basis && (
