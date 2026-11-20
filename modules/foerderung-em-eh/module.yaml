@@ -3,7 +3,7 @@ id: foerderung-em-eh
 titel: Fördervergleich EM/EH
 ci: serek
 rechenkern: app.rechenkern.foerdervergleich.vergleich
-konditionen: [beg_em, isfp_beratung, beg_wg, kfw_266]
+konditionen: [beg_em, isfp_beratung, beg_wg, kfw_266, kfw_458]
 
 felder:
   - { id: we_nach_sanierung, label: "Wohneinheiten nach Sanierung", typ: zahl, min: 1, pflicht: true }
@@ -19,6 +19,12 @@ felder:
   - { id: we_neu, label: "Davon neue WE", typ: zahl, sichtbar_wenn: kfw266 }
   - { id: umbaukosten_neue_we, label: "Umbaukosten neue WE (nicht energetisch)", typ: euro, sichtbar_wenn: kfw266 }
   - { id: massnahmen, label: "Maßnahmen und Kosten", typ: tabelle, pflicht: true }
+    # Einordnung je Maßnahme: daemmung | fenster | anlagentechnik | heizung (Wärmeerzeuger, KfW 458, ab 20.11.2026) | nicht_foerderfaehig
+  # Heizung KfW 458 (Stufe 1, 20.11.2026): sichtbar, sobald eine Maßnahme als „heizung“ eingeordnet ist
+  - { id: kosten_baubegleitung_heizung, label: "Kosten Baubegleitung Heizung (KfW)", typ: euro, sichtbar_wenn: heizung }
+  - { id: heizung_bonus_we, label: "Bonusberechtigte selbstgenutzte WE in diesem Antrag", typ: zahl, standard: 1, sichtbar_wenn: heizung }
+  - { id: klimabonus, label: "Klimageschwindigkeitsbonus (funktionstüchtige fossile Heizung wird ersetzt)", typ: ja_nein, sichtbar_wenn: heizung }
+  - { id: einkommensbonus, label: "Einkommensbonus", typ: auswahl, optionen_aus: kfw_458.einkommensbonus_stufen, sichtbar_wenn: heizung }
   # Optional (Phase 2c): unsere Angebote; ersetzen kosten_baubegleitung (beides zusammen → 422), B nur mit kfw266
   # Reihenfolge des Ablaufs ab 14.11.2026: A Gebäudemodell, B KfW 266 (nicht gefördert), C Einzelmaßnahmen, D Effizienzhaus
   - { id: angebote, label: "Unsere Angebote (optional)", typ: gruppe,
@@ -35,6 +41,8 @@ fachregeln:
     meldung: "KfW 266 verlangt die EE-Klasse (mindestens EH 85 EE)."
   - wenn: "massnahmen enthält Infrarot/Stromdirektheizung"
     meldung: "Stromdirektheizung ist in BEG EM nicht förderfähig; EE-Klasse nur über WRG, Brauchwasser-WP und PV-Eigenstrom erreichbar."
+  - wenn: "massnahmen enthält Wärmeerzeuger als anlagentechnik"
+    meldung: "Wärmeerzeuger als „Heizung – Wärmeerzeuger (KfW 458)“ einordnen; Speichern nur mit „Einordnung geprüft“ (app/rechnen.py)."
   - wenn: "wpb_status == 'ja'"
     meldung: "WPB-Bonus bei Einzelmaßnahmen nur für BAFA-Anträge ab 01.01.2027 und nur auf Dämmung."
   - wenn: "kfw266"

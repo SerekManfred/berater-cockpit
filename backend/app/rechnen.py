@@ -1,4 +1,5 @@
 """Konditionen laden und Module rechnen. Förderzahlen entstehen ausschließlich hier über den Rechenkern."""
+import re
 from typing import Literal
 
 from fastapi import HTTPException
@@ -136,7 +137,7 @@ def lade_konditionen(version: int | None = None, db: Session | None = None) -> d
 class MassnahmeIn(BaseModel):
     name: str = Field(max_length=200)
     kosten: float = Field(ge=0)
-    em_kategorie: str = Field(pattern="^(daemmung|fenster|anlagentechnik|nicht_foerderfaehig)$")
+    em_kategorie: str = Field(pattern="^(daemmung|fenster|anlagentechnik|heizung|nicht_foerderfaehig)$")
     eh_foerderfaehig: bool = True
 
 
@@ -238,6 +239,12 @@ class FoerdervergleichEingaben(BaseModel):
     kfw266: bool = False
     we_neu: int = Field(0, ge=0)
     umbaukosten_neue_we: float = Field(0, ge=0)
+    # Heizung KfW 458 (Stufe 1, 20.11.2026): Baubegleitung der Heizung (zählt zu den Heizungskosten, nicht zur BAFA-Fachplanung),
+    # bonusberechtigte selbstgenutzte WE in diesem Antrag (Standard 1), Boni (Berater prüft die Voraussetzungen)
+    kosten_baubegleitung_heizung: float = Field(0, ge=0)
+    heizung_bonus_we: int = Field(1, ge=0, le=9999)
+    klimabonus: bool = False
+    einkommensbonus: float = Field(0, ge=0, le=1)
     # Optional: unsere Angebote A–D. Ersetzen kosten_baubegleitung und liefern den Ablauf im Bericht.
     angebote: AngeboteIn | None = None
     # Pflicht beim Speichern in der Projektakte: Angebote ODER „bewusst ohne Angebote“ mit Grund (angebote_entscheidung)
@@ -250,9 +257,18 @@ class FoerdervergleichEingaben(BaseModel):
     wpb_status: Literal["ja", "nein", "unbekannt"] | None = None
     wpb_grundlage: WpbGrundlageIn | None = None   # Pflicht beim Speichern bei wpb_status ja/nein (wpb_entscheidung)
     kosten_hinweis: str | None = Field(None, max_length=1000)
+    # Bestätigung „Einordnung geprüft“ für die Warnung „Wärmeerzeuger als Anlagentechnik“ (waermeerzeuger_hinweise); nur Nachweis
+    waermeerzeuger_bestaetigt: bool | None = None
+
+    @model_validator(mode="after")
+    def _bonus_we(self):
+        if self.heizung_bonus_we > self.we_nach_sanierung:
+            raise ValueError("Bonusberechtigte selbstgenutzte WE: höchstens so viele wie Wohneinheiten nach Sanierung")
+        return self
 
 
-ANZEIGEFELDER = {"we_vor_sanierung", "bestandsheizung", "nutzung", "wpb_status", "wpb_grundlage", "kosten_hinweis"}
+ANZEIGEFELDER = {"we_vor_sanierung", "bestandsheizung", "nutzung", "wpb_status", "wpb_grundlage", "kosten_hinweis",
+                 "waermeerzeuger_bestaetigt"}
 
 # Angebotsbeträge sind Bruttobeträge gegenüber dem Kunden (Geschäftsführer 19.11.2026); Ausweis im Word-Bericht
 ANGEBOTE_BRUTTO_TEXT = "Alle Beträge inkl. 19 % MwSt."
@@ -267,6 +283,26 @@ def kostenhinweis_warnung(text: str | None) -> str | None:
     if not text or not text.strip():
         return None
     return KOSTENHINWEIS_WARNUNG if sum(z.isalpha() for z in text) < 3 else None
+
+
+# Wärmeerzeuger an der Bezeichnung erkennen (Stufe 1 KfW 458): als „Anlagentechnik“ eingetragen würde er 15 % im Hüllen-Topf
+# bekommen statt KfW 458 im eigenen Höchstbetrag. Begriffe der Richtlinie (Nr. 5.3), keine Sätze. Heizungsoptimierung und
+# Brauchwasser-Wärmepumpen sind keine Wärmeerzeuger in diesem Sinn (eigene Hinweise).
+WAERMEERZEUGER = re.compile(r"w(ä|ae)rmepumpe|\bwp\b|kessel|pellet|biomasse|hackschnitzel|scheitholz|solarthermie|"
+                            r"brennstoffzelle|w(ä|ae)rmenetz|fernw(ä|ae)rme|geb(ä|ae)udenetz|heizung|therme|w(ä|ae)rmeerzeuger",
+                            re.IGNORECASE)
+KEIN_WAERMEERZEUGER = re.compile(r"optimierung|hydraulisch|abgleich|brauchwasser|trinkwasser|warmwasser|l(ü|ue)ftung|"
+                                 r"infrarot|stromdirekt|nachtspeicher", re.IGNORECASE)
+
+
+def waermeerzeuger_hinweise(daten: "FoerdervergleichEingaben") -> list[str]:
+    """Maßnahmen, die nach ihrer Bezeichnung Wärmeerzeuger sind, aber als „Anlagentechnik“ eingetragen wurden. Beim Rechnen
+    Hinweis; beim Speichern nur mit Bestätigung „Einordnung geprüft“ (waermeerzeuger_bestaetigt), sonst 422."""
+    return [f"„{m.name}“ ist als Anlagentechnik eingetragen, klingt aber nach einem Wärmeerzeuger. Wärmeerzeuger bitte als "
+            "„Heizung – Wärmeerzeuger (KfW 458)“ einordnen (eigener Höchstbetrag, Zuschuss KfW 458); als Anlagentechnik "
+            "zählt die Maßnahme mit 15 % zur Höchstgrenze der Gebäudehülle."
+            for m in daten.massnahmen
+            if m.em_kategorie == "anlagentechnik" and WAERMEERZEUGER.search(m.name or "") and not KEIN_WAERMEERZEUGER.search(m.name or "")]
 
 
 def fachplanung_widerspruch(daten: "FoerdervergleichEingaben") -> str | None:
@@ -296,6 +332,9 @@ def angebote_entscheidung(eingaben: dict) -> None:
     widerspruch = fachplanung_widerspruch(daten)
     if widerspruch:
         raise HTTPException(422, widerspruch)
+    warm = waermeerzeuger_hinweise(daten)
+    if warm and not daten.waermeerzeuger_bestaetigt:
+        raise HTTPException(422, warm[0] + " Bitte die Einordnung ändern oder „Einordnung geprüft“ bestätigen.")
     if daten.wpb_status in ("ja", "nein") and daten.wpb_grundlage is None:
         raise HTTPException(422, f"Grundlage WPB fehlt: Bei „Worst Performing Building: {daten.wpb_status}“ bitte die Grundlage "
                                  "angeben (Energieausweis, Endenergiekennwert oder Baujahr und unsanierte Außenwand) – sonst "
@@ -322,7 +361,13 @@ def foerdervergleich_rechnen(daten: FoerdervergleichEingaben, kond: dict, projek
     werte = daten.model_dump(exclude={"massnahmen", "konditionen_version", "angebote", "ohne_angebote"} | ANZEIGEFELDER)
     e = Eingaben(**werte, massnahmen=[Massnahme(**m.model_dump()) for m in daten.massnahmen],
                  angebote=daten.angebote.fuer_rechenkern() if daten.angebote else None)
-    erg = {**vergleich(e, kond), "hinweise": hinweise, "konditionen_stand": konditionen_stand(kond)}
+    try:
+        erg = {**vergleich(e, kond), "hinweise": hinweise, "konditionen_stand": konditionen_stand(kond)}
+    except ValueError as fehler:   # z. B. Einkommensbonus nicht aus den Stufen der Konditionen
+        raise HTTPException(422, str(fehler)) from None
+    warm = waermeerzeuger_hinweise(daten)
+    if warm:
+        erg["waermeerzeuger_hinweise"] = warm   # Formular/Ergebnis; Speichern nur mit Bestätigung (angebote_entscheidung)
     kh = kostenhinweis_warnung(daten.kosten_hinweis)
     if kh:
         erg["kostenhinweis_warnung"] = kh   # sichtbar in Formular/Ergebnis, sperrt nicht
@@ -348,11 +393,19 @@ class InitFoerderEingaben(BaseModel):
     eh_nh: bool = False                                 # NH-Klasse statt EE: Satz der Stufe + beg_wg.nh_bonus
     eh_wpb: bool = False
     eh_sersan: bool = False                             # KfW 261 Bonus serielle Sanierung
+    # Stufe 1 KfW 458 (20.11.2026): bonusberechtigte selbstgenutzte WE in diesem Antrag (leer = 1 bzw. 0 ohne Selbstnutzung)
+    # und echte Kosten des Beraters (leer = kein Zuschuss, Bericht „—“; nie von der KI, Regel 4)
+    we_bonus: int | None = Field(None, ge=0, le=9999)
+    kosten_huelle: float | None = Field(None, ge=0)
+    kosten_heizung: float | None = Field(None, ge=0)
+    kosten_baubegleitung_heizung: float | None = Field(None, ge=0)
 
     @model_validator(mode="after")
     def _we(self):
         if (self.we_eigen or 0) + (self.we_verm or 0) > self.we:
             raise ValueError("Selbstgenutzte und vermietete Wohneinheiten sind zusammen mehr als die Wohneinheiten insgesamt.")
+        if self.we_bonus is not None and self.we_bonus > (self.we_eigen if self.we_eigen is not None else self.we):
+            raise ValueError("Bonusberechtigte WE: höchstens so viele wie selbstgenutzte Wohneinheiten.")
         return self
 
 

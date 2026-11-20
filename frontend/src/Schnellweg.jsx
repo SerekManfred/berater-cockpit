@@ -60,7 +60,9 @@ export function Schnellweg({ ich, projekt, onZurueck, onDetail }) {
 function Unterlagen({ z, pfad, projekt, letzterFehler, hatVorschau, onZurVorschau, onGestartet }) {
   const [dateien, setDateien] = useState([]);   // {datei, art}
   const [notizen, setNotizen] = useState("");
-  const [kosten, setKosten] = useState({ kosten_einzel: null, kosten_effizienzhaus: null });
+  const [kosten, setKosten] = useState({ kosten_einzel: null, kosten_effizienzhaus: null, kosten_huelle: null, kosten_heizung: null,
+    kosten_baubegleitung_heizung: null });
+  const KOSTEN = ["kosten_einzel", "kosten_effizienzhaus", "kosten_huelle", "kosten_heizung", "kosten_baubegleitung_heizung"];
   const [ehZiel, setEhZiel] = useState("");   // keine Voreinstellung – nichts raten
   const [vorhandeneFotos, setVorhandeneFotos] = useState(true);
   const [laeuft, setLaeuft] = useState("");
@@ -79,7 +81,7 @@ function Unterlagen({ z, pfad, projekt, letzterFehler, hatVorschau, onZurVorscha
 
   async function erstellen() {
     setFehler("");
-    if (["kosten_einzel", "kosten_effizienzhaus"].some(k => zahlUngueltig(kosten[k]))) { setFehler("Investitionskosten bitte als Zahl eingeben."); return; }
+    if (KOSTEN.some(k => zahlUngueltig(kosten[k]))) { setFehler("Kosten bitte als Zahl eingeben."); return; }
     const checkliste = [], fotos = vorhandeneFotos ? fotosImProjekt.map(d => d.id) : [];
     try {
       for (const [i, x] of dateien.entries()) {
@@ -92,7 +94,7 @@ function Unterlagen({ z, pfad, projekt, letzterFehler, hatVorschau, onZurVorscha
       setLaeuft("Starte …");
       const r = await api(pfad + "/start", { method: "POST", zeitlimit: ZEITLIMIT_LANG_MS, body: {
         revision: z.revision, checkliste_ids: checkliste, foto_ids: [...new Set(fotos)].slice(0, 40), notizen,
-        kosten_einzel: kosten.kosten_einzel ?? null, kosten_effizienzhaus: kosten.kosten_effizienzhaus ?? null, eh_ziel: ehZiel || null } });
+        ...Object.fromEntries(KOSTEN.map(k => [k, kosten[k] ?? null])), eh_ziel: ehZiel || null } });
       onGestartet(r);
     } catch (f) { setFehler(f.message); } finally { setLaeuft(""); }
   }
@@ -135,6 +137,9 @@ function Unterlagen({ z, pfad, projekt, letzterFehler, hatVorschau, onZurVorscha
         <div className="zwei">
           <ZahlFeld label="Einzelmaßnahmen (€)" wert={kosten.kosten_einzel} onChange={w => setKosten(k => ({ ...k, kosten_einzel: w }))} />
           <ZahlFeld label="Effizienzhaus (€)" wert={kosten.kosten_effizienzhaus} onChange={w => setKosten(k => ({ ...k, kosten_effizienzhaus: w }))} />
+          <ZahlFeld label="davon förderfähig Gebäudehülle/Anlagentechnik (€)" wert={kosten.kosten_huelle} onChange={w => setKosten(k => ({ ...k, kosten_huelle: w }))} />
+          <ZahlFeld label="davon Heizung – Wärmeerzeuger (€)" wert={kosten.kosten_heizung} onChange={w => setKosten(k => ({ ...k, kosten_heizung: w }))} />
+          <ZahlFeld label="Baubegleitung Heizung (KfW) (€)" wert={kosten.kosten_baubegleitung_heizung} onChange={w => setKosten(k => ({ ...k, kosten_baubegleitung_heizung: w }))} />
           <div className="feld"><label htmlFor="sw-eh">Effizienzhaus-Ziel (KfW 261)</label>
             <select id="sw-eh" value={ehZiel} onChange={e => setEhZiel(e.target.value)} aria-describedby="sw-eh-hinweis">
               <option value="">– keine Angabe (aus der Checkliste) –</option>

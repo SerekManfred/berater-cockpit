@@ -109,7 +109,8 @@ def formular(e: dict, **foerder) -> dict:
     d["objekt"].update(baujahr="1974", wohnflaeche="ca. 165 m²", energietraeger="Erdgas", gebaeudetyp="Einfamilienhaus")
     d["termin"].update(datum="05.11.2026, 10:00 Uhr", anwesende="Eigentümer, Berater")
     d["verbrauch"]["tabelle"] = [{"traeger": "Erdgas", "menge": "ca. 18.000 kWh", "kosten": "ca. 2.000 €"}]
-    d["foerder"].update(kosten_einzel=45000, kosten_effizienzhaus=180000, **foerder)
+    d["foerder"].update({"kosten_einzel": 45000, "kosten_effizienzhaus": 180000, "kosten_huelle": 30000, "kosten_heizung": 15000,
+                        **foerder})
     d["texte"] = manuelle_texte()
     return d
 

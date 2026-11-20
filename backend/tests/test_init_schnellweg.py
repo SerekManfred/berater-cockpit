@@ -138,6 +138,7 @@ def unterlagen(c, p, ki_an, fotos=6, bogen=WORD.read_bytes()):
 def starten(c, p, cid, ids, **extra):
     r = c.post(PFAD.format(p["id"]) + "/start", json={"checkliste_ids": [cid], "foto_ids": ids, "notizen": "Kunde möchte zügig planen.",
                                                      "kosten_einzel": 85000, "kosten_effizienzhaus": 160000, "eh_ziel": "EH55EE",
+                                                     "kosten_huelle": 60000, "kosten_heizung": 25000,
                                                      **extra})
     assert r.status_code == 202, r.text
     return r.json()

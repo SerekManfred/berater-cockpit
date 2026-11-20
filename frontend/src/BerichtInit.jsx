@@ -163,7 +163,9 @@ export function BerichtInit({ ich, projekt, onZurueck, onSchnellweg }) {
     setFehler("");
     // Ungültige Zahl (NaN) nicht still als „leer“ speichern
     const falsch = [["we", "Wohneinheiten gesamt", true], ["we_eigen", "davon selbstgenutzt", true], ["we_verm", "davon vermietet", true],
-      ["kosten_einzel", "Investitionskosten Einzelmaßnahmen"], ["kosten_effizienzhaus", "Investitionskosten Effizienzhaus"]]
+      ["kosten_einzel", "Investitionskosten Einzelmaßnahmen"], ["kosten_effizienzhaus", "Investitionskosten Effizienzhaus"],
+      ["kosten_huelle", "Förderfähige Kosten Gebäudehülle/Anlagentechnik"], ["kosten_heizung", "Kosten Heizung – Wärmeerzeuger"],
+      ["kosten_baubegleitung_heizung", "Kosten Baubegleitung Heizung"], ["we_bonus", "Bonusberechtigte selbstgenutzte WE", true]]
       .filter(([k, , ganz]) => zahlUngueltig(d.foerder?.[k], ganz)).map(([, l]) => l);
     if (falsch.length) { setFehler("Bitte als Zahl eingeben: " + falsch.join(", ") + "."); return false; }
     setLaeuft("speichern");
@@ -380,6 +382,16 @@ function DatenSchritt({ d, e, kond, projekt, aendern, einlesen = null }) {
           <div className="mit-marke"><ZahlFeld id="f-ke" label="Investitionskosten Einzelmaßnahmen (€)" wert={f.kosten_einzel} onChange={w => aendern("foerder.kosten_einzel", w)} />{mk("foerder.kosten_einzel")}</div>
           <div className="mit-marke"><ZahlFeld id="f-kh" label="Investitionskosten Effizienzhaus (€)" wert={f.kosten_effizienzhaus} onChange={w => aendern("foerder.kosten_effizienzhaus", w)} />{mk("foerder.kosten_effizienzhaus")}</div>
         </div>
+        <h3>Zuschüsse Weg A aus Ihren Kosten (KfW 458 / BEG EM)</h3>
+        <p className="klein" style={{ marginTop: 0 }}>Der Bericht rechnet die Zuschüsse aus diesen förderfähigen Kosten. Die Obergrenzen je
+          Wohneinheit erscheinen nur als „Förderpotenzial“. Ohne Angabe („bewusst leer“) steht dort „—“.</p>
+        <div className="felder">
+          <div className="mit-marke"><ZahlFeld id="f-khuelle" label="Förderfähige Kosten Gebäudehülle/Anlagentechnik (€)" wert={f.kosten_huelle ?? null} onChange={w => aendern("foerder.kosten_huelle", w)} />{mk("foerder.kosten_huelle")}</div>
+          <div className="mit-marke"><ZahlFeld id="f-kheiz" label="Kosten Heizung – Wärmeerzeuger (€)" wert={f.kosten_heizung ?? null} onChange={w => aendern("foerder.kosten_heizung", w)} />{mk("foerder.kosten_heizung")}</div>
+          <div className="mit-marke"><ZahlFeld id="f-kbbh" label="Kosten Baubegleitung Heizung (KfW) (€)" wert={f.kosten_baubegleitung_heizung ?? null} onChange={w => aendern("foerder.kosten_baubegleitung_heizung", w)} />{mk("foerder.kosten_baubegleitung_heizung")}</div>
+          <div className="mit-marke"><ZahlFeld id="f-wb" ganzzahl label="Bonusberechtigte selbstgenutzte WE in diesem Antrag" wert={f.we_bonus ?? null} onChange={w => aendern("foerder.we_bonus", w)} />{mk("foerder.we_bonus")}</div>
+        </div>
+        <p className="klein">Bonusberechtigte WE: leer = 1 (bzw. 0 ohne Selbstnutzung). Weitere selbstnutzende Eigentümer (z. B. WEG) beantragen ihre Boni mit eigenem Zusatzantrag.</p>
         <div className="schalter">
           <label><input type="checkbox" checked={!!f.klimabonus} onChange={x => aendern("foerder.klimabonus", x.target.checked)} /> Klimageschwindigkeitsbonus (KfW 458) {mk("foerder.klimabonus")}</label>
           <label><input type="checkbox" checked={!!f.eh_wpb} onChange={x => aendern("foerder.eh_wpb", x.target.checked)} /> Worst Performing Building (WPB) {mk("foerder.eh_wpb")}</label>
@@ -562,14 +574,27 @@ function ErzeugenSchritt({ e, geaendert, laeuft, darf, onErzeugen, onWeGeprueft 
       <section className="karte">
         <h2>Vorschau Förder-Übersicht (Rechenkern)</h2>
         {!v.ok ? <div className="fehler">{v.meldung}</div> : <>
-          <p className="klein">{v.saetze.konditionen_stand} · {w.we} WE ({w.we_eigen} selbstgenutzt, {w.we_verm} vermietet). Maximal mögliche Förderung – unverbindlich.</p>
+          <p className="klein">{v.saetze.konditionen_stand} · {w.we} WE ({w.we_eigen} selbstgenutzt, {w.we_verm} vermietet).</p>
+          <h3>Zuschüsse Weg A aus Ihren Kosten</h3>
+          {!w.zuschuss ? <p className="info" role="status">Noch keine förderfähigen Kosten eingetragen – im Bericht steht „—“ statt eines Zuschusses.</p>
+            : <div className="tabelle"><table>
+              <thead><tr><th>Förderbaustein</th><th className="z">Kosten</th><th className="z">förderfähig</th><th className="z">Zuschuss</th></tr></thead>
+              <tbody>
+                <tr><td>BAFA BEG EM – Gebäudehülle/Anlagentechnik (mit iSFP)</td><td className="z">{w.zuschuss.em_kosten != null ? eur(w.zuschuss.em_kosten) : "—"}</td>
+                  <td className="z">{w.zuschuss.em_foerderfaehig != null ? eur(w.zuschuss.em_foerderfaehig) : "—"}</td><td className="z">{w.zuschuss.em_zuschuss != null ? eur(w.zuschuss.em_zuschuss) : "—"}</td></tr>
+                <tr><td>KfW 458 – Heizungstausch</td><td className="z">{w.zuschuss.heiz_kosten != null ? eur(w.zuschuss.heiz_kosten) : "—"}</td>
+                  <td className="z">{w.zuschuss.heiz_foerderfaehig != null ? eur(w.zuschuss.heiz_foerderfaehig) : "—"}</td><td className="z">{w.zuschuss.heiz_zuschuss != null ? eur(w.zuschuss.heiz_zuschuss) : "—"}</td></tr>
+                <tr className="summe"><td>Summe Weg A (Zuschüsse)</td><td></td><td></td><td className="z">{w.zuschuss.weg_a != null ? eur(w.zuschuss.weg_a) : "—"}</td></tr>
+              </tbody>
+            </table></div>}
+          <h3>Förderpotenzial (Obergrenzen je Wohneinheit – kein Zuschuss)</h3>
           <div className="tabelle"><table>
-            <thead><tr><th>Förderweg</th><th className="z">Quote</th><th className="z">Max. förderf. Kosten</th><th className="z">Max. Förderung</th></tr></thead>
+            <thead><tr><th>Förderweg</th><th className="z">Quote</th><th className="z">Max. förderf. Kosten</th><th className="z">Förderpotenzial</th></tr></thead>
             <tbody>
               <tr><td>BAFA BEG EM – Einzelmaßnahmen</td><td className="z">{v.saetze.em_quote_basis}</td><td className="z">{eur(w.em_cap_ohne)}</td><td className="z">{eur(w.em_foerder_ohne)}</td></tr>
               <tr><td>BAFA BEG EM – mit iSFP-Bonus</td><td className="z">{v.saetze.em_quote_isfp}</td><td className="z">{eur(w.em_cap_mit)}</td><td className="z">{eur(w.em_foerder_mit)}</td></tr>
               <tr><td>KfW 458 – Heizungstausch</td><td className="z">{proz(w.heiz_rate_verm)}{w.heiz_bonus_we ? ` / ${proz(w.heiz_rate_eigen)}` : ""}</td><td className="z">{eur(w.heiz_kosten)}</td><td className="z">{eur(w.heiz_max)}</td></tr>
-              <tr className="summe"><td>Summe Weg A (Einzelmaßnahmen)</td><td></td><td></td><td className="z">{eur(w.weg_a)}</td></tr>
+              <tr className="summe"><td>Förderpotenzial Weg A (Obergrenze)</td><td></td><td></td><td className="z">{eur(w.weg_a)}</td></tr>
               <tr><td>KfW 261 – Effizienzhaus {w.eh_tilgung != null ? `(Tilgungszuschuss ${proz(w.eh_tilgung)})` : "(kein Ziel gewählt)"}</td><td className="z">{v.saetze.eh_tilgung_label}</td>
                 <td className="z">bis {eur(w.eh_kredit)}</td><td className="z">{w.eh_foerder != null ? eur(w.eh_foerder) : `bis ${eur(w.eh_max_uebersicht)}`}</td></tr>
               <tr><td>§ 35c EStG – Steuerermäßigung</td><td className="z">{v.saetze.steuer_quote}</td><td className="z">{eur(v.saetze.steuer_kosten_objekt)} / Objekt</td><td className="z">{eur(v.saetze.steuer_max_objekt)} / Objekt</td></tr>

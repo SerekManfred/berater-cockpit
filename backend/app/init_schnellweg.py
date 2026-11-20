@@ -119,7 +119,8 @@ def _speichern(db: Session, e: BerichtEntwurf, st: dict):
 def _typ(pfad: str) -> str:
     if pfad in ("foerder.we", "foerder.we_eigen", "foerder.we_verm"):
         return "ganzzahl"
-    if pfad in ("foerder.kosten_einzel", "foerder.kosten_effizienzhaus"):
+    if pfad in ("foerder.kosten_einzel", "foerder.kosten_effizienzhaus", "foerder.kosten_huelle", "foerder.kosten_heizung",
+                "foerder.kosten_baubegleitung_heizung"):
         return "euro"
     if pfad in ("foerder.klimabonus", "foerder.eh_wpb", "foerder.eh_sersan"):
         return "janein"
@@ -695,6 +696,9 @@ class Start(BaseModel):
     notizen: str = Field("", max_length=20000)
     kosten_einzel: float | None = Field(None, ge=0)          # nur vom Berater (Goldene Regel 1)
     kosten_effizienzhaus: float | None = Field(None, ge=0)
+    kosten_huelle: float | None = Field(None, ge=0)          # Stufe 1 KfW 458: förderfähige Kosten (nur vom Berater)
+    kosten_heizung: float | None = Field(None, ge=0)
+    kosten_baubegleitung_heizung: float | None = Field(None, ge=0)
     eh_ziel: str | None = Field(None, max_length=20)        # Stufe, Stufe+"+NH" oder "kein"; leer = keine Angabe (nie geraten)
 
 
@@ -730,7 +734,7 @@ def schnellweg_starten(projekt_id: int, start: Start, request: Request, ich: Ben
         raise HTTPException(422, "Diese Fotos gehören nicht zu den Fotos des Projekts: " + ", ".join(map(str, fremd)))
     einstellungen.ki_lauf_erlaubt(db, ich.id)
     d = copy.deepcopy(e.daten)
-    for k in ("kosten_einzel", "kosten_effizienzhaus"):
+    for k in ("kosten_einzel", "kosten_effizienzhaus", "kosten_huelle", "kosten_heizung", "kosten_baubegleitung_heizung"):
         if getattr(start, k) is not None:
             d.setdefault("foerder", {})[k] = getattr(start, k)
     if start.eh_ziel:

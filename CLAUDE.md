@@ -780,7 +780,19 @@ Stufe 2 Variante B (Staffelwert in der Version nach `antrag_geplant_am`, leer = 
   bonusberechtigten WE dieses Antrags (`we_bonus`, Standard 1, ohne selbstgenutzte WE 0); `werte.zuschuss` aus `kosten_huelle`, `kosten_heizung`,
   `kosten_baubegleitung_heizung` (`zuschuss_echte_kosten()`, fehlende Kosten = None → „—“), `werte.potenzial = true`.
   Referenzfall unverändert. Tests: `tests/test_kfw458_heizung.py` (Fälle A 18.380, B 24.380, C 24.940, EFH WP 20.000 → 9.200).
-- **Paket 2 Eingaben/Oberfläche, Paket 3 Generator 0.6.0:** offen (Generator-Änderungen angekündigt 20.11.2026).
+- **Paket 2 Eingaben/Oberfläche (umgesetzt):** Fördervergleich-Schema (`app/rechnen.py`): Kategorie `heizung`,
+  `kosten_baubegleitung_heizung`, `heizung_bonus_we` (Standard 1, ≤ WE nach Sanierung), `klimabonus`, `einkommensbonus` (nur Stufen
+  der Konditionen, sonst 422). **Warnung „Wärmeerzeuger als Anlagentechnik“** (`waermeerzeuger_hinweise()`, Begriffe in
+  `WAERMEERZEUGER`/`KEIN_WAERMEERZEUGER`): Rechnen liefert `waermeerzeuger_hinweise`, Speichern 422 ohne
+  `waermeerzeuger_bestaetigt` (Anzeigefeld, bleibt als Nachweis in den Eingaben). Oberfläche (`Foerdervergleich.jsx`): Einordnung
+  „Heizung – Wärmeerzeuger (KfW 458)“, Abschnitt „Heizung – KfW 458“ (nur mit Heizungsmaßnahme, Einkommensstufen aus
+  `GET /konditionen`), Ergebniszeile „Heizungsförderung KfW 458“, Haken „Einordnung geprüft“. INIT: Pflichtangaben
+  `foerder.kosten_huelle`, `foerder.kosten_heizung` (oder „bewusst leer“ → „—“), optional `kosten_baubegleitung_heizung`,
+  `we_bonus` (≤ selbstgenutzte WE); Schnellweg fragt sie per Rückfrage, Unterlagen-Seite und Detailbearbeitung haben die Felder,
+  Vorschau trennt „Zuschüsse Weg A aus Ihren Kosten“ und „Förderpotenzial (Obergrenzen – kein Zuschuss)“. Tests:
+  `tests/test_kfw458_eingaben.py`, `frontend/src/HeizungKfw458.test.jsx`.
+  **Nicht einspielen vor Paket 3:** Speichern friert das Word ein, Generator 0.5.1 zeigt den Posten `kfw_458` noch nicht.
+- **Paket 3 Generator 0.6.0:** offen (Änderungen angekündigt 20.11.2026).
 - **INIT-Skill im Chat hat denselben Fehler** (`generate_report.js`/`foerder_rechnung.js` im Skill-Paket „energieberatungsbericht“):
   `heizMax` und `em_foerder_mit` auf Höchstkosten, als „Zuschuss“ beschriftet, „Geschätzter Eigenanteil“ = Kosten − Potenzial,
   Boni höchstens für eine WE. Nach Stufe 1 den korrigierten Generator als Skill-Paket bereitstellen (Zip nicht einchecken).

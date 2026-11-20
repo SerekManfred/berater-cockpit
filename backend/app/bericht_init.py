@@ -49,6 +49,9 @@ PFLICHT = {
     "objekt.energietraeger": "Energieträger (Bestand)", "termin.datum": "Datum des Termins",
     "termin.anwesende": "Anwesende Personen", "verbrauch.tabelle": "Energieverbräuche",
     "foerder.kosten_einzel": "Investitionskosten Einzelmaßnahmen (Weg A)",
+    # Stufe 1 KfW 458 (20.11.2026): Zuschüsse Weg A nur aus echten, förderfähigen Kosten („bewusst leer“ → im Bericht „—“)
+    "foerder.kosten_huelle": "Förderfähige Kosten Gebäudehülle/Anlagentechnik (BEG EM)",
+    "foerder.kosten_heizung": "Kosten Heizung – Wärmeerzeuger (KfW 458)",
     "foerder.kosten_effizienzhaus": "Investitionskosten Effizienzhaus (Weg B)",
 }
 EH_LABEL = {"EH40EE": "Effizienzhaus 40 EE", "EH55EE": "Effizienzhaus 55 EE", "EH70EE": "Effizienzhaus 70 EE",
@@ -141,6 +144,11 @@ class FoerderIn(_Frei):
     eh_kein_vergleich: bool = False                            # „kein Effizienzhaus-Vergleich“: Weg B entfällt im Bericht
     kosten_einzel: float | None = Field(None, ge=0)          # nur vom Berater (Goldene Regel 1 des Skills)
     kosten_effizienzhaus: float | None = Field(None, ge=0)
+    # Stufe 1 KfW 458: echte förderfähige Kosten (nur vom Berater) und bonusberechtigte WE in diesem Antrag (leer = 1)
+    kosten_huelle: float | None = Field(None, ge=0)
+    kosten_heizung: float | None = Field(None, ge=0)
+    kosten_baubegleitung_heizung: float | None = Field(None, ge=0)
+    we_bonus: int | None = Field(None, ge=0, le=9999)
 
 
 class MassnahmeText(_Frei):
@@ -321,7 +329,10 @@ def _foerder_eingaben(d: dict) -> InitFoerderEingaben:
                                    klimabonus=bool(f.get("klimabonus")), einkommensbonus=float(f.get("einkommensbonus") or 0),
                                    eh_stufe=None if f.get("eh_kein_vergleich") else (f.get("eh_stufe") or None),
                                    eh_nh=bool(f.get("eh_nh")) and not f.get("eh_kein_vergleich"),
-                                   eh_wpb=bool(f.get("eh_wpb")), eh_sersan=bool(f.get("eh_sersan")))
+                                   eh_wpb=bool(f.get("eh_wpb")), eh_sersan=bool(f.get("eh_sersan")),
+                                   we_bonus=f.get("we_bonus"), kosten_huelle=f.get("kosten_huelle"),
+                                   kosten_heizung=f.get("kosten_heizung"),
+                                   kosten_baubegleitung_heizung=f.get("kosten_baubegleitung_heizung"))
     except ValidationError as fehler:
         meldung = "; ".join(str(x.get("msg", "")).removeprefix("Value error, ") for x in fehler.errors())
         raise HTTPException(422, f"Förderangaben unvollständig oder ungültig: {meldung}") from None

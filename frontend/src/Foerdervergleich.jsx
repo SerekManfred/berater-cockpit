@@ -15,8 +15,13 @@ const pct = n => ((n ?? 0) * 100).toLocaleString("de-DE", { minimumFractionDigit
 
 export const KATEGORIEN = [
   ["daemmung", "Dämmung (BEG EM)"], ["fenster", "Fenster (BEG EM)"],
-  ["anlagentechnik", "Anlagentechnik, z. B. Lüftung (BEG EM)"], ["nicht_foerderfaehig", "in BEG EM nicht förderfähig"],
+  ["anlagentechnik", "Anlagentechnik, z. B. Lüftung (BEG EM)"], ["heizung", "Heizung – Wärmeerzeuger (KfW 458)"],
+  ["nicht_foerderfaehig", "in BEG EM nicht förderfähig"],
 ];
+
+/** Heizung KfW 458 (Stufe 1, 20.11.2026): Abschnitt sichtbar, sobald eine Maßnahme als Wärmeerzeuger eingeordnet ist
+ *  oder schon eine Baubegleitung Heizung eingetragen ist. Gerechnet wird nur im Backend. */
+export const mitHeizung = d => (d.massnahmen || []).some(m => m.em_kategorie === "heizung") || d.kosten_baubegleitung_heizung > 0;
 
 const BEISPIEL_REFERENZFALL = {
   we_nach_sanierung: 6, we_neu: 4, umbaukosten_neue_we: 420000, kosten_baubegleitung: 20000, kosten_isfp: 2800,
@@ -201,6 +206,11 @@ export function eingabenPruefen(d) {
     return m;
   });
   if (zahlUngueltig(d.we_vor_sanierung, true)) fehler.push("Wohneinheiten vor Sanierung: bitte eine ganze Zahl eingeben");
+  // Heizung KfW 458: nur gesendet, wenn eingetragen (ältere Eingaben bleiben unverändert); bonusberechtigte WE leer = Standard 1
+  if (zahlUngueltig(d.kosten_baubegleitung_heizung)) fehler.push("Kosten Baubegleitung Heizung: bitte als Zahl eingeben");
+  else if (d.kosten_baubegleitung_heizung === null || d.kosten_baubegleitung_heizung === "") delete werte.kosten_baubegleitung_heizung;
+  if (zahlUngueltig(d.heizung_bonus_we, true)) fehler.push("Bonusberechtigte selbstgenutzte WE: bitte eine ganze Zahl eingeben");
+  else if (d.heizung_bonus_we === null || d.heizung_bonus_we === "") delete werte.heizung_bonus_we;
   for (const [k, t] of [["kennwert", "Endenergiekennwert"], ["baujahr", "Baujahr"], ["anteil_unsaniert_prozent", "Anteil unsanierte Außenwand"]])
     if (zahlUngueltig(d.wpb_grundlage?.[k])) fehler.push(`Grundlage WPB – ${t}: bitte als Zahl eingeben`);
   for (const [k] of ANGEBOTE) {
@@ -274,8 +284,16 @@ export function Foerdervergleich({ titel = "Fördervergleich Einzelmaßnahmen / 
   useEffect(() => { setErg(null); setBerechnetMit(null); }, [rechenSchluessel]);
   const geprueft = eingabenPruefen(d);
   const aktuell = erg && !geprueft.fehler.length && berechnetMit === JSON.stringify(geprueft.werte);
-  const speicherFehler = onSpeichern ? speichernPruefen(d) : [];
+  // Warnung „Wärmeerzeuger als Anlagentechnik“ (Regel im Backend): Speichern nur mit „Einordnung geprüft“
+  const [einordnungGeprueft, setEinordnungGeprueft] = useState(false);
+  const warmHinweise = erg?.waermeerzeuger_hinweise || [];
+  useEffect(() => { setEinordnungGeprueft(false); }, [erg]);
+  const speicherFehler = onSpeichern ? [...speichernPruefen(d),
+    ...(warmHinweise.length && !einordnungGeprueft ? ["Einordnung der Wärmeerzeuger prüfen und bestätigen (Hinweis oben)"] : [])] : [];
   const widerspruch = fachplanungWiderspruch(d);
+  // Einkommensbonus-Stufen nur aus den aktiven Konditionen (kfw_458.einkommensbonus_stufen) – keine Sätze im Code
+  const [einkommensStufen, setEinkommensStufen] = useState([]);
+  useEffect(() => { api("/konditionen").then(k => setEinkommensStufen(k?.kfw_458?.einkommensbonus_stufen || [])).catch(() => setEinkommensStufen([])); }, []);
   const [fristen, setFristen] = useState([]);
   useEffect(() => { api("/konditionen/fristen").then(f => setFristen(f.fristen)).catch(() => setFristen([])); }, []);
   // Vorschau mit der geplanten Version (16.11.2026): eigener Zustand, nie an „Speichern“ übergeben
@@ -306,7 +324,9 @@ export function Foerdervergleich({ titel = "Fördervergleich Einzelmaßnahmen / 
 
   async function speichern() {
     setFehler(""); setSpeichert(true);
-    try { await onSpeichern(JSON.parse(berechnetMit), erg, weGeprueft && weWarnungen.length > 0); }
+    const eingaben = JSON.parse(berechnetMit);
+    if (warmHinweise.length && einordnungGeprueft) eingaben.waermeerzeuger_bestaetigt = true;
+    try { await onSpeichern(eingaben, erg, weGeprueft && weWarnungen.length > 0); }
     catch (e) { setFehler("Speichern nicht möglich: " + e.message); }
     finally { setSpeichert(false); }
   }
@@ -464,7 +484,42 @@ export function Foerdervergleich({ titel = "Fördervergleich Einzelmaßnahmen / 
         {fehler && <div className="fehler">{fehler}</div>}
       </section>
 
+      {mitHeizung(d) && (
+        <section className="karte">
+          <h2>Heizung – KfW 458</h2>
+          <p className="klein" style={{ marginTop: 0 }}>Wärmeerzeuger haben einen eigenen Höchstbetrag je Gebäude (KfW 458) und zählen nicht
+            zur Höchstgrenze der Gebäudehülle. Klima- und Einkommensbonus gibt es nur für selbstgenutzte Wohneinheiten, anteilig.
+            Weitere selbstnutzende Eigentümer (z. B. in einer WEG) beantragen ihre Boni mit eigenem Zusatzantrag.</p>
+          <div className="felder">
+            <div>
+              <ZahlFeld label="Kosten Baubegleitung Heizung (KfW) (€)" wert={d.kosten_baubegleitung_heizung ?? null}
+                onChange={v => setOpt("kosten_baubegleitung_heizung", v)} />
+              <span className="klein">Zählt zu den Heizungskosten (gleicher Höchstbetrag), nicht zur BAFA-Fachplanung.</span>
+            </div>
+            <div>
+              <ZahlFeld label="Bonusberechtigte selbstgenutzte WE in diesem Antrag" ganzzahl wert={d.heizung_bonus_we ?? 1}
+                onChange={v => setOpt("heizung_bonus_we", v)} />
+              <span className="klein">Standard 1. Mehr nur, wenn verschiedene selbstnutzende Eigentümer im selben Antrag stehen.</span>
+            </div>
+            <label>Einkommensbonus
+              <select value={String(d.einkommensbonus ?? 0)} onChange={e => set("einkommensbonus", Number(e.target.value))}>
+                <option value="0">kein Einkommensbonus</option>
+                {einkommensStufen.map(x => <option key={x} value={String(x)}>{Math.round(x * 100)} %</option>)}
+              </select></label>
+          </div>
+          <div className="schalter">
+            <label><input type="checkbox" checked={!!d.klimabonus} onChange={e => set("klimabonus", e.target.checked)} />
+              Klimageschwindigkeitsbonus (funktionstüchtige fossile Heizung wird ersetzt – Voraussetzungen prüft der Berater)</label>
+          </div>
+        </section>
+      )}
+
       {erg?.fachplanung_hinweis && <div className="warnung karte" role="alert">{erg.fachplanung_hinweis}</div>}
+      {warmHinweise.length > 0 && <div className="warnung karte" role="alert">
+        {warmHinweise.map(h => <p key={h} style={{ margin: "0 0 6px" }}>{h}</p>)}
+        {onSpeichern && <label><input type="checkbox" checked={einordnungGeprueft} onChange={e => setEinordnungGeprueft(e.target.checked)} />
+          {" "}Einordnung geprüft – die Maßnahme ist kein Wärmeerzeuger nach KfW 458 (sonst bitte oben ändern und neu berechnen)</label>}
+      </div>}
       {erg && <Ergebnis erg={erg} />}
       {vorschau && <Vorschau erg={vorschau} />}
       {erg && berechnetMit && <Angebotsweg erg={erg} eingaben={JSON.parse(berechnetMit)} />}
@@ -518,7 +573,9 @@ export function Ergebnis({ erg }) {
   const mitAngebot = reihe.some(r => s[r].angebotsweg);
   const grenze = [["EM", "Einzelmaßnahmen"], ["EH", "Effizienzhaus"]]
     .filter(([w]) => reihe.some(r => r.startsWith(w) && s[r].angebotsweg?.hoechstgrenze_greift)).map(([, t]) => t);
-  const posten = [["beg_em", "BAFA Gebäudehülle + Lüftung"], ["isfp_bonus", "iSFP-Bonus"], ["wpb_bonus", "WPB-Bonus"], ["tilgungszuschuss", "Tilgungszuschuss KfW 261"], ["baubegleitung", "Fachplanung / Baubegleitung"], ["isfp_beratung", "iSFP-Beratung"]];
+  const posten = [["beg_em", "BAFA Gebäudehülle + Lüftung"], ["isfp_bonus", "iSFP-Bonus"], ["wpb_bonus", "WPB-Bonus"],
+    ["kfw_458", "Heizungsförderung KfW 458"], ["tilgungszuschuss", "Tilgungszuschuss KfW 261"], ["baubegleitung", "Fachplanung / Baubegleitung"],
+    ["isfp_beratung", "iSFP-Beratung"]].filter(([k]) => k !== "kfw_458" || reihe.some(r => s[r].zuschuesse.kfw_458 !== undefined));
   return (
     <section className="karte">
       <h2>Fördervergleich auf einen Blick</h2>
