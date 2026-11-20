@@ -176,8 +176,9 @@ Der INIT-Skill im Chat (gleiche Skripte) hat denselben Fehler.
 ## 9. Stufen (freigegeben 20.11.2026)
 
 Entscheidungen des Geschäftsführers: Gebäudehülle im INIT-Kern wie Heizung auf echte Kosten; Obergrenzen nur als ausdrücklich
-benanntes „Förderpotenzial“; Kappung bei gemischten Sätzen **anteilig**; Boni für **alle** WE, die von verschiedenen Eigentümern
-selbst genutzt werden; Stufe 2 nach **Variante B** (Staffelwert innerhalb der Version nach `antrag_geplant_am`, leer =
+benanntes „Förderpotenzial“; Kappung bei gemischten Sätzen **anteilig**; Boni für die WE, die von verschiedenen Eigentümern
+selbst genutzt werden (Nr. 8.4.4) – in Stufe 1 über das Feld **„bonusberechtigte selbstgenutzte WE in diesem Antrag“ (Standard 1)**
+mit Hinweis auf eigene Zusatzanträge weiterer Eigentümer (Präzisierung GF 20.11.2026); Stufe 2 nach **Variante B** (Staffelwert innerhalb der Version nach `antrag_geplant_am`, leer =
 Berichtsdatum, Stichtag im Bericht nennen).
 
 ### Stufe 1 – sofort, mit den Regeln von V6 (keine neuen Konditionen-Felder, keine Migration)
@@ -187,7 +188,8 @@ Berichtsdatum, Stichtag im Bericht nennen).
 2. **Feld „KfW-Baubegleitung Heizung“:** zählt zu den Heizungskosten (gleicher Höchstbetrag, gleicher Satz).
 3. **INIT-Kern auf echte Kosten** für Heizung **und Gebäudehülle**; `rechne()` bleibt als „Förderpotenzial“ (Golden-Test mit dem
    Skill unverändert), Weg A und Eigenanteil nur aus echten Kosten, fehlende Kosten = „—“.
-4. **Boni für alle bonusberechtigten selbstgenutzten WE** (INIT und Fördervergleich).
+4. **Feld „bonusberechtigte selbstgenutzte WE in diesem Antrag“** (Standard 1; INIT und Fördervergleich), Boni anteilig
+   (Nr. 8.4.4); bei mehr als einer WE Hinweis „weitere selbstnutzende Eigentümer (z. B. WEG) mit eigenem Zusatzantrag“.
 5. **Warnung „Wärmeerzeuger als Anlagentechnik“** (Name der Maßnahme), Speichern nur mit Bestätigung.
 6. **Fördervergleich liest `beg_em.isfp_bonus_mindestbetrag`** (Bonus nur ab Mindestinvestition, auf den Teil über der
    Höchstgrenze ohne iSFP).
@@ -200,6 +202,62 @@ danach der korrigierte Generator als Skill-Paket für den Chat.
 |---|---|---|---|---|
 | Stufe 1 | `app/rechenkern/foerdervergleich.py`, `app/rechenkern/init_foerderung.py`, `app/rechnen.py`, `app/word.py`, `app/bericht_init.py`, `app/init_schnellweg.py`, `modules/foerderung-em-eh/module.yaml`, `frontend/src/Foerdervergleich.jsx`, `Schnellweg.jsx`, Detailbearbeitung, `generator/src/foerdervergleich.js`, `generate_report.js`, Tests | keine | Fördervergleich, INIT (gespeicherte unverändert) | 4–5 Tage |
 | Stufe 2 | `app/konditionen_zentrale.py` (Felder, `tabelle` mit Datum/Prozent), `frontend/src/Konditionen.jsx`, Rechenkerne (Staffel nach Stichtag, Heizungsart, 25-%-Regel), `app/rechnen.py` (`antrag_geplant_am`), Generator (Stichtag, „angekündigt“), Konditionen-Entwurf per CLI mit Fundstellen | keine (Antragsdatum in den Eingaben) | Fördervergleich, INIT, Konditionen-Zentrale | 3–4 Tage + Fachprüfung |
-| Stufe 3 | Rechenkern (§ 35c als Weg, Heizungsoptimierung 5.4 a/b im Hüllen-Topf, Kappung anteilig), Konditionen-Felder `beg_em.heizungsoptimierung_*`, Formular, Generator | keine | Fördervergleich, INIT (Darstellung) | ca. 3 Tage |
+| Stufe 3 | Rechenkern (§ 35c als Weg, Heizungsoptimierung 5.4 a/b im Hüllen-Topf, Kappung anteilig, **WEG-Modus**), Konditionen-Felder `beg_em.heizungsoptimierung_*`, Formular, Generator | keine | Fördervergleich, INIT (Darstellung) | ca. 3 Tage + WEG-Modus ca. 2 Tage |
 
 Vor Stufe 2 zu klären: Datum für „Q1 2027“, Lesart Nr. 8.3.3, BAnz-Fassung und TMA hochladen.
+
+### Baustein „WEG-Modus“ (Stufe 3, Konzept – nicht umgesetzt)
+
+Aufteilung je Eigentümer: Basisantrag der WEG (Gemeinschaftseigentum, Grundförderung auf die förderfähigen Gesamtkosten) plus je
+selbstnutzendem Eigentümer ein Zusatzantrag mit eigenen Boni auf seinen Kostenanteil. Eingaben je Eigentümer: Miteigentumsanteil,
+selbstgenutzt ja/nein, Klimabonus, Einkommensbonus; Ergebnis je Antrag und gesamt. Rechenweg nach FAQ 3.4 (Rang 3, nur
+Auslegung – Werte nur aus der Richtlinie): anteilige förderfähige Ausgaben = förderfähige Gesamtausgaben des Basisantrags ×
+Miteigentumsanteil, höchstens Höchstbetrag des Gebäudes / Anzahl WE; Bonus-Satz × diese Ausgaben; Deckel über Basis- und
+Zusatzantrag zusammen. Vor der Umsetzung: Widerspruch zur Richtlinie klären (8.4.4 rechnet anteilig nach der **Zahl** der
+selbstgenutzten WE, FAQ 3.4 nach dem **Miteigentumsanteil**) und die Zahlen der FAQ (veraltet, siehe unten) nicht übernehmen.
+
+**Fundstellen (lokal gesucht am 20.11.2026 in Quelle 1, 3, 5; wörtlich, ohne KI):**
+- Richtlinie BEG EM 17.07.2026 (Quelle 1), Nr. 6.1, S. 11: „Antragsberechtigt sind alle Investoren (zum Beispiel private
+  Hauseigentümer beziehungsweise Wohnungseigentümergemeinschaften (WEG), Contractoren, Unternehmen, gemeinnützige
+  Organisationen, Kommunen) von förderfähigen Maßnahmen an Wohngebäuden und Nichtwohngebäuden.“
+- Quelle 1, Nr. 8.4.4, S. 20 f.: „Der Bonus wird selbstnutzenden Eigentümern für Maßnahmen nach Nummer 5.3 nur für die
+  selbstgenutzte Wohneinheit gewährt. […] In Gebäuden mit mehr als einer Wohneinheit wird der Bonus nur anteilig für die gesamten
+  geförderten Ausgaben gewährt. Der anzusetzende Anteil entspricht dem Anteil der in dem Gebäude durch verschiedene Eigentümer
+  nachweislich selbstgenutzten Wohneinheiten.“
+- Quelle 1, Nr. 8.4.5, S. 21: „Selbstnutzenden Eigentümern wird für Maßnahmen nach Nummer 5.3 Buchstaben a bis i nur für die
+  selbstgenutzte Wohneinheit abhängig von dem zu versteuernden Haushaltsjahreseinkommen zusätzlich ein Bonus gewährt.“
+- Quelle 1: keine Regel zu Einzelantrag, Zusatzantrag oder Gemeinschafts-/Sondereigentum.
+- BEG-FAQ 14.08.2026 (Quelle 3), FAQ 1.5, S. 17 f.: „Bei Maßnahmen am Gemeinschaftseigentum stellt der Verwalter der WEG oder eine
+  andere vertretungsberechtigte Person als bevollmächtigte Person der WEG einen gemeinschaftlichen Antrag auf Grundlage
+  entsprechender Beschlüsse der WEG zur Sanierung und Antragstellung. Ausnahme für die Kreditvariante: Bei einer Sanierung zum
+  Effizienzhaus können auch die einzelnen Eigentümerinnen und Eigentümer jeweils eigene Anträge einreichen. Die förderfähigen
+  Kosten werden dann gemäß den Beschlüssen der WEG auf die Mitglieder verteilt. […] Bei förderfähigen Sanierungsmaßnahmen
+  ausschließlich am Sondereigentum einer Wohnungseigentümerin bzw. eines Wohnungseigentümers muss diese Wohnungseigentümerin bzw.
+  dieser Wohnungseigentümer einen gesonderten Antrag stellen.“
+- Quelle 3, FAQ 3.3, S. 41: „Wird mehr als eine Wohneinheit selbst genutzt, gilt im Sinne der Förderrichtlinie BEG EM nur eine
+  Wohneinheit als selbst genutzt. Weitere Wohneinheiten des Gebäudes werden mit dem Fördersatz der Grundförderung von 30 % (ggf.
+  plus weitere Boni für die Heiztechnik) gefördert.“ – dort noch „30.000 Euro für die erste Wohneinheit“ und „bis zu 70 %“
+  (Richtlinie 17.07.2026: 28.000 € und 70/80 %) → **Widerspruch, Richtlinie gilt**.
+- Quelle 3, FAQ 3.4, S. 42 f.: „Die WEG stellt einen gemeinsamen Antrag durch einen Verwalter (Basisantrag). […] Eigentümerinnen
+  bzw. Eigentümer, die ihre Wohneinheit selbst bewohnen, können zudem für diese Wohneinheit einen separaten Antrag (Zusatzantrag)
+  für folgende Zuschusskomponenten stellen: • Klimageschwindigkeits-Bonus in Höhe von 20 % • Einkommens-Bonus in Höhe von 30 % […]
+  Im Zusatzantrag wird der Zuschussbetrag anhand der anteiligen förderfähigen Ausgaben für die selbstgenutzte Wohneinheit und der
+  beantragten Zuschusskomponenten (Klimageschwindigkeits-Bonus, Einkommens-Bonus) berechnet. […] Dafür werden die berücksichtigten
+  förderfähigen Gesamtausgaben aus der Bestätigung zum Antrag (BzA) des Basisantrages und der Miteigentumsanteil an der WEG
+  herangezogen. Als anteilige förderfähige Ausgaben kann maximal der Förderhöchstbetrag für die vorliegende (selbstgenutzte)
+  Wohneinheit berücksichtigt werden. Hierfür wird der Förderhöchstbetrag für das Gesamtgebäude zu gleichen Teilen auf alle
+  Wohneinheiten aufgeteilt.“ – Sätze 20 %/30 %, Effizienz-Bonus 5 % und Obergrenze 70 % entsprechen nicht der Richtlinie
+  17.07.2026 (16 Pp., 40/30/10 Pp., kein Effizienz-Bonus, 70/80 %) → **veraltet, Widerspruch, Richtlinie gilt**.
+- Quelle 3, FAQ 3.6, S. 45: „Der Klimageschwindigkeits-Bonus kann nur für die förderfähigen Ausgaben der selbstgenutzten
+  Wohneinheiten in Anspruch genommen werden. Die anzusetzenden Ausgaben sind zusätzlich durch den Eigentumsanteil an der
+  Wohnungseigentümergemeinschaft begrenzt.“
+- Infoblatt 11.1 (Quelle 5), S. 43: „Als Umfeldmaßnahmen (Baunebenkosten) können die zusätzlichen Kosten einer
+  Wohnungseigentümerinnen- und Wohnungseigentümergemeinschaft(en)-Verwaltung für die Beschlussfassung einer förderfähigen
+  energetischen Sanierung (Modernisierung), die Antragstellung und Abwicklung einer Förderzusage berücksichtigt werden.“ – sonst
+  keine Regel zu Einzel-/Zusatzanträgen.
+
+**Abgleich mit der Sekundärquelle (Blog 10/2026, kein Beleg):** „Einzelne Eigentümer stellen auf Basis des WEG-Beschlusses eigene
+Anträge für ihren Kostenanteil, jeweils mit eigenen Boni“ ist nur teilweise gedeckt. Eigene Boni über einen Zusatzantrag je
+selbstnutzendem Eigentümer: ja (FAQ 3.4). Eigene Anträge für den Kostenanteil am Gemeinschaftseigentum: nur in der Kreditvariante
+Effizienzhaus (FAQ 1.5); beim Zuschuss stellt die WEG den Basisantrag. Sondereigentum: gesonderter Antrag des Eigentümers.
+

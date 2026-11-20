@@ -764,6 +764,27 @@ Verbindlich zusätzlich zu den unverhandelbaren Regeln; Einzelheiten in den Absc
   **0,26–0,30 $**, Korrektur 13–18 s, 0,03–0,08 $. Vergleich mit dem Original-Skill (gleiche Daten): Gliederung (31), Bilder,
   Förderbeträge identisch. Tests: `tests/test_init_schnellweg.py`, `frontend/src/Schnellweg.test.jsx`.
 
+## KfW 458 / Heizungstausch – Stufe 1 (Konzept freigegeben 20.11.2026, in Umsetzung)
+Konzept und Stufen: `docs/Konzept_KfW458_Heizungstausch.md`; Auftrag `docs/auftraege/Auftrag_KfW458_Stufe1.md`. Entscheidungen
+GF: Hülle und Heizung im INIT auf **echte Kosten**, Obergrenzen nur als ausdrücklich benanntes **„Förderpotenzial“**; Kappung bei
+gemischten Sätzen **anteilig**; Boni KfW 458 für die von verschiedenen Eigentümern selbstgenutzten WE (Nr. 8.4.4), in Stufe 1
+über das Feld **„bonusberechtigte selbstgenutzte WE in diesem Antrag“ (Standard 1)** plus Hinweis auf eigene Zusatzanträge weiterer
+Eigentümer (BEG-FAQ 3.4); Aufteilung je Eigentümer = Baustein „WEG-Modus“ (Stufe 3, Fundstellen im Konzept);
+Stufe 2 Variante B (Staffelwert in der Version nach `antrag_geplant_am`, leer = Berichtsdatum, Stichtag im Bericht).
+- **Paket 1 Rechenkerne (umgesetzt):** Fördervergleich (`app/rechenkern/foerdervergleich.py`): Kategorie `heizung` mit eigenem
+  Höchstbetrag `kfw_458.hoechstkosten` je Gebäude (`heizung_kfw458()`, Posten `kfw_458`, Herleitung `szenario.heizung`), nie im
+  Hüllen-Topf (`HUELLE_TOPF`); Eingaben `kosten_baubegleitung_heizung` (zählt zu den Heizungskosten), `heizung_bonus_we` (Standard 1, Hinweis `EINZELANTRAG_HINWEIS` ab 2 WE),
+  `klimabonus`, `einkommensbonus`; Satz = Grundförderung × (1 − Anteil) + min(Grund + Boni, Deckel) × Anteil; iSFP-Bonus über
+  `isfp_bonus()` nur ab `isfp_bonus_mindestbetrag`. Weg EH: Heizung bleibt im Paket 261 (Hinweis). INIT (`init_foerderung.py`):
+  `rechne()` = **Förderpotenzial** (ohne `bonus_we_anzahl` Skill-gleich, Golden-Test), `init_foerderung()` übergibt die
+  bonusberechtigten WE dieses Antrags (`we_bonus`, Standard 1, ohne selbstgenutzte WE 0); `werte.zuschuss` aus `kosten_huelle`, `kosten_heizung`,
+  `kosten_baubegleitung_heizung` (`zuschuss_echte_kosten()`, fehlende Kosten = None → „—“), `werte.potenzial = true`.
+  Referenzfall unverändert. Tests: `tests/test_kfw458_heizung.py` (Fälle A 18.380, B 24.380, C 24.940, EFH WP 20.000 → 9.200).
+- **Paket 2 Eingaben/Oberfläche, Paket 3 Generator 0.6.0:** offen (Generator-Änderungen angekündigt 20.11.2026).
+- **INIT-Skill im Chat hat denselben Fehler** (`generate_report.js`/`foerder_rechnung.js` im Skill-Paket „energieberatungsbericht“):
+  `heizMax` und `em_foerder_mit` auf Höchstkosten, als „Zuschuss“ beschriftet, „Geschätzter Eigenanteil“ = Kosten − Potenzial,
+  Boni höchstens für eine WE. Nach Stufe 1 den korrigierten Generator als Skill-Paket bereitstellen (Zip nicht einchecken).
+
 ## Versionsanzeige (Stand 19.11.2026)
 - **Fußzeile** (`frontend/src/Versionen.jsx`, alle Angemeldeten, `GET /systeminfo`, alle 5 Min. neu): laufende Generator-Version
   **live** (`app/systeminfo.py: generator_info()` – `GET /health` `version` oder Kopfzeile `X-Generator-Version`; meldet der Generator

@@ -8,7 +8,10 @@ from __future__ import annotations
 from dataclasses import dataclass, field
 from typing import Literal
 
-EmKategorie = Literal["daemmung", "fenster", "anlagentechnik", "nicht_foerderfaehig"]
+# heizung (Stufe 1 KfW 458, 20.11.2026): Wärmeerzeuger nach Nr. 5.3 BEG EM – eigener Höchstbetrag je Gebäude (kfw_458.hoechstkosten),
+# Zuschuss KfW 458 statt BAFA-Satz; nie im gemeinsamen Höchstbetrag der Hülle/Anlagentechnik
+EmKategorie = Literal["daemmung", "fenster", "anlagentechnik", "heizung", "nicht_foerderfaehig"]
+HUELLE_TOPF = ("daemmung", "fenster", "anlagentechnik")   # gemeinsamer Höchstbetrag je Gebäude und Kalenderjahr (Nr. 8.3)
 
 
 @dataclass
@@ -58,6 +61,14 @@ class Eingaben:
     we_neu: int = 0
     umbaukosten_neue_we: float = 0.0
     angebote: Angebote | None = None
+    # Heizung KfW 458 (Stufe 1, Regeln der aktiven Version): Baubegleitung der Heizung zählt zu den Heizungskosten;
+    # Boni anteilig für die bonusberechtigten selbstgenutzten WE **in diesem Antrag** (Standard 1, GF 20.11.2026; Nr. 8.4.4:
+    # „durch verschiedene Eigentümer“ selbstgenutzt). Weitere Eigentümer (WEG) stellen eigene Zusatzanträge (BEG-FAQ 3.4) –
+    # Aufteilung je Eigentümer erst im WEG-Modus (Stufe 3)
+    kosten_baubegleitung_heizung: float = 0.0
+    heizung_bonus_we: int = 1
+    klimabonus: bool = False
+    einkommensbonus: float = 0.0
 
     def bb_kosten(self, weg: str) -> float:
         """Kosten Fachplanung/Baubegleitung je Weg: aus den Angeboten, sonst die Pauschaleingabe."""
@@ -82,6 +93,7 @@ class Szenario:
     angekuendigt: bool = False
     angekuendigt_text: str | None = None
     zuschuss_angekuendigt: float = 0.0
+    heizung: dict | None = None          # Herleitung Heizungsposten KfW 458 (nur Weg EM mit Heizungsmaßnahmen)
 
     @property
     def summe_zuschuesse_energetisch(self) -> float:
@@ -114,6 +126,7 @@ class Szenario:
             "angebotsweg": self.angebotsweg,
             "angekuendigt": self.angekuendigt, "angekuendigt_text": self.angekuendigt_text,
             "zuschuss_angekuendigt": self.zuschuss_angekuendigt, "summe_zuschuesse_in_kraft": self.summe_zuschuesse_in_kraft,
+            **({"heizung": self.heizung} if self.heizung is not None else {}),
         }
 
 
@@ -181,17 +194,77 @@ def wpb_em_angekuendigt(kond: dict) -> tuple[bool, str | None]:
     return True, "angekündigt, noch nicht in Kraft" + (f" ({zeit})" if zeit else "")
 
 
+def isfp_bonus(ff: float, cap_ohne: float, satz: float, mindestbetrag: float | None) -> float:
+    """iSFP-Bonus (Nr. 8.4.2): nur ab dem förderfähigen Mindestinvestitionsvolumen (`beg_em.isfp_bonus_mindestbetrag`, ab
+    Version 3; fehlt = keine Schwelle) und nur auf den Teil über der Höchstgrenze ohne iSFP."""
+    if mindestbetrag and ff < mindestbetrag:
+        return 0.0
+    return _r(satz * max(0.0, ff - cap_ohne))
+
+
+EINZELANTRAG_HINWEIS = ("Gerechnet sind die Boni für die bonusberechtigten WE dieses Antrags. Weitere selbstnutzende Eigentümer "
+                        "(z. B. in einer WEG) beantragen ihre Boni mit eigenem Zusatzantrag für ihren Anteil (BEG-FAQ 3.4, "
+                        "zu prüfen) – hier nicht enthalten.")
+
+
+def heizung_kfw458(e: Eingaben, kond: dict) -> tuple[float | None, dict | None, list[str]]:
+    """Heizungsposten KfW 458 (Stufe 1, nur Regeln der aktiven Version): Kosten der Wärmeerzeuger + Baubegleitung Heizung,
+    begrenzt auf kfw_458.hoechstkosten (WE-Staffel, je Gebäude); Grundförderung für alle, Klima-/Einkommensbonus nur für den
+    Anteil der von verschiedenen Eigentümern selbstgenutzten WE, Deckel deckel bzw. deckel_einkommensbonus_40.
+    → (Zuschuss oder None ohne Heizungsmaßnahme, Herleitung, Hinweise)."""
+    kosten_wz = sum(m.kosten for m in e.massnahmen if m.em_kategorie == "heizung")
+    if kosten_wz <= 0 and e.kosten_baubegleitung_heizung <= 0:
+        return None, None, []
+    k = kond.get("kfw_458")
+    if not isinstance(k, dict):
+        return 0.0, None, ["Heizungsförderung KfW 458 ist in dieser Konditionen-Version nicht hinterlegt – Heizung ohne Zuschuss"]
+    stufen = k.get("einkommensbonus_stufen") or []
+    if e.einkommensbonus and not any(abs(e.einkommensbonus - x) < 1e-9 for x in stufen):
+        raise ValueError("Einkommensbonus nur 0 oder eine Stufe aus den Konditionen")
+    we = e.we_nach_sanierung
+    bonus_we = max(0, min(e.heizung_bonus_we, we))
+    klima = k["klimabonus"] if e.klimabonus else 0.0
+    eink = e.einkommensbonus or 0.0
+    deckel = k["deckel_einkommensbonus_40"] if eink >= 0.40 - 1e-9 else k["deckel"]
+    grund = k["grundfoerderung"]
+    satz_eigen = min(grund + klima + eink, deckel) if bonus_we and (klima or eink) else grund
+    anteil = bonus_we / we if satz_eigen != grund else 0.0
+    kosten = _r(kosten_wz + e.kosten_baubegleitung_heizung)
+    grenze = hoechstgrenze(we, k["hoechstkosten"])
+    ff = min(kosten, grenze)
+    satz = grund * (1 - anteil) + satz_eigen * anteil      # Boni anteilig auf die gesamten geförderten Ausgaben (Nr. 8.4.4)
+    zuschuss = _r(satz * ff)
+    hinweise = []
+    if kosten > grenze:
+        hinweise.append("Höchstbetrag Heizung (KfW 458) erreicht: " + f"{kosten - grenze:,.0f}".replace(",", ".") + " € nicht förderfähig")
+    if (e.klimabonus or eink) and not bonus_we:
+        hinweise.append("Klima-/Einkommensbonus nur für selbstgenutzte WE – keine angegeben, nur Grundförderung")
+    if anteil and bonus_we < we:
+        hinweise.append(f"Boni KfW 458 anteilig: {bonus_we} von {we} WE selbstgenutzt")
+    if (e.klimabonus or eink) and we > 1:
+        hinweise.append(EINZELANTRAG_HINWEIS)
+    herleitung = {"kosten_waermeerzeuger": _r(kosten_wz), "kosten_baubegleitung": _r(e.kosten_baubegleitung_heizung),
+                  "kosten": kosten, "hoechstkosten": _r(grenze), "foerderfaehig": _r(ff), "grundfoerderung": grund,
+                  "klimabonus": klima, "einkommensbonus": eink, "deckel": deckel, "satz_selbstgenutzt": round(satz_eigen, 6),
+                  "bonus_we": bonus_we, "we": we, "anteil_selbstgenutzt": round(anteil, 6), "satz": round(satz, 6),
+                  "zuschuss": zuschuss}
+    return zuschuss, herleitung, hinweise
+
+
 def einzelmassnahmen(e: Eingaben, kond: dict, wpb: bool) -> Szenario:
     em, bera = kond["beg_em"], kond["isfp_beratung"]
     s = Szenario("EM_" + ("WPB" if wpb else "ohne_WPB"), "Einzelmaßnahmen " + ("mit" if wpb else "ohne") + " WPB")
-    basis = sum(m.kosten for m in e.massnahmen if m.em_kategorie != "nicht_foerderfaehig")
+    basis = sum(m.kosten for m in e.massnahmen if m.em_kategorie in HUELLE_TOPF)
     daemm = sum(m.kosten for m in e.massnahmen if m.em_kategorie == "daemmung")
     cap0 = hoechstgrenze(e.we_nach_sanierung, em["hoechstgrenze_ohne_isfp"])
     cap = hoechstgrenze(e.we_nach_sanierung, em["hoechstgrenze_mit_isfp"]) if e.isfp else cap0
     ff = min(basis, cap)
     s.zuschuesse["beg_em"] = _r(em["foerdersatz"] * ff)
     if e.isfp:
-        s.zuschuesse["isfp_bonus"] = _r(em["isfp_bonus"] * max(0.0, ff - cap0))
+        s.zuschuesse["isfp_bonus"] = isfp_bonus(ff, cap0, em["isfp_bonus"], em.get("isfp_bonus_mindestbetrag"))
+        if em.get("isfp_bonus_mindestbetrag") and 0 < ff < em["isfp_bonus_mindestbetrag"]:
+            s.hinweise.append("iSFP-Bonus erst ab förderfähigen Kosten von "
+                              + f"{em['isfp_bonus_mindestbetrag']:,.0f}".replace(",", ".") + " €")
     if wpb:
         if e.isfp:
             s.zuschuesse["wpb_bonus"] = _r(em["wpb_bonus"] * min(daemm, ff))
@@ -210,9 +283,16 @@ def einzelmassnahmen(e: Eingaben, kond: dict, wpb: bool) -> Szenario:
         s.zuschuesse["isfp_beratung"] = _r(min(bera["satz"] * e.kosten_isfp, grenze))
     if basis > cap:
         s.hinweise.append("Höchstgrenze erreicht: " + f"{basis - cap:,.0f}".replace(",", ".") + " € nicht förderfähig (Staffelung über Kalenderjahre prüfen)")
+    heiz, herleitung, h = heizung_kfw458(e, kond)
+    if heiz is not None:
+        s.zuschuesse["kfw_458"] = heiz
+        s.heizung = herleitung
+        s.hinweise += h
+    kosten_heizung = sum(m.kosten for m in e.massnahmen if m.em_kategorie == "heizung")
     s.kreditprogramm = em["ergaenzungskredit"]["programm"]
-    s.kreditrahmen = _r(min(basis, em["ergaenzungskredit"]["je_we"] * e.we_nach_sanierung))
-    s.kosten_energetisch = _r(sum(m.kosten for m in e.massnahmen) + e.bb_kosten("EM") + (e.kosten_isfp if e.isfp else 0))
+    s.kreditrahmen = _r(min(basis + kosten_heizung, em["ergaenzungskredit"]["je_we"] * e.we_nach_sanierung))
+    s.kosten_energetisch = _r(sum(m.kosten for m in e.massnahmen) + e.bb_kosten("EM") + (e.kosten_isfp if e.isfp else 0)
+                              + e.kosten_baubegleitung_heizung)
     # KfW 266 verlangt auch bei Einzelmaßnahmen mindestens EH 85 EE
     s.zuschuss_266, h = _kfw266(e, kond["kfw_266"], stufe_ok=True)
     s.hinweise += h
@@ -258,6 +338,8 @@ def effizienzhaus(e: Eingaben, kond: dict, wpb: bool) -> Szenario:
         s.zuschuesse["wpb_bonus"] = _r(wpb_satz * ff)
     s.zuschuesse["baubegleitung"] = _baubegleitung(e.we_nach_sanierung, e.bb_kosten("EH"), wg["baubegleitung"])
     s.angebotsweg = _angebotsweg(e, "EH", s.zuschuesse["baubegleitung"], wg["baubegleitung"]["satz"])
+    if any(m.em_kategorie == "heizung" and m.eh_foerderfaehig for m in e.massnahmen):
+        s.hinweise.append("Heizung im Effizienzhaus-Paket (KfW 261) – kein zusätzlicher Zuschuss KfW 458 für dieselbe Heizung")
     s.kreditprogramm, s.kredit_pflicht = "KfW 261", True
     s.kreditrahmen = _r(ff + e.bb_kosten("EH"))
     s.hinweise.append("Tilgungszuschuss nur auf tatsächlich abgerufenen Kredit")
