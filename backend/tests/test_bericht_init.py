@@ -544,10 +544,16 @@ def test_echter_generator_bericht_init(fall, v3_aktiv, monkeypatch):
     docx = berater.get(f"/berichte/{r.json()['bericht_id']}/word").content
     text, medien = _text(docx)
     eur = lambda x: f"{x:,.0f} €".replace(",", ".")  # noqa: E731
-    for betrag in (w["heiz_max"], w["em_foerder_mit"], w["weg_a"], w["eh_foerder"]):
+    # Ab Generator 0.6.0 (GF 20.11.2026): Obergrenzen nur als „Förderpotenzial“ (7.5), die Potenzial-Summe weg_a ist kein
+    # Zuschuss und steht nicht mehr als „Summe Weg A“ im Bericht; Weg A nur aus echten Kosten (werte.zuschuss).
+    for betrag in (w["heiz_max"], w["em_foerder_mit"], w["eh_foerder"]):
         assert eur(betrag) in text, betrag
+    assert "Förderpotenzial nach Wohneinheiten (Obergrenzen)" in text and "Summe Weg A (max. direkte Zuschüsse)" not in text
+    zk = w.get("zuschuss") or {}
+    if zk.get("weg_a") is not None:
+        assert eur(zk["weg_a"]) in text and "Summe Weg A (Zuschüsse aus Ihren Kosten)" in text
     if fall == "efh":
-        for betrag in ("19.600 €", "10.500 €", "30.100 €", "7.500 €"):
+        for betrag in ("19.600 €", "10.500 €", "7.500 €"):
             assert betrag in text, betrag
     assert f"{p['projektnummer']}-V1" in text and "Gaskessel" in text and "Ansicht von Süden" in text
     assert len(medien) >= 3  # Logo + Frontbild + Foto Anlagentechnik
