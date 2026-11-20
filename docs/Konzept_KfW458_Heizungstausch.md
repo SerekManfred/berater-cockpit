@@ -1,6 +1,7 @@
 # Konzept: KfW 458 / Heizungstausch im Fördervergleich und im INIT-Bericht
 
-Stand 20.11.2026 · **nur Konzept, nicht umgesetzt** · Auftrag `docs/auftraege/Auftrag_Foerderpruefung_Nacharbeiten_Konzept_KfW458.md`, Punkt 4
+Stand 20.11.2026 · **freigegeben vom Geschäftsführer am 20.11.2026** (mit Ergänzungen, Abschnitt 9) · Stufe 1 in Umsetzung ·
+Aufträge `docs/auftraege/Auftrag_Foerderpruefung_Nacharbeiten_Konzept_KfW458.md` (Punkt 4) und `docs/auftraege/Auftrag_KfW458_Stufe1.md`
 
 Alle Sätze, Grenzen und Stichtage gehören in die Konditionen (Regel 1, mit Fundstelle ab Version 7). Die Zahlen unten
 sind Belege für die Felder, keine Werte für den Code.
@@ -155,10 +156,50 @@ der Berater hat Investitionskosten der Heizung eingetragen. Neue Werte `heiz_art
 - Frontend: Kategorie und Pflicht-Zusatzfelder (`Foerdervergleich.test.js`), Anzeige angekündigt (`ErgebnisAngekuendigt.test.jsx`).
 - Förderprüfung: neue Felder erscheinen in `programme_fuer_pruefung`, Tabellenfelder nicht.
 
-## 8. Vorgeschlagene Reihenfolge
+## 8. Befund INIT-Bericht: Potenzial als Zuschuss beschriftet (20.11.2026)
 
-1. Fachliche Klärung der zwei Auslegungen (Abschnitt 2) mit Fundstelle. Upload BAnz-Fassung und TMA.
-2. Konditionen-Felder und `tabelle` mit Datum/Prozent, dann ein Entwurf per Kommandozeile mit Fundstellen und
-   Vier-Augen-Freigabe.
-3. Rechenkern Fördervergleich und Formular (Phase a: Art, EU-Ursprung, Ersatz vor 2008, Heizungsoptimierung).
-4. Generator 0.5.x (ankündigen), dann INIT (optional) und Phase b (Boni für selbstgenutzte WE).
+`init_foerderung.py` `rechne()` rechnet Heizung (`heiz_max`) und Gebäudehülle (`em_foerder_mit`) auf die **Höchstgrenzen**
+(WE-Staffel), nie auf eingetragene Kosten. Der Generator (`generator/skills/energieberatungsbericht/scripts/generate_report.js`,
+Generator 0.5.1) zeigt das so:
+
+| Stelle | Zeilen | Beschriftung |
+|---|---|---|
+| 7.5 „Übersicht der maximal möglichen Förderung nach Wohneinheiten“ | 711–731 | Text „theoretisch maximal möglich … Obergrenzen“, Spalte „Max. Förderung“, **Form „Zuschuss“** |
+| 9. Anhang, „Weg A – Einzelmaßnahmen (direkte Zuschüsse …)“ | 868–879 | „Max. Förderung“, Summe „Weg A (max. direkte Zuschüsse)“, Notiz **„Herleitung KfW-458-Zuschuss“** |
+| 9. Anhang, Gegenüberstellung / „Zusammenfassung Weg A“ | 903–931 | **„Geschätzter Eigenanteil“ = Investitionskosten des Beraters − Weg A (Potenzial)** |
+
+Folge: Bei Kosten unter der Höchstgrenze wird der Zuschuss zu hoch und der Eigenanteil zu niedrig ausgewiesen (Gegencheck Fall C:
+Heizung 38.080 € Potenzial statt 13.440 € Zuschuss; EFH mit Wärmepumpe 20.000 €: 12.880 € statt 9.200 €). Außerdem bekommt
+höchstens **eine** selbstgenutzte WE die Boni (`bonus_we`), Nr. 8.4.4 meint alle von verschiedenen Eigentümern selbstgenutzten WE.
+Der INIT-Skill im Chat (gleiche Skripte) hat denselben Fehler.
+
+## 9. Stufen (freigegeben 20.11.2026)
+
+Entscheidungen des Geschäftsführers: Gebäudehülle im INIT-Kern wie Heizung auf echte Kosten; Obergrenzen nur als ausdrücklich
+benanntes „Förderpotenzial“; Kappung bei gemischten Sätzen **anteilig**; Boni für **alle** WE, die von verschiedenen Eigentümern
+selbst genutzt werden; Stufe 2 nach **Variante B** (Staffelwert innerhalb der Version nach `antrag_geplant_am`, leer =
+Berichtsdatum, Stichtag im Bericht nennen).
+
+### Stufe 1 – sofort, mit den Regeln von V6 (keine neuen Konditionen-Felder, keine Migration)
+
+1. **Heizungsposten KfW 458 im Fördervergleich:** Kategorie `heizung`, eigener Höchstbetrag `kfw_458.hoechstkosten` je Gebäude,
+   Grundförderung, Klima- und Einkommensbonus anteilig nach selbstgenutzten WE (Nr. 8.4.4/8.4.5), Deckel 70/80 %.
+2. **Feld „KfW-Baubegleitung Heizung“:** zählt zu den Heizungskosten (gleicher Höchstbetrag, gleicher Satz).
+3. **INIT-Kern auf echte Kosten** für Heizung **und Gebäudehülle**; `rechne()` bleibt als „Förderpotenzial“ (Golden-Test mit dem
+   Skill unverändert), Weg A und Eigenanteil nur aus echten Kosten, fehlende Kosten = „—“.
+4. **Boni für alle bonusberechtigten selbstgenutzten WE** (INIT und Fördervergleich).
+5. **Warnung „Wärmeerzeuger als Anlagentechnik“** (Name der Maßnahme), Speichern nur mit Bestätigung.
+6. **Fördervergleich liest `beg_em.isfp_bonus_mindestbetrag`** (Bonus nur ab Mindestinvestition, auf den Teil über der
+   Höchstgrenze ohne iSFP).
+7. **Tests:** Fälle A/B/C (Gegencheck) und EFH mit Wärmepumpe 20.000 € → 9.200 €.
+
+Pakete: (1) Rechenkerne + Tests, (2) Eingaben/Oberfläche, (3) Generator 0.6.0 (Fördervergleich und INIT, vorher angekündigt),
+danach der korrigierte Generator als Skill-Paket für den Chat.
+
+| | Dateien | Migration | Berichte | Aufwand |
+|---|---|---|---|---|
+| Stufe 1 | `app/rechenkern/foerdervergleich.py`, `app/rechenkern/init_foerderung.py`, `app/rechnen.py`, `app/word.py`, `app/bericht_init.py`, `app/init_schnellweg.py`, `modules/foerderung-em-eh/module.yaml`, `frontend/src/Foerdervergleich.jsx`, `Schnellweg.jsx`, Detailbearbeitung, `generator/src/foerdervergleich.js`, `generate_report.js`, Tests | keine | Fördervergleich, INIT (gespeicherte unverändert) | 4–5 Tage |
+| Stufe 2 | `app/konditionen_zentrale.py` (Felder, `tabelle` mit Datum/Prozent), `frontend/src/Konditionen.jsx`, Rechenkerne (Staffel nach Stichtag, Heizungsart, 25-%-Regel), `app/rechnen.py` (`antrag_geplant_am`), Generator (Stichtag, „angekündigt“), Konditionen-Entwurf per CLI mit Fundstellen | keine (Antragsdatum in den Eingaben) | Fördervergleich, INIT, Konditionen-Zentrale | 3–4 Tage + Fachprüfung |
+| Stufe 3 | Rechenkern (§ 35c als Weg, Heizungsoptimierung 5.4 a/b im Hüllen-Topf, Kappung anteilig), Konditionen-Felder `beg_em.heizungsoptimierung_*`, Formular, Generator | keine | Fördervergleich, INIT (Darstellung) | ca. 3 Tage |
+
+Vor Stufe 2 zu klären: Datum für „Q1 2027“, Lesart Nr. 8.3.3, BAnz-Fassung und TMA hochladen.
