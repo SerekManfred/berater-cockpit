@@ -209,7 +209,10 @@ def test_foerderpruefung_kennzeichnet_bereits_geplante_abweichungen(monkeypatch,
         a = m.ergebnis["abweichungen"][0]
         assert a["feld"] == "beg_em.foerdersatz" and a["geplant"] == {"version": 2, "gueltig_ab": STICHTAG}
         assert m.status == "keine_abweichung"                                 # alles schon geplant: kein Handlungsbedarf
-        assert m.ergebnis["hinweise"][0] == "1 Abweichung(en) sind bereits in der geplanten Version 2 (gilt ab 01.02.2027) enthalten."
+        assert not any("geplanten Version" in h for h in m.ergebnis["hinweise"])   # seit 20.11.2026 im Ergebnis-Text
+        u = foerderpruefung.uebersicht(m)
+        assert u["ergebnis_text"] == "1 Abweichung zu V1 – davon 1 geplant in V2 (ab 01.02.2027) · 0 offen"
+        assert u["status_text"] == "Kein Handlungsbedarf (bereits geplant)"
     assert [x for x in mails if x["art"] == "foerderpruefung_handlungsbedarf"] == []
     # gemischt: geplante Zeile gekennzeichnet, übrige lösen Handlungsbedarf aus; Mail nennt die Planung
     ersatz(monkeypatch, MIT_ABWEICHUNG)

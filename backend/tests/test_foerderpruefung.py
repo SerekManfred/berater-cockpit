@@ -145,7 +145,7 @@ def test_jetzt_pruefen_ohne_abweichung(aktiv, monkeypatch):
     liste = meldungen(admin)
     assert len(liste) == 1 and liste[0]["status"] == "keine_abweichung" and liste[0]["ausgeloest_von"] == "admin"
     lauf = liste[0]["ergebnis"]["lauf"]
-    assert lauf["suchen"] == 7 and lauf["kosten_usd"] == 0.57 and lauf["prompt_version"] == "foerderpruefung-2" and lauf["art"] == "manuell"
+    assert lauf["suchen"] == 7 and lauf["kosten_usd"] == 0.57 and lauf["prompt_version"] == "foerderpruefung-3" and lauf["art"] == "manuell"
     assert "rohtext" not in liste[0]["ergebnis"] and "rohtext" in admin.get(f"/foerderpruefung/meldungen/{liste[0]['id']}").json()["ergebnis"]
     assert mail.GESENDET == []                       # keine Mail bei „keine Abweichung“
     assert "foerderpruefung_lauf" in aktionen(admin.benutzer_id)
@@ -427,7 +427,7 @@ def test_zweistufig_vorpruefung_spart_gruendliche_pruefung(aktiv, monkeypatch):
     eingabe = json.loads(a["text"].split("\n\n", 1)[1])
     assert eingabe["bekannte_dokumente"] == [{k: m.get(k) for k in ("programm", "titel", "stand", "quelle")}
                                              for m in OHNE_ABWEICHUNG["merkblaetter"]]
-    assert erg["lauf"]["prompt_version"] == "foerderpruefung-stand-1" and erg["vorpruefung"]["lauf"]["basis_meldung_id"] == erste
+    assert erg["lauf"]["prompt_version"] == "foerderpruefung-stand-2" and erg["vorpruefung"]["lauf"]["basis_meldung_id"] == erste
     assert erg["merkblaetter"][0]["stand"] == "07/2026" and "keine gründliche Prüfung nötig" in erg["zusammenfassung"]
     # Basis bleibt die gründliche Prüfung (nicht die Vorprüfung)
     with SessionLocal() as db:
@@ -461,7 +461,7 @@ def test_bei_aenderung_oder_unklarheit_gruendlich(aktiv, monkeypatch, vor):
     else:
         e, _, status, erg = _lauf(monkeypatch, vor, MIT_ABWEICHUNG)
     assert len(e.aufrufe) == 2 and status == "offen" and erg["lauf"]["stufe"] == "voll"
-    assert erg["vorpruefung"]["grund"] and erg["lauf"]["prompt_version"] == "foerderpruefung-2"
+    assert erg["vorpruefung"]["grund"] and erg["lauf"]["prompt_version"] == "foerderpruefung-3"
     vor_kosten = erg["vorpruefung"]["lauf"]["kosten_usd"]
     assert erg["lauf"]["kosten_usd"] > vor_kosten > 0          # Kosten beider Stufen zusammen
 
@@ -554,7 +554,7 @@ def test_leere_felder_werden_markiert_und_gemeldet(aktiv, monkeypatch):
     assert leer and all(zeilen[f]["hinterlegt"] in (None, "", []) for f in leer)
     assert not zeilen["beg_em.foerdersatz"].get("leer")
     version, system = foerderpruefung.prompt()
-    assert version == "foerderpruefung-2" and "Leere oder fehlende Felder" in system
+    assert version == "foerderpruefung-3" and "Leere oder fehlende Felder" in system
     # Meldung zu einem leeren Feld wird übernommen (hinterlegt null → neuer Wert)
     feld = sorted(f for f in leer if foerderpruefung.pruefbare_felder()[f]["typ"] == "euro")[0]
     erg = foerderpruefung.auswerten("```json\n" + json.dumps({"abweichungen": [{"feld": feld, "neu": 30000, "quelle": "https://www.bafa.de/r.pdf",

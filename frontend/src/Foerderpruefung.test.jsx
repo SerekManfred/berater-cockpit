@@ -15,7 +15,7 @@ vi.mock("./api.js", async original => ({
   }),
 }));
 
-import { OffeneMeldungen, PruefungVeraltet, kostenStufen, modellName, seitenText, stufeText } from "./Foerderpruefung.jsx";
+import { FoerderpruefungSeite, OffeneMeldungen, PruefungVeraltet, ergebnisText, hinweiseText, kostenStufen, modellName, seitenText, statusText, stufeText } from "./Foerderpruefung.jsx";
 import { standText } from "./Foerdervergleich.jsx";
 
 afterEach(() => { cleanup(); aufrufe.length = 0; antworten = {}; });
@@ -139,5 +139,45 @@ describe("Seitentext der Förderprüfung", () => {
     expect(t).toMatch(/gründliche Prüfung mit Opus 5\.5/);
     expect(t).toMatch(/Nächster Termin: Montag, 23\.11\.2026, 06:10 Uhr\.$/);
     expect(seitenText({ aktiv: false, vor_modell: "claude-sonnet-5-5", modell: "claude-opus-5-5" })).toMatch(/ausgeschaltet – kein Termin/);
+  });
+});
+
+// Anzeige der Läufe (Auftrag 20.11.2026): Texte aus `uebersicht` des Backends, gespeicherter Status bleibt
+describe("Übersicht der Läufe", () => {
+  const LAUF = {
+    id: 3, zeit: "2026-11-19T20:56:13Z", konditionen_version: 6, status: "keine_abweichung", ausgeloest_von: "Manfred Serek",
+    ergebnis: { abweichungen: [{ feld: "a", geplant: { version: 7, gueltig_ab: "2027-02-01" } }, { feld: "b", geplant: { version: 7, gueltig_ab: "2027-02-01" } }],
+      hinweise: ["h1", "h2"], lauf: { stufe: "voll", suchen: 14, kosten_usd: 1.9874 } },
+    uebersicht: { abweichungen: 2, geplant: 2, offen: 0, hinweise: 12,
+      ergebnis_text: "2 Abweichungen zu V6 – davon 2 geplant in V7 (ab 01.02.2027) · 0 offen",
+      status_text: "Kein Handlungsbedarf (bereits geplant)" },
+  };
+
+  it("nimmt Ergebnis, Status und Hinweis-Zähler aus dem Backend", () => {
+    expect(ergebnisText(LAUF)).toBe("2 Abweichungen zu V6 – davon 2 geplant in V7 (ab 01.02.2027) · 0 offen");
+    expect(statusText(LAUF)).toBe("Kein Handlungsbedarf (bereits geplant)");
+    expect(hinweiseText(LAUF)).toBe("12 Hinweise");
+    expect(hinweiseText({ uebersicht: { hinweise: 1 } })).toBe("1 Hinweis");
+  });
+
+  it("ältere Antworten ohne Übersicht: wie bisher", () => {
+    const alt = { status: "keine_abweichung", ergebnis: { abweichungen: [], hinweise: ["x"] } };
+    expect(ergebnisText(alt)).toBe("keine Abweichung");
+    expect(statusText(alt)).toBe("keine Abweichung");
+    expect(hinweiseText(alt)).toBe("1 Hinweis");
+    expect(statusText(undefined)).toBe("–");
+  });
+
+  it("zeigt die Texte und die Spalte Hinweise in der Tabelle", async () => {
+    antworten = {
+      "/foerderpruefung/lauf": { aktiv: true, laeuft: false, laeufe_heute: 1, max_laeufe_tag: 5, intervall_tage: 14 },
+      "/foerderpruefung/meldungen?limit=20": [LAUF],
+      "/foerderpruefung/stand": { veraltet: false },
+    };
+    render(<FoerderpruefungSeite ich={ADMIN} />);
+    expect(await screen.findByText(/2 Abweichungen zu V6 – davon 2 geplant in V7/)).toBeTruthy();
+    expect(screen.getByText("Kein Handlungsbedarf (bereits geplant)")).toBeTruthy();
+    expect(screen.getByRole("columnheader", { name: "Hinweise" })).toBeTruthy();
+    expect(screen.getByText("12 Hinweise")).toBeTruthy();
   });
 });

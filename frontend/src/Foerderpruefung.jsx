@@ -6,6 +6,19 @@ import { anzeige } from "./Konditionen.jsx";
 // Die Oberfläche rechnet und prüft nichts – alle Werte und Bewertungen kommen aus dem Backend (app/foerderpruefung.py).
 
 const STATUS = { keine_abweichung: "keine Abweichung", offen: "offen", entwurf_angelegt: "Entwurf angelegt", verworfen: "verworfen" };
+
+// Anzeige eines Laufs (20.11.2026): Texte und Zähler kommen aus `uebersicht` des Backends; Rückfall nur für ältere Antworten
+export function ergebnisText(m) {
+  if (m?.uebersicht?.ergebnis_text) return m.uebersicht.ergebnis_text;
+  const n = Array.isArray(m?.ergebnis?.abweichungen) ? m.ergebnis.abweichungen.length : 0;
+  return n ? `${n} Abweichung(en)` : "keine Abweichung";
+}
+export const statusText = m => m?.uebersicht?.status_text || STATUS[m?.status] || m?.status || "–";
+export function hinweiseText(m) {
+  const n = typeof m?.uebersicht?.hinweise === "number" ? m.uebersicht.hinweise
+    : (Array.isArray(m?.ergebnis?.hinweise) ? m.ergebnis.hinweise.length : 0);
+  return n === 1 ? "1 Hinweis" : `${n} Hinweise`;
+}
 const datumDe = s => (typeof s === "string" && /^\d{4}-\d{2}-\d{2}/.test(s)) ? `${s.slice(8, 10)}.${s.slice(5, 7)}.${s.slice(0, 4)}` : "–";
 const istLink = u => typeof u === "string" && /^https?:\/\//i.test(u);
 const kosten = l => (l && typeof l.kosten_usd === "number") ? `ca. ${l.kosten_usd.toLocaleString("de-DE", { maximumFractionDigits: 2 })} US-$` : "–";
@@ -123,7 +136,7 @@ export function OffeneMeldungen({ ich, onEntwurf }) {
     <section key={m.id} className="karte pruefkarte" aria-label="Handlungsbedarf Förderkonditionen">
       <h2>Handlungsbedarf Förderkonditionen</h2>
       <p className="klein" style={{ marginTop: 0 }}>Förderprüfung vom {zeit(m.zeit)} ({m.ausgeloest_von}) gegen Version {m.konditionen_version}:
-        {" "}{m.ergebnis.abweichungen.length} Abweichung(en). Nichts wurde automatisch geändert – eine neue Version gilt erst nach Vier-Augen-Freigabe.</p>
+        {" "}{ergebnisText(m)}. Nichts wurde automatisch geändert – eine neue Version gilt erst nach Vier-Augen-Freigabe.</p>
       <MeldungTabelle m={m} />
       {darfEntwurfAnlegen(ich) ? <MeldungAktionen m={m} ich={ich} onEntwurf={onEntwurf} onFertig={laden} />
         : <p className="klein">Entwurf anlegen oder verwerfen: durch einen Admin oder Empfänger der Benachrichtigungen.</p>}
@@ -173,19 +186,20 @@ export function FoerderpruefungSeite({ ich, onEntwurf }) {
       {liste.length === 0 ? <p>Noch keine Prüfläufe.</p> : (
         <div className="karte tabelle">
           <table>
-            <thead><tr><th>Zeit</th><th>Version</th><th>Ergebnis</th><th>Status</th><th>Suchen</th><th>Kosten</th><th><span className="sr">Aktion</span></th></tr></thead>
+            <thead><tr><th>Zeit</th><th>Version</th><th>Ergebnis</th><th>Status</th><th>Hinweise</th><th>Suchen</th><th>Kosten</th><th><span className="sr">Aktion</span></th></tr></thead>
             <tbody>{liste.map(m => (
               <React.Fragment key={m.id}>
                 <tr>
                   <td>{zeit(m.zeit)}<br /><span className="klein">{m.ausgeloest_von}</span></td>
                   <td>V{m.konditionen_version}</td>
-                  <td>{m.ergebnis.abweichungen.length ? `${m.ergebnis.abweichungen.length} Abweichung(en)` : "keine Abweichung"}
+                  <td>{ergebnisText(m)}
                     <br /><span className="klein">{stufeText(m.ergebnis)}</span></td>
-                  <td>{STATUS[m.status] || m.status}{m.bearbeitet_von && <><br /><span className="klein">{m.bearbeitet_von}, {zeit(m.bearbeitet_am)}</span></>}</td>
+                  <td>{statusText(m)}{m.bearbeitet_von && <><br /><span className="klein">{m.bearbeitet_von}, {zeit(m.bearbeitet_am)}</span></>}</td>
+                  <td>{hinweiseText(m)}</td>
                   <td>{m.ergebnis.lauf?.suchen ?? "–"}</td><td>{kosten(m.ergebnis.lauf)}</td>
                   <td><button className="btn2" aria-expanded={offen === m.id} onClick={() => setOffen(offen === m.id ? null : m.id)}>{offen === m.id ? "Schließen" : "Details"}</button></td>
                 </tr>
-                {offen === m.id && <tr><td colSpan={7}><MeldungDetails m={m} ich={ich} onEntwurf={onEntwurf} onFertig={laden} /></td></tr>}
+                {offen === m.id && <tr><td colSpan={8}><MeldungDetails m={m} ich={ich} onEntwurf={onEntwurf} onFertig={laden} /></td></tr>}
               </React.Fragment>))}
             </tbody>
           </table>

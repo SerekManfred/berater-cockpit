@@ -42,8 +42,13 @@ log = logging.getLogger("cockpit.foerderpruefung")
 router = APIRouter(tags=["Förderprüfung"])
 BERLIN = ZoneInfo("Europe/Berlin")
 
-PROMPT_DATEI = Path(__file__).parent / "ki" / "prompts" / "foerderpruefung_v2.md"   # v2: auch leere Felder melden
-PROMPT_STAND_DATEI = Path(__file__).parent / "ki" / "prompts" / "foerderpruefung_stand_v1.md"
+# v3 (20.11.2026): Grenzen ausdrücklich, bekannte Adressen direkt abrufen, höchstens 8 kurze Hinweise (v2: auch leere Felder melden)
+PROMPT_DATEI = Path(__file__).parent / "ki" / "prompts" / "foerderpruefung_v3.md"
+# stand-2 (20.11.2026): Art je Dokument – neue Fassung einer bekannten Reihe → gründlich, neues Dokument → nur Hinweis
+PROMPT_STAND_DATEI = Path(__file__).parent / "ki" / "prompts" / "foerderpruefung_stand_v2.md"
+MAX_HINWEISE = 8                                            # Hinweise der KI je Lauf (je ein kurzer Satz)
+HINWEIS_MAX_ZEICHEN = 300
+BEKANNTE_DOKUMENTE_MAX = 25                                 # Adressen der letzten gründlichen Prüfung im Prompt
 VOR_ZEITLIMIT = 240.0                                       # Sekunden für Stufe 1
 OHNE_PRUEFUNG = ("allgemein", "fachwerte", "wpb")          # keine Förderwerte (Stand-Datum, Texte für den Bericht); wpb: erst nach Freigabe V8 entscheiden
 PRUEFBARE_TYPEN = ("prozent", "euro", "zahl", "datum", "janein", "auswahl", "mehrfach")
@@ -56,8 +61,13 @@ PREIS_SUCHE = 0.01                                          # 10 $ je 1.000 Webs
 
 
 def prompt(datei: Path = PROMPT_DATEI) -> tuple[str, str]:
+    """(Prompt-Version, Systemprompt). Platzhalter {{max_suchen}}, {{max_abrufe}}, {{abruf_tokens}} = aktuelle Grenzen."""
     text = datei.read_text(encoding="utf-8")
     erste, rest = text.split("\n", 1)
+    suchen = config.FOERDERPRUEFUNG_VOR_SUCHEN if datei == PROMPT_STAND_DATEI else config.FOERDERPRUEFUNG_MAX_SUCHEN
+    for name, wert in (("max_suchen", suchen), ("max_abrufe", config.FOERDERPRUEFUNG_MAX_ABRUFE),
+                       ("abruf_tokens", f"{config.FOERDERPRUEFUNG_ABRUF_MAX_TOKENS:,}".replace(",", "."))):
+        rest = rest.replace("{{" + name + "}}", str(wert))
     return erste.split(":", 1)[1].strip(), rest.strip()
 
 
@@ -91,9 +101,25 @@ def programme_fuer_pruefung(kond: dict) -> list[dict]:
     return aus
 
 
-def eingabe_text(kond: dict) -> str:
+def bekannte_dokumente(basis: "FoerderMeldung | None") -> list[dict]:
+    """Dokumente der letzten gründlichen Prüfung mit offizieller Adresse (je Adresse einmal) – die KI ruft sie direkt ab."""
+    if basis is None:
+        return []
+    aus, gesehen = [], set()
+    for m in (basis.ergebnis or {}).get("merkblaetter", []):
+        url = (m.get("quelle") or "").strip()
+        if not offizielle_quelle(url) or url in gesehen:
+            continue
+        gesehen.add(url)
+        aus.append({k: m.get(k) for k in ("programm", "titel", "stand", "quelle")})
+    return aus[:BEKANNTE_DOKUMENTE_MAX]
+
+
+def eingabe_text(kond: dict, bekannt: list[dict] | None = None) -> str:
     daten = {"konditionen_version": kond.get("version"), "stand_der_foerderbedingungen": kond.get("gueltig_ab"),
              "heute": fristen.heute().isoformat(), "programme": programme_fuer_pruefung(kond)}
+    if bekannt:
+        daten["bekannte_dokumente"] = bekannt
     return ("Bitte prüfen Sie diese hinterlegten Förderkonditionen gegen die aktuellen offiziellen Quellen:\n\n"
             + json.dumps(daten, ensure_ascii=False, indent=1))
 
@@ -203,9 +229,14 @@ def auswerten(rohtext: str, kond: dict) -> dict:
                      "stand": str(m.get("stand") or "")[:100], "quelle": str(m.get("quelle") or "")[:500],
                      "offiziell": offizielle_quelle(m.get("quelle"))}
                     for m in (daten.get("merkblaetter") or []) if isinstance(m, dict)][:60]
-    hinweise = [str(h)[:500] for h in (daten.get("hinweise") or []) if isinstance(h, (str, int, float))][:30]
+    hinweise = [_kurz(h) for h in (daten.get("hinweise") or []) if isinstance(h, (str, int, float))][:MAX_HINWEISE]
     return {"abweichungen": eindeutig, "verworfen": verworfen[:60], "merkblaetter": merkblaetter, "hinweise": hinweise,
             "zusammenfassung": str(daten.get("zusammenfassung") or "")[:2000]}
+
+
+def _kurz(text, n: int = HINWEIS_MAX_ZEICHEN) -> str:
+    text = " ".join(str(text).split())
+    return text if len(text) <= n else text[:n - 1].rstrip() + "…"
 
 
 def kosten_usd(modell: str, nutzung: dict) -> float | None:
@@ -316,29 +347,72 @@ def vor_eingabe_text(kond: dict, basis: FoerderMeldung) -> str:
             + json.dumps(daten, ensure_ascii=False, indent=1))
 
 
-def vor_auswerten(rohtext: str) -> tuple[bool, dict]:
-    """→ (gründlich prüfen?, Ergebnis der Vorprüfung). Im Zweifel gründlich: unlesbare Antwort, „null“, fehlende Angabe."""
+ARTEN = ("gleich", "neue_fassung", "neues_dokument", "unklar")
+_FUELLWOERTER = {"stand", "version", "fassung", "vom", "ab", "gueltig", "gültig", "januar", "februar", "märz", "maerz", "april",
+                 "mai", "juni", "juli", "august", "september", "oktober", "november", "dezember", "neu", "neues", "dokument",
+                 "nicht", "in", "den", "bekannten", "dokumenten", "bisher", "ohne", "datum", "bekannt"}
+
+
+def dokumentreihe(titel: str) -> str:
+    """Titel ohne Stand, Datum, Versionsnummer und Klammerzusätze – gleiche Reihe = gleicher Schlüssel.
+    „KfW-Merkblatt 261 (Stand 09/2026)“ und „KfW-Merkblatt 261, Stand 11/2026“ → „kfw merkblatt 261“."""
+    t = re.sub(r"\([^)]*\)", " ", (titel or "").lower())
+    t = re.sub(r"\b\d{1,2}[./]\d{1,2}[./]\d{2,4}\b|\b\d{1,2}/\d{4}\b|\b(19|20)\d{2}\b|\b\d+(\.\d+)+\b|\b\d{1,2}\b", " ", t)
+    woerter = [w for w in re.split(r"[^a-z0-9äöüß]+", t) if w and w not in _FUELLWOERTER]
+    return " ".join(woerter)
+
+
+def _art(p: dict, bekannte_reihen: set[str]) -> str:
+    art = p.get("art") if p.get("art") in ARTEN else {True: "neue_fassung", False: "gleich"}.get(p.get("geaendert"), "unklar")
+    # Schutz: als „neues Dokument“ gemeldet, gehört aber erkennbar zu einer bekannten Reihe → neue Fassung (gründlich prüfen)
+    if art == "neues_dokument" and dokumentreihe(str(p.get("dokument") or "")) in bekannte_reihen:
+        art = "neue_fassung"
+    return art
+
+
+def vor_auswerten(rohtext: str, bekannte_titel: list[str] | tuple = ()) -> tuple[bool, dict]:
+    """→ (gründlich prüfen?, Ergebnis der Vorprüfung). Im Zweifel gründlich: unlesbare Antwort, „unklar“/„null“, fehlende Angabe.
+    Neue Fassung einer bekannten Dokumentreihe → gründlich; ein unbekanntes neues Dokument → nur Hinweis (20.11.2026)."""
     try:
         daten = _json_aus_text(rohtext)
     except ki.KiFehler:
-        return True, {"programme": [], "pressemitteilungen": [], "grund": "Antwort der Vorprüfung nicht auswertbar"}
-    programme = [{"programm": str(p.get("programm") or "")[:40], "dokument": str(p.get("dokument") or "")[:300],
-                  "stand": str(p.get("stand") or "")[:100], "quelle": str(p.get("quelle") or "")[:500],
-                  "geaendert": p.get("geaendert") if p.get("geaendert") in (True, False) else None}
-                 for p in (daten.get("programme") or []) if isinstance(p, dict)][:60]
+        return True, {"programme": [], "pressemitteilungen": [], "neue_dokumente": [], "grund": "Antwort der Vorprüfung nicht auswertbar"}
+    reihen = {dokumentreihe(t) for t in bekannte_titel if dokumentreihe(t)}
+    programme = []
+    for p in (daten.get("programme") or [])[:60]:
+        if not isinstance(p, dict):
+            continue
+        art = _art(p, reihen)
+        programme.append({"programm": str(p.get("programm") or "")[:40], "dokument": str(p.get("dokument") or "")[:300],
+                          "stand": str(p.get("stand") or "")[:100], "quelle": str(p.get("quelle") or "")[:500], "art": art,
+                          "geaendert": {"neue_fassung": True, "unklar": None}.get(art, False)})
     presse = [{"titel": str(p.get("titel") or "")[:300], "datum": str(p.get("datum") or "")[:10],
                "quelle": str(p.get("quelle") or "")[:500],
                "betrifft": [str(x)[:40] for x in (p.get("betrifft") or []) if isinstance(x, str)][:20]}
               for p in (daten.get("pressemitteilungen") or []) if isinstance(p, dict)][:30]
-    ergebnis = {"programme": programme, "pressemitteilungen": presse,
+    neue = [p for p in programme if p["art"] == "neues_dokument"]
+    ergebnis = {"programme": programme, "pressemitteilungen": presse, "neue_dokumente": neue,
                 "begruendung": str(daten.get("begruendung") or "")[:1000]}
-    if daten.get("aenderung_moeglich") is not False:
-        ergebnis["grund"] = "Vorprüfung meldet mögliche Änderung" if daten.get("aenderung_moeglich") else "Vorprüfung ohne klare Aussage"
-    elif not programme or any(p["geaendert"] is not False for p in programme):
+    moeglich = daten.get("aenderung_moeglich")
+    if any(p["art"] == "neue_fassung" for p in programme):
+        ergebnis["grund"] = "Neue Fassung eines bekannten Dokuments"
+    elif not programme or any(p["art"] == "unklar" for p in programme):
         ergebnis["grund"] = "Stand nicht für jedes Programm bestätigt"
     elif any(p["betrifft"] for p in presse):
         ergebnis["grund"] = "Pressemitteilung zu einem geprüften Programm"
+    elif moeglich is not True and moeglich is not False:
+        ergebnis["grund"] = "Vorprüfung ohne klare Aussage"
+    elif moeglich is True and not neue:
+        # die KI sieht eine Änderung, ohne sie einem Dokument zuzuordnen – im Zweifel gründlich
+        ergebnis["grund"] = "Vorprüfung meldet mögliche Änderung"
     return "grund" in ergebnis, ergebnis
+
+
+def neue_dokumente_hinweise(vor: dict) -> list[str]:
+    return [_kurz(f"Vorprüfung: neues Dokument „{p['dokument'] or p['programm']}“"
+                  + (f" (Stand {p['stand']})" if p.get("stand") else "")
+                  + " – gehört zu keinem bekannten Dokument; nur vermerkt, keine gründliche Prüfung ausgelöst.")
+            for p in (vor or {}).get("neue_dokumente", [])]
 
 
 def geplante_kennzeichnen(db: Session, ergebnis: dict) -> None:
@@ -346,14 +420,10 @@ def geplante_kennzeichnen(db: Session, ergebnis: dict) -> None:
     geplant = lade_geplante(db)
     if not geplant:
         return
-    markiert = 0
+    # Seit 20.11.2026 kein eigener Hinweis mehr dazu – die Übersicht zählt geplante und offene Abweichungen getrennt
     for a in ergebnis.get("abweichungen", []):
         if _gleich(lesen_pfad(geplant, a["feld"]), a.get("neu")):
             a["geplant"] = {"version": geplant["version"], "gueltig_ab": geplant["gueltig_ab"]}
-            markiert += 1
-    if markiert:
-        ergebnis.setdefault("hinweise", []).insert(0, f"{markiert} Abweichung(en) sind bereits in der geplanten Version "
-                                                      f"{geplant['version']} (gilt ab {datum_de(geplant['gueltig_ab'])}) enthalten.")
 
 
 def _summe(a: dict, b: dict) -> dict:
@@ -420,7 +490,8 @@ def lauf_ausfuehren(db: Session, ausgeloest_von_id: int | None, voll: bool = Fal
     art = "zeitplan" if ausgeloest_von_id is None else "manuell"
     modell_cfg, vor_modell_cfg = config.FOERDERPRUEFUNG_MODELL, config.FOERDERPRUEFUNG_VOR_MODELL
     beginn = time.monotonic()
-    basis = None if voll else basis_pruefung(db)
+    letzte_gruendliche = basis_pruefung(db)
+    basis = None if voll else letzte_gruendliche
     if basis is not None and jetzt() - basis.zeit >= timedelta(days=config.FOERDERPRUEFUNG_VOLL_SPAETESTENS_TAGE):
         basis = None
     vor, vor_lauf, nutzung, modell, kosten = None, None, {}, modell_cfg, {}
@@ -430,7 +501,7 @@ def lauf_ausfuehren(db: Session, ausgeloest_von_id: int | None, voll: bool = Fal
             antwort = ki.anbieter(vor_modell_cfg).websuche(
                 vor_system, vor_eingabe_text(kond, basis), config.FOERDERPRUEFUNG_DOMAINS, config.FOERDERPRUEFUNG_VOR_SUCHEN,
                 0, VOR_ZEITLIMIT, effort="low", einfach=True)
-            voll, vor = vor_auswerten(antwort.rohtext)
+            voll, vor = vor_auswerten(antwort.rohtext, [m.get("titel") or "" for m in basis.ergebnis.get("merkblaetter", [])])
             nutzung, modell = dict(antwort.nutzung or {}), antwort.modell
             kosten["vorpruefung"] = kosten_usd(antwort.modell, nutzung)
             vor_lauf = {"prompt_version": vor_version, "modell": antwort.modell, "basis_meldung_id": basis.id,
@@ -443,7 +514,7 @@ def lauf_ausfuehren(db: Session, ausgeloest_von_id: int | None, voll: bool = Fal
         if voll:
             version, system = prompt()
             antwort = ki.anbieter(modell_cfg).websuche(
-                system, eingabe_text(kond), config.FOERDERPRUEFUNG_DOMAINS, config.FOERDERPRUEFUNG_MAX_SUCHEN,
+                system, eingabe_text(kond, bekannte_dokumente(letzte_gruendliche)), config.FOERDERPRUEFUNG_DOMAINS, config.FOERDERPRUEFUNG_MAX_SUCHEN,
                 config.FOERDERPRUEFUNG_MAX_ABRUFE, config.FOERDERPRUEFUNG_ZEITLIMIT, effort="high",
                 max_inhalt_tokens=config.FOERDERPRUEFUNG_ABRUF_MAX_TOKENS)
             ergebnis = auswerten(antwort.rohtext, kond)
@@ -460,7 +531,8 @@ def lauf_ausfuehren(db: Session, ausgeloest_von_id: int | None, voll: bool = Fal
             ergebnis = {"abweichungen": [], "verworfen": [],
                         "merkblaetter": [{"programm": p["programm"], "titel": p["dokument"], "stand": p["stand"],
                                           "quelle": p["quelle"], "offiziell": offizielle_quelle(p["quelle"])} for p in vor["programme"]],
-                        "hinweise": [], "zusammenfassung": "Vorprüfung: Stand der Merkblätter unverändert, keine angekündigten "
+                        "hinweise": neue_dokumente_hinweise(vor),
+                        "zusammenfassung": "Vorprüfung: Stand der Merkblätter unverändert, keine angekündigten "
                                                            "Änderungen – keine gründliche Prüfung nötig. " + vor["begruendung"]}
             ergebnis["rohtext"] = vor_rohtext[:200_000]
     except ki.KiFehler as fehler:
@@ -606,9 +678,47 @@ def entwurf_berechtigt(b: Benutzer = Depends(aktueller_benutzer)) -> Benutzer:
     return b
 
 
+STATUS_TEXT = {"offen": "offen", "entwurf_angelegt": "Entwurf angelegt", "verworfen": "verworfen"}
+# Bis 19.11.2026 fügte geplante_kennzeichnen() diesen Satz als Hinweis ein – er zählt nicht als Hinweis der Prüfung
+_ALTER_GEPLANT_HINWEIS = re.compile(r"^\d+ Abweichung\(en\) sind bereits in der geplanten Version \d+ ")
+
+
+def _abweichungen_text(n: int) -> str:
+    return f"{n} Abweichung" + ("" if n == 1 else "en")
+
+
+def uebersicht(m: FoerderMeldung) -> dict:
+    """Anzeige eines Laufs (Auftrag 20.11.2026) – nur abgeleitet, der gespeicherte Status bleibt unverändert.
+    Ergebnis: „N Abweichungen zu V6 – davon X geplant in V7 (ab 01.02.2027) · Y offen“; „offen“ = nicht in der geplanten Version.
+    Status „Kein Handlungsbedarf (bereits geplant)“, wenn alle Abweichungen geplant sind; „Keine Abweichung“ nur ohne jede."""
+    e = m.ergebnis or {}
+    abw = [a for a in e.get("abweichungen") or [] if isinstance(a, dict)]
+    geplant = [a for a in abw if isinstance(a.get("geplant"), dict)]
+    n, x = len(abw), len(geplant)
+    plan = geplant[0]["geplant"] if geplant else None
+    hinweise = [h for h in e.get("hinweise") or [] if not _ALTER_GEPLANT_HINWEIS.match(str(h))]
+    if n == 0:
+        text = f"Keine Abweichung zu V{m.konditionen_version}"
+    elif x:
+        text = (f"{_abweichungen_text(n)} zu V{m.konditionen_version} – davon {x} geplant in V{plan.get('version')}"
+                + (f" (ab {datum_de(plan['gueltig_ab'])})" if plan.get("gueltig_ab") else "") + f" · {n - x} offen")
+    else:
+        text = f"{_abweichungen_text(n)} zu V{m.konditionen_version} · {n} offen"
+    if m.status == "keine_abweichung":
+        status_text = "Keine Abweichung" if n == 0 else "Kein Handlungsbedarf (bereits geplant)"
+    else:
+        status_text = STATUS_TEXT.get(m.status, m.status)
+    return {"abweichungen": n, "geplant": x, "offen": n - x, "geplant_version": plan.get("version") if plan else None,
+            "geplant_ab": plan.get("gueltig_ab") if plan else None, "hinweise": len(hinweise),
+            "ergebnis_text": text, "status_text": status_text}
+
+
 def _aus(m: FoerderMeldung, namen: dict[int, str], voll: bool = False) -> dict:
     erg = {k: v for k, v in m.ergebnis.items() if voll or k != "rohtext"}
+    if isinstance(erg.get("hinweise"), list):   # alter Satz zu geplanten Abweichungen steht jetzt im Ergebnis-Text
+        erg["hinweise"] = [h for h in erg["hinweise"] if not _ALTER_GEPLANT_HINWEIS.match(str(h))]
     return {"id": m.id, "zeit": m.zeit, "konditionen_version": m.konditionen_version, "status": m.status, "ergebnis": erg,
+            "uebersicht": uebersicht(m),
             "ausgeloest_von": namen.get(m.ausgeloest_von_id) if m.ausgeloest_von_id else "Zeitplan",
             "bearbeitet_von": namen.get(m.bearbeitet_von_id), "bearbeitet_am": m.bearbeitet_am, "begruendung": m.begruendung,
             "entwurf_id": m.entwurf_id, "benachrichtigung": m.benachrichtigung}

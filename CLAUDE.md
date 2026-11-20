@@ -443,6 +443,21 @@ Verbindlich zusätzlich zu den unverhandelbaren Regeln; Einzelheiten in den Absc
   Pressemitteilungen) und `lauf.kosten_stufen` (je Stufe mit dem Preis ihres Modells), `kosten_usd` = Summe.
 - **Prompt v2** (`foerderpruefung_v2.md`, `PROMPT-VERSION: foerderpruefung-2`): verlangt ausdrücklich, leere/fehlende Felder zu
   melden, wenn die Quelle einen Wert nennt (`hinterlegt: null`); in der Eingabe sind sie mit `"leer": true` markiert. v1 bleibt liegen.
+- **Kosten senken (Auftrag 20.11.2026, Lauf 19.11.2026 1,99 $):** Prompt **v3** (`foerderpruefung-3`) nennt die Grenzen
+  ausdrücklich (Platzhalter `{{max_suchen}}`, `{{max_abrufe}}`, `{{abruf_tokens}}` füllt `prompt()` aus der Konfiguration; „nach
+  Erreichen nicht erneut versuchen, auch nicht aus Code“), bekommt in der Eingabe `bekannte_dokumente` (offizielle Adressen der
+  letzten gründlichen Prüfung, je Adresse einmal, höchstens 25, `bekannte_dokumente()`) zum direkten Abruf und höchstens **8 kurze
+  Hinweise** (Code kürzt auf 8 × 300 Zeichen, `MAX_HINWEISE`). Vorprüfung **`foerderpruefung-stand-2`**: Art je Dokument
+  `gleich | neue_fassung | neues_dokument | unklar`. **Neue Fassung einer bekannten Dokumentreihe** (FAQ, Merkblatt, Richtlinie) →
+  gründlich; **unbekanntes neues Dokument** → nur Hinweis „Vorprüfung: neues Dokument …“, keine gründliche Prüfung. Schutz im Code
+  (`dokumentreihe()`: Titel ohne Stand/Datum/Versionsnummer): gehört ein „neues Dokument“ zu einem bekannten Titel → neue Fassung.
+  Unklar, Pressemitteilung mit `betrifft`, `aenderung_moeglich` null → weiter gründlich. Ältere Antworten ohne `art` wie bisher
+  über `geaendert`. Tests: `tests/test_foerderpruefung_anzeige_kosten.py`.
+- **Anzeige der Läufe (20.11.2026, gespeicherter Status unverändert):** `uebersicht(m)` in jeder Meldung der API: `ergebnis_text`
+  „N Abweichungen zu V6 – davon X geplant in V7 (ab 01.02.2027) · Y offen“ (ohne geplante „… · N offen“, ohne Abweichung „Keine
+  Abweichung zu V6“), `status_text` „Kein Handlungsbedarf (bereits geplant)“ bei `keine_abweichung` mit Abweichungen, „Keine
+  Abweichung“ nur ohne jede, Zähler `hinweise` (Spalte „Hinweise“ in der Übersicht). Der frühere Satz „N Abweichung(en) sind
+  bereits in der geplanten Version …“ wird nicht mehr als Hinweis angelegt und bei älteren Läufen weder gezählt noch angezeigt.
 - **Keine falsche Entwarnung:** liest die gründliche Prüfung kein einziges Dokument (`merkblaetter` leer, z. B. Websuche
   ausgefallen), gilt der Lauf als fehlgeschlagen – nie „keine Abweichung“. `lauf.werkzeug_fehler` zählt Fehler der Server-Werkzeuge,
   `lauf.werkzeug_fehler_details` nennt Typ, Code und letzte Zeile der Fehlermeldung. Auswertung 16.11.2026 (Opus, 12 Suchen):
@@ -451,8 +466,9 @@ Verbindlich zusätzlich zu den unverhandelbaren Regeln; Einzelheiten in den Absc
   Testlauf Opus 12 Suchen/5 Abrufe 1,58 $ (deutlich mehr Befunde, Abrufe weiterhin knapp).
 - KI über `app/ki/` (`websuche()`, Regel 7): `web_search_20260209` mit `allowed_domains` kfw.de, bafa.de, energiewechsel.de,
   bmwk.de, bmwe.de, gesetze-im-internet.de, `max_uses` = `FOERDERPRUEFUNG_MAX_SUCHEN` (12), dazu `web_fetch_20260209` auf
-  denselben Domains (`FOERDERPRUEFUNG_MAX_ABRUFE`, 5, je Dokument höchstens `FOERDERPRUEFUNG_ABRUF_MAX_TOKENS` 60.000). Zeitlimit
-  600 s, `pause_turn` wird fortgesetzt. Prompt `app/ki/prompts/foerderpruefung_v2.md` (`PROMPT-VERSION: foerderpruefung-2`).
+  denselben Domains (`FOERDERPRUEFUNG_MAX_ABRUFE`, 5, je Dokument höchstens `FOERDERPRUEFUNG_ABRUF_MAX_TOKENS` **30.000**, bis
+  19.11.2026 60.000). Zeitlimit 600 s, `pause_turn` wird fortgesetzt. Prompt `app/ki/prompts/foerderpruefung_v3.md`
+  (`PROMPT-VERSION: foerderpruefung-3`, 20.11.2026; v2/v1 bleiben liegen).
   Kostenschätzung (`kosten_usd`): Cache schreiben 1,25 × Eingabe, Cache lesen nach Preisliste (Sonnet/Opus 5.5: 5 % der Eingabe).
   Antwort = JSON im ```json-Block (kein `output_config.format`, weil Websuche Zitate erzeugt) – **streng geprüft** in `auswerten()`:
   nur bekannte Felder, gültiges Format, echter Unterschied; „hinterlegt“ immer aus der Datenbank; „offiziell“ nur mit Quelle auf
