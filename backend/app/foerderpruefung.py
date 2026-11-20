@@ -85,6 +85,15 @@ def pruefbare_felder() -> dict[str, dict]:
 KFW_PROGRAMMNUMMERN = {"beg_em": ("358", "359"), "beg_wg": ("261",), "kfw_266": ("266",), "kfw_458": ("458",)}
 
 
+def bewusst_leer(kond: dict, pfad: str) -> str | None:
+    """Begründung, wenn das Feld ausdrücklich „bewusst leer“ ist (bisher nur Antragsfristen, Nacharbeit 20.11.2026) – solche
+    Felder gehen nicht in die Prüfung und werden nie als Abweichung gemeldet."""
+    if not pfad.endswith(".antragsfrist"):
+        return None
+    grund = lesen_pfad(kond, pfad + "_bewusst_leer")
+    return grund.strip() if isinstance(grund, str) and grund.strip() and lesen_pfad(kond, pfad) in (None, "") else None
+
+
 def programme_fuer_pruefung(kond: dict) -> list[dict]:
     """Nur Förderwerte und Quellen der aktiven Version (keine Personen- oder Projektdaten)."""
     felder = pruefbare_felder()
@@ -94,7 +103,7 @@ def programme_fuer_pruefung(kond: dict) -> list[dict]:
             continue
         zeilen = []
         for pfad, f in felder.items():
-            if f["programm"] != pid:
+            if f["programm"] != pid or bewusst_leer(kond, pfad):
                 continue
             wert = lesen_pfad(kond, pfad)
             zeile = {"feld": pfad, "bezeichnung": f["label"], "typ": f["typ"], "hinterlegt": wert}
@@ -110,15 +119,18 @@ def programme_fuer_pruefung(kond: dict) -> list[dict]:
     return aus
 
 
-def bekannte_dokumente(basis: "FoerderMeldung | None") -> list[dict]:
-    """Dokumente der letzten gründlichen Prüfung mit offizieller Adresse (je Adresse einmal) – die KI ruft sie direkt ab."""
+def bekannte_dokumente(basis: "FoerderMeldung | None", beigefuegt=frozenset()) -> list[dict]:
+    """Dokumente der letzten gründlichen Prüfung mit offizieller Adresse (je Adresse einmal) – die KI ruft sie direkt ab.
+    beigefuegt: Adressen der Dokumente, die dieser Anfrage ohnehin beiliegen (nicht noch einmal zum Abruf anbieten)."""
     if basis is None:
         return []
+    beigefuegt = {beleg_schluessel(u) for u in beigefuegt}
     aus, gesehen = [], set()
     for m in (basis.ergebnis or {}).get("merkblaetter", []):
         url = (m.get("quelle") or "").strip()
         # energiewechsel.de-PDFs liefert das Abruf-Werkzeug nur als HTML-Seite – dafür gehen Quelldokumente mit (20.11.2026)
-        if not offizielle_quelle(url) or url in gesehen or quellen_abgleich.nicht_abrufbar(url):
+        if (not offizielle_quelle(url) or url in gesehen or quellen_abgleich.nicht_abrufbar(url)
+                or beleg_schluessel(url) in beigefuegt):
             continue
         gesehen.add(url)
         aus.append({k: m.get(k) for k in ("programm", "titel", "stand", "quelle")})
@@ -214,16 +226,37 @@ def ist_faq_adresse(url) -> bool:
     return "faq" in urlparse(str(url or "")).path.lower()
 
 
-def quellen_raenge(db: Session) -> dict[str, str]:
-    """Adresse → Rang aller eingestuften Quelldokumente (auch abgelaufener: der Rang ist eine Eigenschaft des Dokuments)."""
+# Abfrage-Parameter, die nur die Auslieferung steuern (energiewechsel.de: …pdf?__blob=publicationFile&v=5) – dasselbe Dokument
+AUSLIEFERUNGS_PARAMETER = ("__blob", "v")
+
+
+def beleg_schluessel(url) -> str:
+    """Vergleichsschlüssel einer Beleg-Adresse: ohne Fragment, Host klein, ohne Auslieferungs-Parameter (Nacharbeit 20.11.2026:
+    die Download-Adresse …&v=5 aus dem Prüfsummen-Abgleich ist dasselbe Quelldokument wie die hinterlegte Adresse)."""
+    teile = urlparse(adresse_norm(url))
+    abfrage = "&".join(t for t in teile.query.split("&") if t and t.split("=", 1)[0] not in AUSLIEFERUNGS_PARAMETER)
+    return teile._replace(netloc=teile.netloc.lower(), query=abfrage, fragment="").geturl().rstrip("/")
+
+
+def quellen_raenge(db: Session, abgleich: list[dict] | None = None) -> dict[str, str]:
+    """Adresse → Rang aller eingestuften Quelldokumente (auch abgelaufener: der Rang ist eine Eigenschaft des Dokuments).
+    Dazu die tatsächlich genutzten Download-Adressen aus dem Prüfsummen-Abgleich dieses Laufs (`adresse`) mit dem Rang ihres
+    Quelldokuments – die KI nennt als Beleg die Adresse des beigefügten Dokuments."""
     from app.modelle import KonditionenQuelle
-    return {adresse_norm(q.url): q.rang for q in db.scalars(select(KonditionenQuelle)) if q.url and q.rang in RAENGE}
+    quellen = {q.id: q for q in db.scalars(select(KonditionenQuelle)) if q.rang in RAENGE}
+    aus = {beleg_schluessel(q.url): q.rang for q in quellen.values() if q.url}
+    for a in abgleich or []:
+        q = quellen.get(a.get("quelle_id"))
+        if q is not None and a.get("adresse"):
+            aus[beleg_schluessel(a["adresse"])] = q.rang
+    return aus
 
 
 def beleg_rang(roh: dict, quelle: str, raenge: dict[str, str]) -> str:
     """Rang des Belegs: eingestuftes Quelldokument vor FAQ-Adresse vor Angabe der KI; sonst „unbekannt“."""
-    if adresse_norm(quelle) in raenge:
-        return raenge[adresse_norm(quelle)]
+    schluessel = {beleg_schluessel(k): v for k, v in raenge.items()}
+    if beleg_schluessel(quelle) in schluessel:
+        return schluessel[beleg_schluessel(quelle)]
     if ist_faq_adresse(quelle):
         return "faq"
     return roh.get("rang") if roh.get("rang") in RAENGE else "unbekannt"
@@ -246,6 +279,8 @@ def auswerten(rohtext: str, kond: dict, raenge: dict[str, str] | None = None) ->
             grund = "unbekanntes Feld"
         elif not isinstance(kond.get(feld["programm"]), dict):
             grund = "Programm in der aktiven Version nicht enthalten"
+        elif bewusst_leer(kond, pfad):
+            grund = f"bewusst leer ({bewusst_leer(kond, pfad)[:150]})"
         elif not wert_gueltig(feld, roh.get("neu")):
             grund = "neuer Wert hat nicht das erwartete Format"
         elif _gleich(lesen_pfad(kond, pfad), roh.get("neu")):
@@ -603,15 +638,16 @@ def lauf_ausfuehren(db: Session, ausgeloest_von_id: int | None, voll: bool = Fal
             for a in abgleich:
                 a["beigefuegt"] = a["quelle_id"] in beigefuegt
             antwort = ki.anbieter(modell_cfg).websuche(
-                system, eingabe_text(kond, bekannte_dokumente(letzte_gruendliche), abgleich), config.FOERDERPRUEFUNG_DOMAINS,
+                system, eingabe_text(kond, bekannte_dokumente(letzte_gruendliche, {u for d in doks for u in (d["url"], d["hinterlegt_url"]) if u}),
+                                   abgleich), config.FOERDERPRUEFUNG_DOMAINS,
                 config.FOERDERPRUEFUNG_MAX_SUCHEN, config.FOERDERPRUEFUNG_MAX_ABRUFE, config.FOERDERPRUEFUNG_ZEITLIMIT,
                 effort="high", max_inhalt_tokens=config.FOERDERPRUEFUNG_ABRUF_MAX_TOKENS,
                 abruf_domains=abruf_domains(),
                 dokumente=[{"titel": d["titel"], "text": d["text"],
-                            "kontext": f"Rang: {d['rang_text']} · Adresse: {d['url']} · Programme: {', '.join(d['programme'])} · "
+                            "kontext": f"Rang: {d['rang_text']} · Adresse: {d['url'] or 'keine (von Hand hinterlegt)'} · Programme: {', '.join(d['programme'])} · "
                                        f"{d['fassung']}"}
                            for d in doks] or None)
-            ergebnis = auswerten(antwort.rohtext, kond, quellen_raenge(db))
+            ergebnis = auswerten(antwort.rohtext, kond, quellen_raenge(db, abgleich))
             ergebnis["mitgegebene_dokumente"] = [{k: d[k] for k in ("quelle_id", "titel", "url", "programme", "fassung", "rang")}
                                                  | {"zeichen": len(d["text"])} for d in doks]
             if not ergebnis["merkblaetter"]:

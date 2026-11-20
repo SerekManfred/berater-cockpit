@@ -124,6 +124,11 @@ Verbindlich zusätzlich zu den unverhandelbaren Regeln; Einzelheiten in den Absc
   - Vorschlag Konditionen-Feld **`beg_wg.klassen` (EE/NH)** mit Fundstelle Merkblatt 261 S. 3 → dann „EE- oder NH-Klasse“ im
     Generator; **NH-Stufen im Fördervergleich** (seit 18.11.2026 offen).
   - **Förderprüfung der WPB-Kriterien** nach Freigabe von V8 (Vorschlag, keine automatische Aktivierung).
+  - **KfW 458 / Heizungstausch** (Konzept 20.11.2026, `docs/Konzept_KfW458_Heizungstausch.md`, **nicht umgesetzt**): Satz je
+    Heizungsart (WP ab Q1 2027 15 %), Wertschöpfungs-Bonus EU-WP, 25 % bei Ersatz vor 2008 (Auslegung offen), Kategorien
+    Heizung/Heizungsoptimierung im Fördervergleich. Offen: zwei Auslegungen (GF), Freigabe des Konzepts.
+  - **Laufzeitende 31.12.2030** (Vorschlag-Dateien, siehe Konditionen-Zentrale) – in Entwurf V8 oder die nächste Version
+    einspielen? (Entscheidung offen.)
   - **Maßnahmenkatalog** (Bauteil, Standardtext, Kostenkennwert) – Vorschlag gemacht; festgelegt: Kostenkennwerte ohne Vier-Augen
     (Pflege durch berater/verwaltung) mit Protokoll alt/neu, Warnung > ±30 % bzw. 0/leer mit Grund, Einfrieren im Bericht;
     offen: Startbestand,
@@ -290,6 +295,13 @@ Verbindlich zusätzlich zu den unverhandelbaren Regeln; Einzelheiten in den Absc
   Hinweis/Sperre in Editor und Freigabe-Ansicht (`FundstellenHinweis`). Version 7 war am 19.11.2026 bereits freigegeben (geplant) –
   die Sperre greift damit ab dem nächsten Entwurf. Noch nicht umgesetzt: Förderprüfung meldet geänderte Merkblätter per sha256.
   Tests: `tests/test_konditionen_quellen.py`, `KonditionenQuellen.test.jsx`.
+- **Laufzeitende und „Antragsfrist bewusst leer“** (Nacharbeit 20.11.2026, `frist()` in `PROGRAMME`): je Programm außer
+  § 35c `laufzeit_ende` (Datum, optional, Geltungsdauer der Richtlinie; nur Anzeige und Förderprüfung, kein Rechenwert). Jedes
+  Programm hat `antragsfrist_bewusst_leer` (Begründung, ≥ 3 Zeichen, nur bei leerer Antragsfrist, braucht keine
+  Fundstelle, `FUNDSTELLE_FREI`). Prüfregel: Antragsfrist nach dem Laufzeitende → Fehler. **Vorschlag für die nächste
+  Version (nicht eingespielt):** `app/konditionen/vorschlag_laufzeitende.json` (BEG EM, BEG EM Heizung, KfW 458:
+  31.12.2030) mit `vorschlag_laufzeitende_fundstellen.json` (Quelle 1, Nr. 10 Geltungsdauer, S. 33). Einspielen nur per
+  `konditionen-entwurf-ergaenzen` + `konditionen-fundstellen` in einen offenen Entwurf.
 - **WPB-Kriterien** (Programm `wpb`, ab Entwurf Version 8, 19.11.2026): `energieausweis_klasse`, `energieausweis_arten`,
   `baujahr_bis`, `anteil_aussenwand_unsaniert_min` (Anteil), optional `endenergie_min`, `hinweis`; alle optional, sobald ein
   Kriterium gesetzt ist, sind `wpb.quelle`/`geprueft_am` Pflicht, Baujahr und Anteil nur zusammen. Nicht in der Förderprüfung
@@ -508,6 +520,18 @@ Verbindlich zusätzlich zu den unverhandelbaren Regeln; Einzelheiten in den Absc
   (Adresse) vor FAQ-Adresse („faq“ im Pfad) vor Angabe der KI, sonst „unbekannt“; „offiziell“ nur bei Richtlinie/Merkblatt auf
   offizieller Domain; FAQ → `zu_pruefen` + `nur_faq`, von „Entwurf aus Meldung“ übersprungen; Oberfläche „Beleg: …“ in der
   Tabelle. Tests: `tests/test_quellen_rang.py`.
+- **Nacharbeiten (Auftrag 20.11.2026):** (1) Beleg-Adressen werden über `beleg_schluessel()` verglichen (ohne Fragment und
+  ohne Auslieferungs-Parameter `__blob`/`v`). Dazu ordnet `quellen_raenge(db, abgleich)` die tatsächlich genutzte
+  Download-Adresse des Prüfsummen-Abgleichs (`adresse`, z. B. `…&v=5`) ihrem Quelldokument zu, damit der Rang aus der
+  Einstufung kommt. (2) **Rang 1 (Richtlinie samt Anlagen wie Infoblatt und TMA) geht immer als Text-Dokument mit**
+  (`quellen_abgleich.mitgeben()`), unabhängig von der Domain und auch ohne Adresse (Kontext „Adresse: keine (von Hand
+  hinterlegt)“), nur für zugeordnete Programme und nur gültige. Beigefügte Adressen stehen nicht mehr in
+  `bekannte_dokumente`. Kosten: Infoblatt 11.1 (≈ 160.000 Zeichen ≈ 53.000 Tokens) kommt dazu, das sind ≈ +0,40–0,45 $
+  je gründlicher Prüfung (Opus); dafür entfällt dessen Abruf (≈ −0,10 $), netto ≈ +0,30–0,35 $. Die TMA kostet je nach
+  Länge weitere ≈ 0,10–0,20 $. Kein neuer Prompt (v5 beschreibt beigefügte Dokumente allgemein). (3) Antragsfrist
+  „bewusst leer“ (`<programm>.antragsfrist_bewusst_leer`, siehe Konditionen-Zentrale) → Feld geht nicht in die Prüfung,
+  eine trotzdem gemeldete Abweichung wird verworfen („bewusst leer (…)“, `bewusst_leer()`).
+  Tests: `tests/test_foerderpruefung_nacharbeiten.py`.
 - **Anzeige der Läufe (20.11.2026, gespeicherter Status unverändert):** `uebersicht(m)` in jeder Meldung der API: `ergebnis_text`
   „N Abweichungen zu V6 – davon X geplant in V7 (ab 01.02.2027) · Y offen“ (ohne geplante „… · N offen“, ohne Abweichung „Keine
   Abweichung zu V6“), `status_text` „Kein Handlungsbedarf (bereits geplant)“ bei `keine_abweichung` mit Abweichungen, „Keine

@@ -43,8 +43,16 @@ def F(pfad, label, typ, pflicht=True, kern=False, **weitere):
     return {"pfad": pfad, "label": label, "typ": typ, "pflicht": pflicht, "kern": kern, **weitere}
 
 
-def frist(p):
-    return F(f"{p}.antragsfrist", "Antragsfrist (leer = keine)", "datum", pflicht=False, kern=True)
+def frist(p, laufzeit=True):
+    """Antragsfrist, „bewusst leer“ mit Begründung (Nacharbeit 20.11.2026: dann meldet die Förderprüfung keine Abweichung)
+    und – je Förderrichtlinie – deren Laufzeitende (Geltungsdauer; Hinweis, kein Rechenwert)."""
+    felder = [F(f"{p}.antragsfrist", "Antragsfrist (leer = keine)", "datum", pflicht=False, kern=True),
+              F(f"{p}.antragsfrist_bewusst_leer", "Antragsfrist bewusst leer – Begründung (z. B. „Richtlinie nennt keine "
+                "Antragsfrist“; dann keine Meldung der Förderprüfung)", "text", pflicht=False)]
+    if laufzeit:
+        felder.append(F(f"{p}.laufzeit_ende", "Laufzeitende der Richtlinie (Geltungsdauer, leer = nicht hinterlegt)", "datum",
+                        pflicht=False))
+    return felder
 
 
 def quelle(p, kern=True, gruppe=None):
@@ -90,20 +98,20 @@ PROGRAMME = [
         *baubegleitung("beg_em"),
         F("beg_em.ergaenzungskredit.programm", "Ergänzungskredit – Programm", "text"),
         F("beg_em.ergaenzungskredit.je_we", "Ergänzungskredit – Kreditrahmen je WE", "euro"),
-        frist("beg_em"),
+        *frist("beg_em"),
     ]},
     {"id": "beg_em_heizung", "titel": "BEG EM – Heizung", "felder": [
         *quelle("beg_em_heizung"),
         F("beg_em_heizung.stromdirektheizung_foerderfaehig", "Stromdirektheizung förderfähig", "janein", kern=True),
         F("beg_em_heizung.brauchwasser_wp_regel", "Regel Brauchwasser-Wärmepumpe", "text_lang", kern=True),
-        frist("beg_em_heizung"),
+        *frist("beg_em_heizung"),
     ]},
     {"id": "isfp_beratung", "titel": "BAFA Energieberatung (iSFP)", "felder": [
         *quelle("isfp_beratung"),
         F("isfp_beratung.satz", "Fördersatz", "prozent", kern=True),
         F("isfp_beratung.efh_zfh_max", "Höchstbetrag EFH/ZFH", "euro", kern=True),
         F("isfp_beratung.mfh_max", "Höchstbetrag ab 3 WE", "euro", kern=True),
-        frist("isfp_beratung"),
+        *frist("isfp_beratung"),
     ]},
     {"id": "beg_wg", "titel": "BEG WG – Effizienzhaus (KfW 261)", "felder": [
         *quelle("beg_wg"),
@@ -121,7 +129,7 @@ PROGRAMME = [
         F("beg_wg.tilgungszuschuss_max", "Tilgungszuschuss – Höchstsatz inkl. Boni (ab Version 3)", "prozent", kern=True),
         *baubegleitung("beg_wg"),
         F("beg_wg.kombination_mit_beg_em", "Kombination mit BEG EM", "text_lang"),
-        frist("beg_wg"),
+        *frist("beg_wg"),
     ]},
     {"id": "kfw_266", "titel": "KfW 266 – Gewerbe zu Wohnen", "felder": [
         *quelle("kfw_266"),
@@ -129,7 +137,7 @@ PROGRAMME = [
         F("kfw_266.max_kosten_je_neue_we", "Förderfähige Kosten je neuer WE (max.)", "euro", kern=True),
         F("kfw_266.mindeststufe", "Mindeststandard", "auswahl", optionen=STUFEN_OPTIONEN, kern=True),
         F("kfw_266.ee_ausnahme", "Ausnahme von der EE-Klasse", "text_lang"),
-        frist("kfw_266"),
+        *frist("kfw_266"),
     ]},
     {"id": "kfw_458", "titel": "KfW 458 – Heizungsförderung (Zuschuss)", "felder": [
         *quelle("kfw_458"),
@@ -144,14 +152,14 @@ PROGRAMME = [
           optionen=[[0.10, "10 %"], [0.30, "30 %"], [0.40, "40 %"]]),
         F("kfw_458.deckel", "Höchstsatz (Deckel)", "prozent", kern=True),
         F("kfw_458.deckel_einkommensbonus_40", "Höchstsatz bei Einkommensbonus 40 %", "prozent", kern=True),
-        frist("kfw_458"),
+        *frist("kfw_458"),
     ]},
     {"id": "steuer_35c", "titel": "§ 35c EStG – Steuerermäßigung", "felder": [
         *quelle("steuer_35c"),
         F("steuer_35c.quote_text", "Quote (Text im Bericht, z. B. „20 % / 3 J.“)", "text", kern=True),
         F("steuer_35c.max_kosten_objekt", "Max. Aufwendungen je Objekt", "euro", kern=True),
         F("steuer_35c.max_ermaessigung_objekt", "Max. Steuerermäßigung je Objekt", "euro", kern=True),
-        frist("steuer_35c"),
+        *frist("steuer_35c", laufzeit=False),   # Gesetz, keine befristete Förderrichtlinie
     ]},
     # WPB-Kriterien (Geschäftsführer 19.11.2026, ab Entwurf Version 8): nur mit Fundstelle; alle Felder optional, damit ältere
     # Versionen gültig bleiben – sobald ein Kriterium gesetzt ist, sind Quelle und Prüfdatum Pflicht (Prüfregel unten).
@@ -295,6 +303,17 @@ def pruefen(daten: dict, aenderungsnotiz: str | None = None) -> list[dict]:
     kosten, ermaessigung = lesen_pfad(daten, "steuer_35c.max_kosten_objekt"), lesen_pfad(daten, "steuer_35c.max_ermaessigung_objekt")
     if _ist_zahl(kosten) and _ist_zahl(ermaessigung) and ermaessigung > kosten:
         f("steuer_35c.max_ermaessigung_objekt", "Steuerermäßigung kann nicht höher sein als die Aufwendungen")
+    for p in TITEL:
+        frist_w, grund = lesen_pfad(daten, f"{p}.antragsfrist"), lesen_pfad(daten, f"{p}.antragsfrist_bewusst_leer")
+        if _leer(grund):
+            pass
+        elif not _leer(frist_w):
+            f(f"{p}.antragsfrist_bewusst_leer", "Entweder Antragsfrist eintragen oder „bewusst leer“ begründen – nicht beides")
+        elif isinstance(grund, str) and len(grund.strip()) < 3:
+            f(f"{p}.antragsfrist_bewusst_leer", "Bitte kurz begründen, warum die Antragsfrist leer bleibt")
+        ende = lesen_pfad(daten, f"{p}.laufzeit_ende")
+        if _ist_datum(frist_w) and _ist_datum(ende) and str(frist_w) > str(ende):
+            f(f"{p}.antragsfrist", "Antragsfrist liegt nach dem Laufzeitende der Richtlinie")
     tmax = lesen_pfad(daten, "beg_wg.tilgungszuschuss_max")
     if _ist_zahl(tmax):
         for s in EH:
@@ -324,7 +343,8 @@ def pruefen(daten: dict, aenderungsnotiz: str | None = None) -> list[dict]:
 # ---------- Fundstellen (Geschäftsführer 19.11.2026) ----------
 # Bis einschließlich Version 6 nur Warnung; ab Version 7 sperrt ein geändertes Feld ohne Fundstelle Einreichen und Freigabe.
 FUNDSTELLEN_PFLICHT_AB = 7
-FUNDSTELLE_FREI = (".quelle", ".geprueft_am")   # Dokumentationsfelder selbst brauchen keine Fundstelle
+# Dokumentationsfelder selbst brauchen keine Fundstelle (die Begründung für „Antragsfrist bewusst leer“ ist selbst die Erklärung)
+FUNDSTELLE_FREI = (".quelle", ".geprueft_am", ".antragsfrist_bewusst_leer")
 
 
 def feld_pfad(pfad: str) -> str | None:

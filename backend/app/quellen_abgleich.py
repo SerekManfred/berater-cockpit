@@ -7,7 +7,8 @@
    energiewechsel.de liefert unter `…pdf?__blob=publicationFile` automatischen Abrufern teils die HTML-Begleitseite (Test
    20.11.2026): dann wird die echte Download-Adresse (`…&v=N`) aus dieser Seite genommen.
 2. Dokumente für die gründliche Prüfung: Quelldokumente auf Domains, die das Abruf-Werkzeug der KI nicht lesen kann
-   (NICHT_ABRUFBAR), gehen als Text-Dokument mit – nur, wenn ihnen ein geprüftes Programm zugeordnet ist. Ist das Dokument
+   (NICHT_ABRUFBAR), und seit der Nacharbeit 20.11.2026 alle mit Rang 1 (Richtlinie samt verbindlichen Anlagen wie Infoblatt
+   und TMA, auch auf kfw.de oder ohne Adresse) gehen als Text-Dokument mit – nur, wenn ihnen ein geprüftes Programm zugeordnet ist. Ist das Dokument
    online unverändert, ist es genau die hinterlegte Fassung; hat es sich geändert, geht die neu geladene Fassung mit.
 Es gehen nur Inhalte offizieller Dokumente an die KI, keine Personen- oder Projektdaten.
 3. Seit 20.11.2026 nur aktuell gültige Dokumente (gültig von/bis) und mit Rang (Richtlinie maßgebend, Merkblatt, FAQ nur
@@ -133,13 +134,20 @@ def abgleichen(db: Session) -> tuple[list[dict], dict[int, bytes]]:
     return ergebnisse, inhalte
 
 
+def mitgeben(q: KonditionenQuelle) -> bool:
+    """Geht als Text-Dokument mit (für die zugeordneten Programme): Rang 1 (Richtlinie und ihre verbindlichen Anlagen wie
+    Infoblatt und TMA) immer, unabhängig von der Domain und auch ohne Adresse (Nacharbeit 20.11.2026); sonst nur Dokumente auf
+    Domains, die das Abruf-Werkzeug der KI nicht lesen kann."""
+    return q.rang == "richtlinie" or nicht_abrufbar(q.url)
+
+
 def dokumente(db: Session, programme: set[str], abgleich: list[dict], inhalte: dict[int, bytes]) -> tuple[list[dict], list[str]]:
-    """Text-Dokumente für die gründliche Prüfung: Quelldokumente auf nicht abrufbaren Domains mit mindestens einem geprüften
+    """Text-Dokumente für die gründliche Prüfung: aktuell gültige Quelldokumente nach `mitgeben()` mit mindestens einem geprüften
     Programm. Inhalt = online geladene Fassung, sonst die hinterlegte (mit Hinweis). → (Dokumente, Hinweise)."""
     stand = {a["quelle_id"]: a for a in abgleich}
     aus, hinweise = [], []
     for q in gueltige_quellen(db):
-        if not nicht_abrufbar(q.url) or not set(q.programme or []) & programme:
+        if not mitgeben(q) or not set(q.programme or []) & programme:
             continue
         a = stand.get(q.id, {})
         if a.get("ergebnis") in ("gleich", "geaendert") and q.id in inhalte:
@@ -161,7 +169,8 @@ def dokumente(db: Session, programme: set[str], abgleich: list[dict], inhalte: d
             hinweise.append(f"Quelldokument „{q.titel}“ ist länger als {DOKUMENT_MAX_ZEICHEN:,} Zeichen und wurde gekürzt mitgegeben."
                             .replace(",", "."))
             text = text[:DOKUMENT_MAX_ZEICHEN]
-        aus.append({"quelle_id": q.id, "titel": f"{q.titel} (Stand {q.stand})", "url": a.get("adresse") or q.url,
+        aus.append({"quelle_id": q.id, "titel": f"{q.titel} (Stand {q.stand})", "url": a.get("adresse") or q.url or "",
+                    "hinterlegt_url": q.url,
                     "programme": [p for p in q.programme if p in programme], "fassung": fassung, "text": text,
                     "rang": q.rang, "rang_text": rang_text(q)})
     return aus, hinweise

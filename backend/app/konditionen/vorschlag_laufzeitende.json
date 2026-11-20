@@ -1,0 +1,6 @@
+{
+ "_hinweis": "Vorschlag für die nächste Konditionen-Version (Nacharbeit Förderprüfung 20.11.2026, nicht eingespielt): Laufzeitende der Richtlinie BEG EM vom 17.07.2026 – Nr. 10 Geltungsdauer, S. 33: „Diese Förderrichtlinie tritt am 21. Juli 2026 in Kraft und endet mit Ablauf des 31. Dezember 2030.“ Gilt für BEG EM, BEG EM Heizung und KfW 458 (Heizungsförderung nach dieser Richtlinie). Fundstellen: vorschlag_laufzeitende_fundstellen.json (Quelldokument 1 im Testsystem). Einspielen nur per Kommandozeile in einen offenen Entwurf (konditionen-entwurf-ergaenzen + konditionen-fundstellen), Freigabe Vier-Augen.",
+ "beg_em": {"laufzeit_ende": "2030-12-31"},
+ "beg_em_heizung": {"laufzeit_ende": "2030-12-31"},
+ "kfw_458": {"laufzeit_ende": "2030-12-31"}
+}

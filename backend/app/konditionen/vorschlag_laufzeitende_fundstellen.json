@@ -1,0 +1,26 @@
+{
+ "beg_em.laufzeit_ende": [
+  {
+   "quelle_id": 1,
+   "seite": "33",
+   "abschnitt": "Nr. 10 Geltungsdauer",
+   "zitat": "Diese Förderrichtlinie tritt am 21. Juli 2026 in Kraft und endet mit Ablauf des 31. Dezember 2030."
+  }
+ ],
+ "beg_em_heizung.laufzeit_ende": [
+  {
+   "quelle_id": 1,
+   "seite": "33",
+   "abschnitt": "Nr. 10 Geltungsdauer",
+   "zitat": "Diese Förderrichtlinie tritt am 21. Juli 2026 in Kraft und endet mit Ablauf des 31. Dezember 2030."
+  }
+ ],
+ "kfw_458.laufzeit_ende": [
+  {
+   "quelle_id": 1,
+   "seite": "33",
+   "abschnitt": "Nr. 10 Geltungsdauer",
+   "zitat": "Diese Förderrichtlinie tritt am 21. Juli 2026 in Kraft und endet mit Ablauf des 31. Dezember 2030."
+  }
+ ]
+}
