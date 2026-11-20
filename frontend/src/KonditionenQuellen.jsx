@@ -89,26 +89,51 @@ export function programmeText(q, programme) {
   return liste.length ? liste.map(id => titel[id] || id).join(", ") : "keinem Programm zugeordnet";
 }
 
+// Rangfolge (Geschäftsführer 20.11.2026): Richtlinie maßgebend, Merkblatt, FAQ nur Auslegung – Bewertung im Backend
+export const RAENGE = [["richtlinie", "1 – Richtlinie (maßgebend)"], ["merkblatt", "2 – Merkblatt KfW/BAFA"], ["faq", "3 – FAQ (nur Auslegung)"]];
+export function rangText(q) {
+  const r = RAENGE.find(([k]) => k === q?.rang);
+  return r ? r[1] : "nicht eingestuft";
+}
+export function gueltigText(q) {
+  if (!q?.gueltig_von && !q?.gueltig_bis) return "gültig (offen)";
+  return `gültig ${q.gueltig_von ? "ab " + datumDe(q.gueltig_von) : ""}${q.gueltig_von && q.gueltig_bis ? " " : ""}${q.gueltig_bis ? "bis " + datumDe(q.gueltig_bis) : ""}`
+    + (q.aktuell_gueltig === false ? " – nicht mehr bzw. noch nicht gültig" : "");
+}
+
 function ProgrammeBearbeiten({ q, programme, onFertig }) {
   const [offen, setOffen] = useState(false);
   const [wahl, setWahl] = useState(Array.isArray(q.programme) ? q.programme : []);
+  const [rang, setRang] = useState(q.rang || "");
+  const [von, setVon] = useState(q.gueltig_von || "");
+  const [bis, setBis] = useState(q.gueltig_bis || "");
   const [fehler, setFehler] = useState("");
   async function speichern() {
     setFehler("");
-    try { await api(`/konditionen/quellen/${q.id}`, { method: "PATCH", body: { programme: wahl } }); setOffen(false); onFertig(); }
-    catch (e) { setFehler(e.message); }
+    try {
+      await api(`/konditionen/quellen/${q.id}`, { method: "PATCH",
+        body: { programme: wahl, rang: rang || null, gueltig_von: von || null, gueltig_bis: bis || null } });
+      setOffen(false); onFertig();
+    } catch (e) { setFehler(e.message); }
   }
-  if (!offen) return <button type="button" className="btn2 klein-knopf" onClick={() => setOffen(true)}>Programme ändern</button>;
+  if (!offen) return <button type="button" className="btn2 klein-knopf" onClick={() => setOffen(true)}>Einstufung ändern</button>;
   return (
     <fieldset className="karte" style={{ marginTop: 6 }}>
-      <legend>Programme für „{q.titel}“</legend>
+      <legend>Einstufung „{q.titel}“</legend>
       {fehler && <div className="fehler" role="alert">{fehler}</div>}
+      <div className="felder">
+        <label>Rang<select value={rang} onChange={e => setRang(e.target.value)}>
+          <option value="">nicht eingestuft</option>{RAENGE.map(([k, t]) => <option key={k} value={k}>{t}</option>)}</select></label>
+        <label>Gültig von (leer = offen)<input type="date" value={von} onChange={e => setVon(e.target.value)} /></label>
+        <label>Gültig bis (leer = aktuell)<input type="date" value={bis} onChange={e => setBis(e.target.value)} /></label>
+      </div>
+      <p className="klein" style={{ marginBottom: 4 }}>Programme, für die das Dokument maßgeblich ist:</p>
       {(programme || []).filter(p => !["allgemein", "fachwerte"].includes(p.id)).map(p => (
         <label key={p.id} className="haken"><input type="checkbox" checked={wahl.includes(p.id)}
           onChange={e => setWahl(e.target.checked ? [...wahl, p.id] : wahl.filter(x => x !== p.id))} /> {p.titel}</label>))}
       <div className="aktionen">
         <button type="button" className="btn" onClick={speichern}>Speichern</button>
-        <button type="button" className="btn2" onClick={() => { setWahl(q.programme || []); setOffen(false); }}>Abbrechen</button>
+        <button type="button" className="btn2" onClick={() => { setWahl(q.programme || []); setRang(q.rang || ""); setVon(q.gueltig_von || ""); setBis(q.gueltig_bis || ""); setOffen(false); }}>Abbrechen</button>
       </div>
     </fieldset>
   );
@@ -119,7 +144,8 @@ export function Quelldokumente({ ich }) {
   const [liste, setListe] = useState(null);
   const [fehler, setFehler] = useState("");
   const [meldung, setMeldung] = useState("");
-  const [form, setForm] = useState({ titel: "", herausgeber: "", stand: "", url: "", abgerufen_am: new Date().toISOString().slice(0, 10) });
+  const [form, setForm] = useState({ titel: "", herausgeber: "", stand: "", url: "", rang: "", gueltig_von: "", gueltig_bis: "",
+    abgerufen_am: new Date().toISOString().slice(0, 10) });
   const [datei, setDatei] = useState(null);
   const [laeuft, setLaeuft] = useState(false);
   const [programme, setProgramme] = useState([]);
@@ -137,7 +163,7 @@ export function Quelldokumente({ ich }) {
         headers: { "Content-Type": "application/pdf" }, body: datei }, ZEITLIMIT_LANG_MS);
       let d = null; try { d = await r.json(); } catch { /* keine JSON-Antwort */ }
       if (!r.ok) throw new Error(typeof d?.detail === "string" ? d.detail : d?.detail?.meldung || `Fehler ${r.status}`);
-      setMeldung(`„${d.titel}“ (Stand ${d.stand}) hinterlegt.`); setDatei(null); setForm({ ...form, titel: "", stand: "", url: "" }); laden();
+      setMeldung(`„${d.titel}“ (Stand ${d.stand}) hinterlegt.`); setDatei(null); setForm({ ...form, titel: "", stand: "", url: "", rang: "", gueltig_von: "", gueltig_bis: "" }); laden();
     } catch (err) { setFehler(err.message); } finally { setLaeuft(false); }
   }
   async function loeschen(q) {
@@ -147,6 +173,8 @@ export function Quelldokumente({ ich }) {
   return (
     <>
       <h1>Quelldokumente</h1>
+      <p className="hinweis">Rangfolge: 1 Richtlinie (maßgebend), 2 Merkblatt KfW/BAFA, 3 FAQ (nur Auslegung). Ältere Fassungen dürfen als
+        Nachweis hochgeladen werden („gültig bis“ setzen); die Förderprüfung nutzt nur aktuell gültige Dokumente.</p>
       <p className="hinweis">Merkblätter und Richtlinien als PDF mit Stand und Abrufdatum. Fundstellen der Konditionen-Felder verweisen auf diese Dokumente.
         Bis einschließlich Version 6 sind Fundstellen ein Hinweis; ab Version 7 sperrt ein geändertes Feld ohne Fundstelle die Freigabe.</p>
       {fehler && <div className="fehler" role="alert">{fehler}</div>}
@@ -159,6 +187,7 @@ export function Quelldokumente({ ich }) {
               <td><a href={pdfLink(q.id)} target="_blank" rel="noreferrer">{q.titel}</a>{q.herausgeber ? ` · ${q.herausgeber}` : ""}
                 {q.url && <div className="klein"><a href={q.url} target="_blank" rel="noreferrer">{q.url}</a></div>}
                 <div className="klein">hochgeladen {zeit(q.hochgeladen_am)} von {q.hochgeladen_von || "–"} · sha256 {q.sha256.slice(0, 12)}…</div>
+                <div className="klein">Rang: {rangText(q)} · {gueltigText(q)}</div>
                 <div className="klein">Programme: {programmeText(q, programme)}</div>
                 {darfHochladen && <ProgrammeBearbeiten q={q} programme={programme} onFertig={laden} />}</td>
               <td>{q.stand}</td><td>{datumDe(q.abgerufen_am)}</td><td>{groesseText(q.groesse)}</td>
@@ -174,6 +203,10 @@ export function Quelldokumente({ ich }) {
             <label>Herausgeber (optional)<input maxLength={100} value={form.herausgeber} placeholder="z. B. KfW" onChange={e => setForm({ ...form, herausgeber: e.target.value })} /></label>
             <label>Stand laut Dokument<input required maxLength={40} value={form.stand} placeholder="z. B. 09/2026" onChange={e => setForm({ ...form, stand: e.target.value })} /></label>
             <label>Abgerufen am<input type="date" required value={form.abgerufen_am} onChange={e => setForm({ ...form, abgerufen_am: e.target.value })} /></label>
+            <label>Rang<select value={form.rang} onChange={e => setForm({ ...form, rang: e.target.value })}>
+              <option value="">nicht eingestuft</option>{RAENGE.map(([k, t]) => <option key={k} value={k}>{t}</option>)}</select></label>
+            <label>Gültig von (optional)<input type="date" value={form.gueltig_von} onChange={e => setForm({ ...form, gueltig_von: e.target.value })} /></label>
+            <label>Gültig bis (leer = aktuell)<input type="date" value={form.gueltig_bis} onChange={e => setForm({ ...form, gueltig_bis: e.target.value })} /></label>
             <label style={{ gridColumn: "1 / -1" }}>URL (optional, https)<input type="url" maxLength={500} value={form.url} onChange={e => setForm({ ...form, url: e.target.value })} /></label>
             <label style={{ gridColumn: "1 / -1" }}>PDF-Datei<input type="file" accept="application/pdf,.pdf" onChange={e => setDatei(e.target.files[0] || null)} /></label>
           </div>

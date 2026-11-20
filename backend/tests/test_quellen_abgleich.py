@@ -185,7 +185,8 @@ def test_gruendlich_mit_richtlinie_als_dokument_und_ohne_energiewechsel_abruf(ak
         "Richtlinie BEG EM": True, "BEG-FAQ": False, "KfW-Merkblatt 261": False}
     assert erg["mitgegebene_dokumente"] == [{"quelle_id": mit, "titel": "Richtlinie BEG EM (Stand 17.07.2026)", "url": EW,
                                              "programme": ["beg_em"],
-                                             "fassung": "hinterlegte Fassung, online unverändert (Prüfsumme)", "zeichen": 33}]
+                                             "fassung": "hinterlegte Fassung, online unverändert (Prüfsumme)", "rang": None,
+                                             "zeichen": 33}]
 
 
 def test_nicht_abgleichbar_geht_die_hinterlegte_fassung_mit(aktiv, tmp_path, monkeypatch):
@@ -214,7 +215,7 @@ def test_anfrage_mit_dokumenten_cache_punkt_und_eigenen_abruf_domains():
 
 def test_prompt_beschreibt_das_abruf_ergebnis():
     version, system = foerderpruefung.prompt()
-    assert version == "foerderpruefung-4" and "json.loads" in system and "base64" in system and "energiewechsel.de" in system
+    assert version == "foerderpruefung-5" and "json.loads" in system and "base64" in system and "energiewechsel.de" in system
     vor_version, vor_system = foerderpruefung.prompt(foerderpruefung.PROMPT_STAND_DATEI)
     assert vor_version == "foerderpruefung-stand-3" and "per_pruefsumme_bestaetigt" in vor_system
 

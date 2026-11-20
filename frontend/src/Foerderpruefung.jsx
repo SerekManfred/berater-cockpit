@@ -8,6 +8,12 @@ import { anzeige } from "./Konditionen.jsx";
 const STATUS = { keine_abweichung: "keine Abweichung", offen: "offen", entwurf_angelegt: "Entwurf angelegt", verworfen: "verworfen" };
 
 // Anzeige eines Laufs (20.11.2026): Texte und Zähler kommen aus `uebersicht` des Backends; Rückfall nur für ältere Antworten
+// Rang des Belegs (20.11.2026): kommt aus dem Backend; FAQ ist nur Auslegung und nie alleinige Grundlage
+export function belegText(a) {
+  if (a?.nur_faq || a?.rang === "faq") return "Beleg nur aus einer FAQ – nie alleinige Grundlage";
+  return { richtlinie: "Beleg: Richtlinie", merkblatt: "Beleg: Merkblatt" }[a?.rang] || (a?.rang === "unbekannt" ? "Rang des Belegs unbekannt" : "");
+}
+
 export function ergebnisText(m) {
   if (m?.uebersicht?.ergebnis_text) return m.uebersicht.ergebnis_text;
   const n = Array.isArray(m?.ergebnis?.abweichungen) ? m.ergebnis.abweichungen.length : 0;
@@ -46,6 +52,7 @@ export function MeldungTabelle({ m }) {
           <td className="alt">{anzeige(a, a.hinterlegt)}</td><td className="neu">{anzeige(a, a.neu)}</td>
           <td>{a.gilt_ab ? datumDe(a.gilt_ab) : "–"}</td>
           <td>{a.sicherheit === "offiziell" ? "offizielle Quelle" : <strong>bitte prüfen</strong>}
+            {belegText(a) && <><br /><span className="klein">{belegText(a)}</span></>}
             {a.geplant && <><br /><span className="status kstatus-geplant">in Version {a.geplant.version} geplant (ab {a.geplant.gueltig_ab.split("-").reverse().join(".")})</span></>}</td>
           <td>{istLink(a.quelle) ? <a href={a.quelle} target="_blank" rel="noopener noreferrer">Quelle öffnen</a> : "–"}</td>
         </tr>))}

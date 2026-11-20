@@ -260,6 +260,32 @@ def konditionen_quelle_programme(quelle_id: int, programme: str, auftrag: str) -
     return 0
 
 
+def konditionen_quelle_einstufen(quelle_id: int, auftrag: str, programme: str | None = None, rang: str | None = None,
+                                 gueltig_von: str | None = None, gueltig_bis: str | None = None) -> int:
+    """Rang und Gültigkeit (und Programme) eines Quelldokuments setzen (Ersteller „Kommandozeile“, Protokoll alt/neu).
+    Leerer Wert („“) leert das Feld; nicht angegebene Felder bleiben."""
+    from fastapi import HTTPException
+    from app.db import SessionLocal
+    from app.konditionen_quellen import einstufung_setzen
+    from app.modelle import KonditionenQuelle
+    aenderungen = {k: v for k, v in (("programme", programme.split(",") if programme is not None else None), ("rang", rang),
+                                     ("gueltig_von", gueltig_von), ("gueltig_bis", gueltig_bis)) if v is not None}
+    with SessionLocal() as db:
+        q = db.get(KonditionenQuelle, quelle_id)
+        if q is None:
+            print(f"Quelldokument {quelle_id} nicht gefunden.")
+            return 1
+        try:
+            einstufung_setzen(db, None, q, aenderungen, None, quelle="kommandozeile", auftrag=auftrag)
+        except (HTTPException, ValueError) as fehler:
+            print(f"Abgelehnt: {getattr(fehler, 'detail', fehler)}")
+            return 1
+        db.commit()
+        print(f"Quelldokument {q.id} „{q.titel}“: Rang {q.rang or '–'}, gültig {q.gueltig_von or 'offen'} bis "
+              f"{q.gueltig_bis or 'offen'}, Programme {', '.join(q.programme) or '–'}")
+    return 0
+
+
 def konditionen_fundstellen(version: int, datei: str, notiz: str) -> int:
     """Fundstellen eines offenen Entwurfs per Kommandozeile ergänzen/ersetzen (je Feld aus DATEI.json), gleiche Prüfung wie
     die Oberfläche (`fundstellen_pruefen`). Nur Entwürfe – Einreichen und Freigeben bleiben Menschen vorbehalten."""
@@ -356,6 +382,13 @@ def main(argv=None) -> int:
     qp.add_argument("quelle_id", type=int)
     qp.add_argument("--programme", required=True, help="kommagetrennt, z. B. beg_em,beg_em_heizung,kfw_458 (leer = keines)")
     qp.add_argument("--auftrag", required=True)
+    qe = befehle.add_parser("konditionen-quelle-einstufen", help="Rang/Gültigkeit/Programme eines Quelldokuments (Kommandozeile)")
+    qe.add_argument("quelle_id", type=int)
+    qe.add_argument("--rang", help="richtlinie | merkblatt | faq (leer = nicht eingestuft)")
+    qe.add_argument("--gueltig-von", dest="gueltig_von", help="JJJJ-MM-TT (leer = offen)")
+    qe.add_argument("--gueltig-bis", dest="gueltig_bis", help="JJJJ-MM-TT (leer = offen)")
+    qe.add_argument("--programme", help="kommagetrennt")
+    qe.add_argument("--auftrag", required=True)
     fsp = befehle.add_parser("konditionen-fundstellen", help="Fundstellen eines offenen Entwurfs aus JSON-Datei setzen")
     fsp.add_argument("version", type=int)
     fsp.add_argument("datei")
@@ -373,6 +406,8 @@ def main(argv=None) -> int:
         return konditionen_entwurf_ergaenzen(args.version, args.datei, args.notiz)
     if args.befehl == "berichte-word-einfrieren":
         return berichte_word_einfrieren(args.bericht)
+    if args.befehl == "konditionen-quelle-einstufen":
+        return konditionen_quelle_einstufen(args.quelle_id, args.auftrag, args.programme, args.rang, args.gueltig_von, args.gueltig_bis)
     if args.befehl == "konditionen-quelle-programme":
         return konditionen_quelle_programme(args.quelle_id, args.programme, args.auftrag)
     if args.befehl == "konditionen-quelle-hochladen":

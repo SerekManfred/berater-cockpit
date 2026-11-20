@@ -20,14 +20,15 @@ from tests.test_projekte import _ohne_2fa  # noqa: F401  (Fixture: Anmeldung ohn
 MIT_ABWEICHUNG = {
     "abweichungen": [
         {"programm": "beg_em", "feld": "beg_em.foerdersatz", "hinterlegt": 0.99, "neu": 0.2, "gilt_ab": "2027-01-01",
-         "quelle": "https://www.bafa.de/merkblatt-beg-em.pdf", "sicherheit": "offiziell", "erlaeuterung": "Merkblatt 01/2027"},
+         "quelle": "https://www.bafa.de/merkblatt-beg-em.pdf", "sicherheit": "offiziell", "rang": "merkblatt",
+         "erlaeuterung": "Merkblatt 01/2027"},
         {"programm": "isfp_beratung", "feld": "isfp_beratung.mfh_max", "neu": 1300, "gilt_ab": None,
          "quelle": "https://www.energie-blog.example/isfp", "sicherheit": "offiziell", "erlaeuterung": "Blog"},
         {"programm": "beg_em", "feld": "beg_em.gibt_es_nicht", "neu": 1, "quelle": "https://www.bafa.de/x", "sicherheit": "offiziell"},
         {"programm": "beg_em", "feld": "beg_em.isfp_bonus", "neu": 5, "quelle": "https://www.bafa.de/x", "sicherheit": "offiziell"},
         {"programm": "beg_em", "feld": "beg_em.wpb_bonus", "neu": 0.05, "quelle": "https://www.bafa.de/x", "sicherheit": "offiziell"},
         {"programm": "kfw_266", "feld": "kfw_266.mindeststufe", "neu": "EH70EE", "quelle": "https://www.kfw.de/266",
-         "sicherheit": "offiziell"},
+         "sicherheit": "offiziell", "rang": "merkblatt"},
     ],
     "merkblaetter": [{"programm": "beg_em", "titel": "Merkblatt BEG EM", "stand": "01/2027", "quelle": "https://www.bafa.de/merkblatt-beg-em.pdf"}],
     "hinweise": ["KfW 458: nichts gefunden"],
@@ -147,7 +148,7 @@ def test_jetzt_pruefen_ohne_abweichung(aktiv, monkeypatch):
     liste = meldungen(admin)
     assert len(liste) == 1 and liste[0]["status"] == "keine_abweichung" and liste[0]["ausgeloest_von"] == "admin"
     lauf = liste[0]["ergebnis"]["lauf"]
-    assert lauf["suchen"] == 7 and lauf["kosten_usd"] == 0.57 and lauf["prompt_version"] == "foerderpruefung-4" and lauf["art"] == "manuell"
+    assert lauf["suchen"] == 7 and lauf["kosten_usd"] == 0.57 and lauf["prompt_version"] == "foerderpruefung-5" and lauf["art"] == "manuell"
     assert "rohtext" not in liste[0]["ergebnis"] and "rohtext" in admin.get(f"/foerderpruefung/meldungen/{liste[0]['id']}").json()["ergebnis"]
     assert mail.GESENDET == []                       # keine Mail bei „keine Abweichung“
     assert "foerderpruefung_lauf" in aktionen(admin.benutzer_id)
@@ -463,7 +464,7 @@ def test_bei_aenderung_oder_unklarheit_gruendlich(aktiv, monkeypatch, vor):
     else:
         e, _, status, erg = _lauf(monkeypatch, vor, MIT_ABWEICHUNG)
     assert len(e.aufrufe) == 2 and status == "offen" and erg["lauf"]["stufe"] == "voll"
-    assert erg["vorpruefung"]["grund"] and erg["lauf"]["prompt_version"] == "foerderpruefung-4"
+    assert erg["vorpruefung"]["grund"] and erg["lauf"]["prompt_version"] == "foerderpruefung-5"
     vor_kosten = erg["vorpruefung"]["lauf"]["kosten_usd"]
     assert erg["lauf"]["kosten_usd"] > vor_kosten > 0          # Kosten beider Stufen zusammen
 
@@ -556,7 +557,7 @@ def test_leere_felder_werden_markiert_und_gemeldet(aktiv, monkeypatch):
     assert leer and all(zeilen[f]["hinterlegt"] in (None, "", []) for f in leer)
     assert not zeilen["beg_em.foerdersatz"].get("leer")
     version, system = foerderpruefung.prompt()
-    assert version == "foerderpruefung-4" and "Leere oder fehlende Felder" in system
+    assert version == "foerderpruefung-5" and "Leere oder fehlende Felder" in system
     # Meldung zu einem leeren Feld wird übernommen (hinterlegt null → neuer Wert)
     feld = sorted(f for f in leer if foerderpruefung.pruefbare_felder()[f]["typ"] == "euro")[0]
     erg = foerderpruefung.auswerten("```json\n" + json.dumps({"abweichungen": [{"feld": feld, "neu": 30000, "quelle": "https://www.bafa.de/r.pdf",

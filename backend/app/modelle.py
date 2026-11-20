@@ -239,6 +239,10 @@ class KonditionenQuelle(Base):
     hochgeladen_am: Mapped[datetime] = mapped_column(UTCZeit, nullable=False, default=jetzt)
     # Migration 0018: Programm-IDs, für die das Dokument maßgeblich ist (Förderprüfung gibt den Inhalt nur dafür mit)
     programme: Mapped[list] = mapped_column(DETAILS_TYP, nullable=False, default=list)
+    # Migration 0019: Rang (richtlinie | merkblatt | faq, leer = nicht eingestuft) und Gültigkeit der Fassung (leer = offen)
+    rang: Mapped[str | None] = mapped_column(String(20))
+    gueltig_von: Mapped[date | None] = mapped_column(Date)
+    gueltig_bis: Mapped[date | None] = mapped_column(Date)
 
 
 # ---------- Bericht-Entwürfe (Phase 2b) ----------

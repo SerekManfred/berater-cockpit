@@ -44,7 +44,8 @@ BERLIN = ZoneInfo("Europe/Berlin")
 
 # v4 (20.11.2026, lesbare Quellen): Aufbau des Abruf-Ergebnisses im Code, beigefügte Quelldokumente, kein energiewechsel.de-Abruf
 # v3: Grenzen ausdrücklich, bekannte Adressen direkt abrufen, höchstens 8 kurze Hinweise; v2: auch leere Felder melden
-PROMPT_DATEI = Path(__file__).parent / "ki" / "prompts" / "foerderpruefung_v4.md"
+# v5 (20.11.2026): Rangfolge Richtlinie > Merkblatt > FAQ, „rang“ je Abweichung, Widersprüche als Hinweis, KfW-Einstiege
+PROMPT_DATEI = Path(__file__).parent / "ki" / "prompts" / "foerderpruefung_v5.md"
 # stand-3 (20.11.2026): per Prüfsumme bestätigte Dokumente; stand-2: neue Fassung einer bekannten Reihe → gründlich,
 # neues Dokument → nur Hinweis
 PROMPT_STAND_DATEI = Path(__file__).parent / "ki" / "prompts" / "foerderpruefung_stand_v3.md"
@@ -80,6 +81,10 @@ def pruefbare_felder() -> dict[str, dict]:
             if f["programm"] not in OHNE_PRUEFUNG and f["typ"] in PRUEFBARE_TYPEN and not p.endswith(".geprueft_am")}
 
 
+# Einstieg der KfW-Programmseiten (www.kfw.de/<Programmnummer>, Geschäftsführer 20.11.2026) – nur Adressen, keine Werte
+KFW_PROGRAMMNUMMERN = {"beg_em": ("358", "359"), "beg_wg": ("261",), "kfw_266": ("266",), "kfw_458": ("458",)}
+
+
 def programme_fuer_pruefung(kond: dict) -> list[dict]:
     """Nur Förderwerte und Quellen der aktiven Version (keine Personen- oder Projektdaten)."""
     felder = pruefbare_felder()
@@ -99,7 +104,9 @@ def programme_fuer_pruefung(kond: dict) -> list[dict]:
                 zeile["optionen"] = [o[0] for o in f["optionen"]]
             zeilen.append(zeile)
         aus.append({"programm": pid, "titel": titel, "quelle": lesen_pfad(kond, f"{pid}.quelle"),
-                    "geprueft_am": lesen_pfad(kond, f"{pid}.geprueft_am"), "felder": zeilen})
+                    "geprueft_am": lesen_pfad(kond, f"{pid}.geprueft_am"), "felder": zeilen,
+                    **({"kfw_einstieg": [f"https://www.kfw.de/{n}" for n in KFW_PROGRAMMNUMMERN[pid]]}
+                       if pid in KFW_PROGRAMMNUMMERN else {})})
     return aus
 
 
@@ -124,7 +131,8 @@ def eingabe_text(kond: dict, bekannt: list[dict] | None = None, abgleich: list[d
     if bekannt:
         daten["bekannte_dokumente"] = bekannt
     if abgleich:
-        daten["quellen_abgleich"] = [{k: a.get(k) for k in ("titel", "stand", "url", "ergebnis", "beigefuegt")} for a in abgleich]
+        daten["quellen_abgleich"] = [{k: a.get(k) for k in ("titel", "stand", "url", "rang", "ergebnis", "beigefuegt")}
+                                     for a in abgleich]
     return ("Bitte prüfen Sie diese hinterlegten Förderkonditionen gegen die aktuellen offiziellen Quellen:\n\n"
             + json.dumps(daten, ensure_ascii=False, indent=1))
 
@@ -197,7 +205,34 @@ def offizielle_quelle(url) -> bool:
     return teile.scheme in ("http", "https") and any(host == d or host.endswith("." + d) for d in config.FOERDERPRUEFUNG_DOMAINS)
 
 
-def auswerten(rohtext: str, kond: dict) -> dict:
+# Rangfolge der Quellen (Geschäftsführer 20.11.2026): 1 Richtlinie (maßgebend), 2 Merkblatt KfW/BAFA, 3 FAQ (nur Auslegung)
+RAENGE = ("richtlinie", "merkblatt", "faq")
+RANG_TEXT = {"richtlinie": "Richtlinie", "merkblatt": "Merkblatt", "faq": "FAQ (nur Auslegung)", "unbekannt": "Rang unbekannt"}
+
+
+def ist_faq_adresse(url) -> bool:
+    return "faq" in urlparse(str(url or "")).path.lower()
+
+
+def quellen_raenge(db: Session) -> dict[str, str]:
+    """Adresse → Rang aller eingestuften Quelldokumente (auch abgelaufener: der Rang ist eine Eigenschaft des Dokuments)."""
+    from app.modelle import KonditionenQuelle
+    return {adresse_norm(q.url): q.rang for q in db.scalars(select(KonditionenQuelle)) if q.url and q.rang in RAENGE}
+
+
+def beleg_rang(roh: dict, quelle: str, raenge: dict[str, str]) -> str:
+    """Rang des Belegs: eingestuftes Quelldokument vor FAQ-Adresse vor Angabe der KI; sonst „unbekannt“."""
+    if adresse_norm(quelle) in raenge:
+        return raenge[adresse_norm(quelle)]
+    if ist_faq_adresse(quelle):
+        return "faq"
+    return roh.get("rang") if roh.get("rang") in RAENGE else "unbekannt"
+
+
+def auswerten(rohtext: str, kond: dict, raenge: dict[str, str] | None = None) -> dict:
+    """raenge: Adresse → Rang der hinterlegten Quelldokumente. „offiziell“ nur mit Beleg aus Richtlinie oder Merkblatt auf
+    einer offiziellen Domain; ein Wert nur aus einer FAQ ist immer „zu prüfen“ und wird nie in einen Entwurf übernommen."""
+    raenge = raenge or {}
     daten = _json_aus_text(rohtext)
     felder = pruefbare_felder()
     gueltig, verworfen = [], []
@@ -221,13 +256,15 @@ def auswerten(rohtext: str, kond: dict) -> dict:
             continue
         quelle = str(roh.get("quelle") or "")[:500]
         sicherheit = roh.get("sicherheit") if roh.get("sicherheit") in ("offiziell", "zu_pruefen") else "zu_pruefen"
-        if not offizielle_quelle(quelle):
-            sicherheit = "zu_pruefen"   # „offiziell“ nur mit Beleg auf einer offiziellen Domain
+        rang = beleg_rang(roh, quelle, raenge)
+        if not offizielle_quelle(quelle) or rang not in ("richtlinie", "merkblatt"):
+            sicherheit = "zu_pruefen"   # „offiziell“ nur mit Beleg aus Richtlinie/Merkblatt auf einer offiziellen Domain
         gilt_ab = roh.get("gilt_ab") if _ist_datum(roh.get("gilt_ab")) else None
         gueltig.append({"programm": feld["programm"], "programm_titel": TITEL[feld["programm"]], "feld": pfad,
                         "label": feld["label"], "typ": feld["typ"], **({"optionen": feld["optionen"]} if feld.get("optionen") else {}),
                         "hinterlegt": lesen_pfad(kond, pfad), "neu": roh.get("neu"), "gilt_ab": gilt_ab, "quelle": quelle,
-                        "sicherheit": sicherheit, "erlaeuterung": str(roh.get("erlaeuterung") or "")[:600]})
+                        "sicherheit": sicherheit, "rang": rang, **({"nur_faq": True} if rang == "faq" else {}),
+                        "erlaeuterung": str(roh.get("erlaeuterung") or "")[:600]})
     # je Feld nur eine Abweichung (die erste)
     eindeutig = list({a["feld"]: a for a in reversed(gueltig)}.values())[::-1]
     merkblaetter = [{"programm": str(m.get("programm") or "")[:40], "titel": str(m.get("titel") or "")[:300],
@@ -293,6 +330,7 @@ def mail_handlungsbedarf(m: FoerderMeldung) -> tuple[str, str, str]:
         zeilen.append(f"- {a['programm_titel']} – {a['label']}: {anzeige(a, a['hinterlegt'])} → {anzeige(a, a['neu'])}"
                       + (f" (gilt ab {datum_de(a['gilt_ab'])})" if a.get("gilt_ab") else "")
                       + (" [offizielle Quelle]" if a["sicherheit"] == "offiziell" else " [bitte prüfen]")
+                      + (" – nur aus einer FAQ belegt" if a.get("nur_faq") else "")
                       + (f" – bereits in Version {a['geplant']['version']} geplant (ab {datum_de(a['geplant']['gueltig_ab'])})"
                          if a.get("geplant") else ""))
         if a.get("quelle"):
@@ -532,7 +570,7 @@ def lauf_ausfuehren(db: Session, ausgeloest_von_id: int | None, voll: bool = Fal
     # Prüfsummen-Abgleich der Quelldokumente (ohne KI, 20.11.2026): geändert → gründlich, gleich → der Vorprüfung als bestätigt
     abgleich, inhalte = quellen_abgleich.abgleichen(db)
     geaendert = [a for a in abgleich if a["ergebnis"] == "geaendert"]
-    bestaetigt = [{"titel": a["titel"], "stand": a["stand"], "url": a.get("adresse") or a["url"]}
+    bestaetigt = [{"titel": a["titel"], "stand": a["stand"], "url": a.get("adresse") or a["url"], **({"rang": a["rang"]} if a.get("rang") else {})}
                   for a in abgleich if a["ergebnis"] == "gleich"]
     system_hinweise = quellen_hinweise(abgleich)
     try:
@@ -570,10 +608,11 @@ def lauf_ausfuehren(db: Session, ausgeloest_von_id: int | None, voll: bool = Fal
                 effort="high", max_inhalt_tokens=config.FOERDERPRUEFUNG_ABRUF_MAX_TOKENS,
                 abruf_domains=abruf_domains(),
                 dokumente=[{"titel": d["titel"], "text": d["text"],
-                            "kontext": f"Adresse: {d['url']} · Programme: {', '.join(d['programme'])} · {d['fassung']}"}
+                            "kontext": f"Rang: {d['rang_text']} · Adresse: {d['url']} · Programme: {', '.join(d['programme'])} · "
+                                       f"{d['fassung']}"}
                            for d in doks] or None)
-            ergebnis = auswerten(antwort.rohtext, kond)
-            ergebnis["mitgegebene_dokumente"] = [{k: d[k] for k in ("quelle_id", "titel", "url", "programme", "fassung")}
+            ergebnis = auswerten(antwort.rohtext, kond, quellen_raenge(db))
+            ergebnis["mitgegebene_dokumente"] = [{k: d[k] for k in ("quelle_id", "titel", "url", "programme", "fassung", "rang")}
                                                  | {"zeichen": len(d["text"])} for d in doks]
             if not ergebnis["merkblaetter"]:
                 # Testlauf 16.11.2026: Websuche ausgefallen, die KI meldete „nichts gefunden“ – das ist kein „keine Abweichung“
@@ -679,8 +718,8 @@ def entwurf_aus_meldung(db: Session, request: Request | None, m: FoerderMeldung,
     aenderungen, uebernommen, uebersprungen, programme = {}, [], [], {}
     for a in m.ergebnis.get("abweichungen", []):
         feld = felder.get(a.get("feld"))
-        if feld is None or not wert_gueltig(feld, a.get("neu")):
-            uebersprungen.append(a.get("feld"))
+        if feld is None or not wert_gueltig(feld, a.get("neu")) or a.get("nur_faq"):
+            uebersprungen.append(a.get("feld"))     # FAQ ist nie alleinige Grundlage (Rangfolge 20.11.2026)
             continue
         teile, ziel = a["feld"].split("."), aenderungen
         for t in teile[:-1]:

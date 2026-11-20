@@ -10,6 +10,9 @@
    (NICHT_ABRUFBAR), gehen als Text-Dokument mit – nur, wenn ihnen ein geprüftes Programm zugeordnet ist. Ist das Dokument
    online unverändert, ist es genau die hinterlegte Fassung; hat es sich geändert, geht die neu geladene Fassung mit.
 Es gehen nur Inhalte offizieller Dokumente an die KI, keine Personen- oder Projektdaten.
+3. Seit 20.11.2026 nur aktuell gültige Dokumente (gültig von/bis) und mit Rang (Richtlinie maßgebend, Merkblatt, FAQ nur
+   Auslegung); Dokumente gehen in dieser Reihenfolge mit. Kein automatischer Zugriff auf Portale mit Anmeldung – geladen wird
+   nur von den offiziellen Domains (config.FOERDERPRUEFUNG_DOMAINS).
 """
 import hashlib
 import html
@@ -23,7 +26,7 @@ from sqlalchemy import select
 from sqlalchemy.orm import Session
 
 from app import config
-from app.konditionen_quellen import pfad
+from app.konditionen_quellen import RANG, aktuell_gueltig, pfad
 from app.modelle import KonditionenQuelle
 
 log = logging.getLogger("cockpit.quellen")
@@ -97,14 +100,25 @@ def pdf_text(inhalt: bytes) -> str:
     return "\n\n".join(f"[Seite {i}]\n{(s.extract_text() or '').strip()}" for i, s in enumerate(leser.pages, start=1))
 
 
+def gueltige_quellen(db: Session) -> list[KonditionenQuelle]:
+    """Aktuell gültige Quelldokumente, Richtlinie vor Merkblatt vor FAQ vor nicht eingestuften."""
+    liste = [q for q in db.scalars(select(KonditionenQuelle).order_by(KonditionenQuelle.id)) if aktuell_gueltig(q)]
+    return sorted(liste, key=lambda q: (RANG.get(q.rang, (9, ""))[0], q.id))
+
+
+def rang_text(q) -> str:
+    return RANG[q.rang][1] if getattr(q, "rang", None) in RANG else "Rang nicht eingestuft"
+
+
 def abgleichen(db: Session) -> tuple[list[dict], dict[int, bytes]]:
     """Alle Quelldokumente mit offizieller Adresse: herunterladen, Prüfsumme vergleichen.
     → (Ergebnisse je Quelle, geladene Inhalte je quelle_id – nur für die Dokumente der gründlichen Prüfung, nie gespeichert)."""
     ergebnisse, inhalte = [], {}
-    for q in db.scalars(select(KonditionenQuelle).order_by(KonditionenQuelle.id)):
+    for q in gueltige_quellen(db):
         if not offiziell(q.url):
             continue
-        zeile = {"quelle_id": q.id, "titel": q.titel, "stand": q.stand, "url": q.url, "programme": list(q.programme or [])}
+        zeile = {"quelle_id": q.id, "titel": q.titel, "stand": q.stand, "url": q.url, "programme": list(q.programme or []),
+                 "rang": q.rang}
         try:
             inhalt, adresse = herunterladen(q.url)
         except (ValueError, httpx.HTTPError) as fehler:
@@ -124,7 +138,7 @@ def dokumente(db: Session, programme: set[str], abgleich: list[dict], inhalte: d
     Programm. Inhalt = online geladene Fassung, sonst die hinterlegte (mit Hinweis). → (Dokumente, Hinweise)."""
     stand = {a["quelle_id"]: a for a in abgleich}
     aus, hinweise = [], []
-    for q in db.scalars(select(KonditionenQuelle).order_by(KonditionenQuelle.id)):
+    for q in gueltige_quellen(db):
         if not nicht_abrufbar(q.url) or not set(q.programme or []) & programme:
             continue
         a = stand.get(q.id, {})
@@ -148,5 +162,6 @@ def dokumente(db: Session, programme: set[str], abgleich: list[dict], inhalte: d
                             .replace(",", "."))
             text = text[:DOKUMENT_MAX_ZEICHEN]
         aus.append({"quelle_id": q.id, "titel": f"{q.titel} (Stand {q.stand})", "url": a.get("adresse") or q.url,
-                    "programme": [p for p in q.programme if p in programme], "fassung": fassung, "text": text})
+                    "programme": [p for p in q.programme if p in programme], "fassung": fassung, "text": text,
+                    "rang": q.rang, "rang_text": rang_text(q)})
     return aus, hinweise

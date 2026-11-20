@@ -77,7 +77,7 @@ def test_grenzen_stehen_im_prompt(monkeypatch):
     monkeypatch.setattr(config, "FOERDERPRUEFUNG_MAX_ABRUFE", 5)
     monkeypatch.setattr(config, "FOERDERPRUEFUNG_VOR_SUCHEN", 8)
     version, system = foerderpruefung.prompt()
-    assert version == "foerderpruefung-4" and "{{" not in system
+    assert version == "foerderpruefung-5" and "{{" not in system
     assert "höchstens 12 Suchen und höchstens 5 Abrufe" in system and "30.000 Tokens" in system
     assert "höchstens 8 Hinweise" in system and "bekannte_dokumente" in system
     vor_version, vor_system = foerderpruefung.prompt(foerderpruefung.PROMPT_STAND_DATEI)

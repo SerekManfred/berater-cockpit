@@ -88,12 +88,19 @@ Verbindlich zusätzlich zu den unverhandelbaren Regeln; Einzelheiten in den Absc
 - **Umgebungen:** Der Hostinger-Server (`cockpit.mybase-test.de`, `/home/dev/berater-cockpit`) ist **ausschließlich Testsystem**
   (nur Testdaten) und wird **nie „Produktion“** genannt. **Produktion = HostEurope, noch nicht eingerichtet.** „Produktion“ in
   dieser Datei meint immer HostEurope.
+- **Rangfolge der Quellen** (Geschäftsführer 20.11.2026): maßgebend für BEG-Förderungen ist immer die **aktuelle Richtlinie**
+  (Rang 1); das Wichtigste daraus steht für Kunden und Banken in den **Merkblättern** KfW/BAFA (Rang 2); technische Einzelfragen
+  beantwortet die **FAQ** (Rang 3, nur Auslegung). „Offiziell“ nur mit Beleg aus Richtlinie oder Merkblatt; ein Wert nur aus einer
+  FAQ ist immer „zu prüfen“ und nie alleinige Grundlage einer Abweichung (nicht in „Entwurf aus Meldung“); widerspricht
+  Merkblatt/FAQ der Richtlinie, gilt die Richtlinie, der Widerspruch wird als Hinweis gemeldet. KfW-Einstieg
+  `www.kfw.de/<Programmnummer>`, abgerufen wird die aufgelöste Adresse bzw. das PDF im Download-Center. Kein automatischer
+  Zugriff auf Portale mit Anmeldung (z. B. Beraterforum) – solche Dokumente nur von Hand als Quelldokument.
 - **Aufträge unter `docs/auftraege/`:** jeder neue Auftrag wird zuerst dort abgelegt und eingecheckt; Patches/Zips nicht einchecken.
 - **Nur Testdaten**, bis die Produktiv-Checkliste („Vor Produktivstart“) abgearbeitet ist; KI mit echten Kundendaten erst mit AVV
   und Freigabe des Geschäftsführers.
 
 ## Aktueller Stand (19.11.2026)
-- **Datenbank:** Head **0018** (Programme der Quelldokumente, 20.11.2026) – im Testsystem noch **0017** (0014
+- **Datenbank:** Head **0019** (0018 Programme, 0019 Rang/Gültigkeit der Quelldokumente, 20.11.2026) – im Testsystem noch **0017** (0014
   Berichts-Kennzeichnung, 0015 technischer Benutzer, 0016 Quelldokumente/Fundstellen, 0017 Word eingefroren). `cockpit-api`
   migriert beim Start: vor dem nächsten `docker compose up -d cockpit-api` erst `scripts/sicherung.sh`.
 - **Generator:** **0.5.1** (Fördervergleich: WPB-Fall nach Grundlage, Kriterien nur aus den Konditionen; INIT unverändert seit 0.4.9).
@@ -473,6 +480,19 @@ Verbindlich zusätzlich zu den unverhandelbaren Regeln; Einzelheiten in den Absc
   hinterlegte Fassung. Ergebnis je Lauf in `quellen_abgleich` und `mitgegebene_dokumente` (Details: „Quelldokumente
   (Prüfsumme)“). Neue Quelldokument-Fassungen legt nie das Cockpit selbst an. Tests: `tests/test_quellen_abgleich.py`
   (Netz in Tests gesperrt, conftest), `KonditionenQuellenProgramme.test.jsx`.
+- **Rangfolge und Gültigkeit (Auftrag 20.11.2026, Migration 0019):** `konditionen_quellen.rang` (`richtlinie` | `merkblatt` | `faq`,
+  leer = nicht eingestuft; Check-Constraint) und `gueltig_von`/`gueltig_bis` (leer = offen; bis ≥ von, Check-Constraint). Ändern
+  admin/pruefer („Einstufung ändern“: Rang, gültig von/bis, Programme; PATCH sendet nur geänderte Felder) oder
+  `python -m app.cli konditionen-quelle-einstufen ID [--rang …] [--gueltig-von …] [--gueltig-bis …] [--programme …] --auftrag …`
+  (leerer Wert leert), Protokoll `konditionen_quelle_geaendert` alt/neu; beim Hochladen optional. Ältere Fassungen dürfen
+  hochgeladen werden („gültig bis“ in der Vergangenheit). **Die Förderprüfung nutzt nur aktuell gültige Quelldokumente**
+  (`aktuell_gueltig()`, `fristen.heute()`), Richtlinie vor Merkblatt vor FAQ (`gueltige_quellen()`), Rang im Kontext jedes
+  mitgegebenen Dokuments und in `quellen_abgleich`. Prompt **`foerderpruefung-5`**: Rangfolge, `rang` je Abweichung,
+  „Widerspruch: …“ als Hinweis, KfW-Einstiege (`kfw_einstieg` je Programm aus `KFW_PROGRAMMNUMMERN`: beg_em 358/359, beg_wg 261,
+  kfw_266, kfw_458). **Im Code erzwungen** (`auswerten()`, `beleg_rang()`): Rang des Belegs = eingestuftes Quelldokument
+  (Adresse) vor FAQ-Adresse („faq“ im Pfad) vor Angabe der KI, sonst „unbekannt“; „offiziell“ nur bei Richtlinie/Merkblatt auf
+  offizieller Domain; FAQ → `zu_pruefen` + `nur_faq`, von „Entwurf aus Meldung“ übersprungen; Oberfläche „Beleg: …“ in der
+  Tabelle. Tests: `tests/test_quellen_rang.py`.
 - **Anzeige der Läufe (20.11.2026, gespeicherter Status unverändert):** `uebersicht(m)` in jeder Meldung der API: `ergebnis_text`
   „N Abweichungen zu V6 – davon X geplant in V7 (ab 01.02.2027) · Y offen“ (ohne geplante „… · N offen“, ohne Abweichung „Keine
   Abweichung zu V6“), `status_text` „Kein Handlungsbedarf (bereits geplant)“ bei `keine_abweichung` mit Abweichungen, „Keine
@@ -488,7 +508,7 @@ Verbindlich zusätzlich zu den unverhandelbaren Regeln; Einzelheiten in den Absc
   bmwk.de, bmwe.de, gesetze-im-internet.de, `max_uses` = `FOERDERPRUEFUNG_MAX_SUCHEN` (12), dazu `web_fetch_20260209` auf
   denselben Domains (`FOERDERPRUEFUNG_MAX_ABRUFE`, 5, je Dokument höchstens `FOERDERPRUEFUNG_ABRUF_MAX_TOKENS` **30.000**, bis
   19.11.2026 60.000; seit 20.11.2026 ohne energiewechsel.de). Zeitlimit 600 s, `pause_turn` wird fortgesetzt. Prompt
-  `app/ki/prompts/foerderpruefung_v4.md` (`PROMPT-VERSION: foerderpruefung-4`, 20.11.2026; v3/v2/v1 bleiben liegen).
+  `app/ki/prompts/foerderpruefung_v5.md` (`PROMPT-VERSION: foerderpruefung-5`, 20.11.2026; v4–v1 bleiben liegen).
   Kostenschätzung (`kosten_usd`): Cache schreiben 1,25 × Eingabe, Cache lesen nach Preisliste (Sonnet/Opus 5.5: 5 % der Eingabe).
   Antwort = JSON im ```json-Block (kein `output_config.format`, weil Websuche Zitate erzeugt) – **streng geprüft** in `auswerten()`:
   nur bekannte Felder, gültiges Format, echter Unterschied; „hinterlegt“ immer aus der Datenbank; „offiziell“ nur mit Quelle auf
