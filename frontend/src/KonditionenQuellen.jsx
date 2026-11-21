@@ -181,9 +181,11 @@ export function Quelldokumente({ ich }) {
       {meldung && <div className="erfolg" role="status">{meldung}</div>}
       {liste === null ? <p>Lade …</p> : !liste.length ? <p>Noch keine Quelldokumente hinterlegt.</p> : (
         <div className="tabelle"><table>
-          <thead><tr><th>Dokument</th><th>Stand</th><th>Abgerufen</th><th>Größe</th><th>Fundstelle in Version</th><th><span className="sr">Aktion</span></th></tr></thead>
+          <thead><tr><th scope="col">Nr.</th><th>Dokument</th><th>Stand</th><th>Abgerufen</th><th>Größe</th><th>Fundstelle in Version</th><th><span className="sr">Aktion</span></th></tr></thead>
           <tbody>{liste.map(q => (
             <tr key={q.id}>
+              {/* Quellennummer = fester Datenbankschlüssel (wird nie neu vergeben, GF 21.11.2026), nur Anzeige */}
+              <td aria-label={`Quelle ${q.id}`}>{q.id}</td>
               <td><a href={pdfLink(q.id)} target="_blank" rel="noreferrer">{q.titel}</a>{q.herausgeber ? ` · ${q.herausgeber}` : ""}
                 {q.url && <div className="klein"><a href={q.url} target="_blank" rel="noreferrer">{q.url}</a></div>}
                 <div className="klein">hochgeladen {zeit(q.hochgeladen_am)} von {q.hochgeladen_von || "–"} · sha256 {q.sha256.slice(0, 12)}…</div>

@@ -92,3 +92,16 @@ describe("Rang und Gültigkeit (Rangfolge 20.11.2026)", () => {
     expect(aufrufe.find(a => a.method === "PATCH").body).toEqual({ programme: ["beg_em"], rang: "merkblatt", gueltig_von: null, gueltig_bis: "2026-10-31" });
   });
 });
+
+describe("Quellennummer in der Übersicht (Geschäftsführung 21.11.2026)", () => {
+  it("zeigt die Nummer aus der Datenbank je Zeile, Lücken bleiben (keine Neunummerierung)", async () => {
+    antworten = { "GET /konditionen/quellen": [{ ...QUELLE, id: 5 }, { ...QUELLE, id: 12, titel: "Richtlinie BEG EM (amtlich)", verwendet_in: [] }],
+      "GET /konditionen/formular": { programme: PROGRAMME } };
+    render(<Quelldokumente ich={{ rollen: ["pruefer"] }} />);
+    await screen.findByText("Richtlinie BEG EM (amtlich)");
+    expect(screen.getByRole("columnheader", { name: "Nr." })).toBeTruthy();
+    const zeilen = screen.getAllByRole("row").slice(1);
+    expect(zeilen.map(z => within(z).getAllByRole("cell")[0].textContent)).toEqual(["5", "12"]);
+    expect(screen.getByLabelText("Quelle 12").textContent).toBe("12");
+  });
+});
