@@ -281,3 +281,30 @@ def test_lange_faq_wird_nicht_mehr_gekuerzt(tmp_path, monkeypatch):
         monkeypatch.setattr(quellen_abgleich, "pdf_text", lambda inhalt: "x" * 383_166)
         doks, hinweise = quellen_abgleich.dokumente(db, {"beg_wg"}, [], {})
     assert len(doks) == 1 and len(doks[0]["text"]) == 383_166 and not any("gekürzt" in h for h in hinweise)
+
+
+def test_zerlegter_text_wird_im_layout_modus_neu_gelesen(monkeypatch):
+    """Geschäftsführung 21.11.2026: BAnz-PDF (Spaltensatz) liefert im Standardmodus Bruchstücke von 3 Zeichen je Zeile."""
+    assert quellen_abgleich.zerlegt("Bun\ndes\nmin\nist\neri\num ganz normale Zeile") is True     # 5 von 6 kurz
+    assert quellen_abgleich.zerlegt("Eine Kombination mit der BEG WG\nist ausgeschlossen.\n8.6\n\n") is False
+    assert quellen_abgleich.zerlegt("") is False
+
+    class Seite:
+        def __init__(self, standard, layout):
+            self.standard, self.layout = standard, layout
+
+        def extract_text(self, extraction_mode="plain"):
+            return self.layout if extraction_mode == "layout" else self.standard
+
+    class Leser:
+        def __init__(self, seiten):
+            self.pages = seiten
+
+    import pypdf
+    zerlegt_seite = Seite("8.6\nKum\nuli\neru\nngs\nver\nbot", "8.6     Kumulierungsverbot,   Kombination")
+    monkeypatch.setattr(pypdf, "PdfReader", lambda *a, **k: Leser([zerlegt_seite]))
+    text, modus = quellen_abgleich.pdf_lesen(b"%PDF-")
+    assert modus == "layout" and text == "[Seite 1]\n8.6 Kumulierungsverbot, Kombination"
+    sauber = Seite("Eine Kombination mit der BEG WG ist ausgeschlossen.", "Eine  Kombination  (Layout)")
+    monkeypatch.setattr(pypdf, "PdfReader", lambda *a, **k: Leser([sauber]))
+    assert quellen_abgleich.pdf_lesen(b"%PDF-") == ("[Seite 1]\nEine Kombination mit der BEG WG ist ausgeschlossen.", "standard")

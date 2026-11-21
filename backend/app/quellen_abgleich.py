@@ -96,11 +96,36 @@ def herunterladen(url: str) -> tuple[bytes, str]:
     raise ValueError("kein PDF unter der Download-Adresse")
 
 
-def pdf_text(inhalt: bytes) -> str:
-    """Text eines PDFs (pypdf), Seiten mit „[Seite N]“ markiert – damit die KI Fundstellen mit Seite nennen kann."""
+KURZE_ZEILE = 4           # Zeichen; mehr als die Hälfte solcher Zeilen = zerlegter Text (Spaltensatz, z. B. BAnz-PDF)
+
+
+def zerlegt(text: str) -> bool:
+    """Lesbarkeit (Geschäftsführung 21.11.2026): mehr als die Hälfte der nicht leeren Zeilen höchstens KURZE_ZEILE Zeichen lang."""
+    zeilen = [z.strip() for z in text.split("\n") if z.strip()]
+    return bool(zeilen) and sum(len(z) <= KURZE_ZEILE for z in zeilen) * 2 > len(zeilen)
+
+
+def _seiten(leser, modus: str) -> list[str]:
+    if modus == "layout":   # Layout-Modus setzt Spalten mit vielen Leerzeichen – zusammenfassen
+        return [re.sub(r"[ \t]+", " ", s.extract_text(extraction_mode="layout") or "").strip() for s in leser.pages]
+    return [(s.extract_text() or "").strip() for s in leser.pages]
+
+
+def pdf_lesen(inhalt: bytes) -> tuple[str, str]:
+    """→ (Text, Lesemodus). Seiten mit „[Seite N]“ markiert – damit die KI Fundstellen mit Seite nennen kann. Gelesen wird im
+    Standardmodus; ist der Text zerlegt (`zerlegt()`), wird das ganze Dokument im Layout-Modus neu gelesen."""
     from pypdf import PdfReader
     leser = PdfReader(io.BytesIO(inhalt), strict=False)
-    return "\n\n".join(f"[Seite {i}]\n{(s.extract_text() or '').strip()}" for i, s in enumerate(leser.pages, start=1))
+    modus = "standard"
+    seiten = _seiten(leser, modus)
+    if zerlegt("\n".join(seiten)):
+        modus = "layout"
+        seiten = _seiten(leser, modus)
+    return "\n\n".join(f"[Seite {i}]\n{t}" for i, t in enumerate(seiten, start=1)), modus
+
+
+def pdf_text(inhalt: bytes) -> str:
+    return pdf_lesen(inhalt)[0]
 
 
 def gueltige_quellen(db: Session) -> list[KonditionenQuelle]:

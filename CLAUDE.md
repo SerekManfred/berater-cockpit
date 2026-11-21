@@ -486,8 +486,10 @@ Auftrag `docs/auftraege/Auftrag_Auslegungsfragen_Quellenstand_20261121.md` mit d
   keine Fragen selbst an (Test). Tests: `tests/test_auslegungsfragen.py`, `frontend/src/MeldungAuslegung.test.jsx`.
 - **Quellen 8 und 9 (Technische FAQ) am 21.11.2026 07:11 von Konto 1 gelöscht** (Protokoll `konditionen_quelle_geloescht`);
   neu: Quelle 10 Richtlinie BEG NWG 17.07.2026, Quelle 12 Richtlinie BEG EM vom 17.08.2026 (BAnz AT 27.08.2026 B1, 34 Seiten;
-  Rang richtlinie, noch ohne gültig von und ohne Programme → geht nicht in die Förderprüfung). pypdf liest Quelle 12 nur in
-  Bruchstücken von 3 Zeichen je Zeile (Spaltensatz) – vor einer Zuordnung zur Förderprüfung Textqualität klären.
+  Rang richtlinie). **Lesbarkeit** (GF 21.11.2026, `quellen_abgleich.pdf_lesen()`): Standardmodus; sind mehr als die Hälfte
+  der Zeilen ≤ 4 Zeichen (`zerlegt()`, BAnz-Spaltensatz), wird das ganze Dokument im Layout-Modus neu gelesen (Leerzeichen
+  zusammengefasst). Geprüft 21.11.2026: Quelle 12 Standard 99,8 % kurze Zeilen → Layout, 149.242 Zeichen, sauber; Quellen 1
+  (3,0 %) und 5 (0,1 %) nicht zerlegt, Standardmodus.
 - **Kombinationsverbot – geprüft 21.11.2026 in Quelle 12, Nr. 8.6, S. 12 von 34:** „Eine Kombination mit der BEG WG
   beziehungsweise der BEG NWG ist ausgeschlossen.“ (wortgleich mit der Vorabfassung). Richtlinie BEG EM Nr. 8.6 nur aus der amtlichen Fassung (BAnz) zitieren; die Vorabfassung
   17.07.2026 nicht als Quelle nennen (GF 21.11.2026). Offen: P2 (Versand-Freigabe, Rolle `freigabe`, Stichprobe, Vermerk
