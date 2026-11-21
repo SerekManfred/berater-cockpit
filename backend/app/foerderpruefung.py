@@ -854,8 +854,34 @@ def uebersicht(m: FoerderMeldung) -> dict:
             "ergebnis_text": text, "status_text": status_text}
 
 
-def _aus(m: FoerderMeldung, namen: dict[int, str], voll: bool = False) -> dict:
+_NUMMER = re.compile(r"\b(?:Nr\.|Nummer)\s?((?:[A-Z]\.?)?\d+(?:\.\d+)*(?:\s?[a-z]\))?)")
+_SEITE = re.compile(r"(?:\[Seite\s|\bS\.\s?|\bSeite\s)(\d+(?:\s?[–-]\s?\d+)?)")
+
+
+def fundstelle_aus_text(text: str | None) -> dict | None:
+    """Fundstelle (Nummer, Seite) aus der Erläuterung der KI, z. B. „Richtlinie BEG EM Nr. 8.4.4 [Seite 20–21]“ – nur Anzeige
+    (Paket P4); fehlt beides, None."""
+    t = str(text or "")
+    nummer, seite = _NUMMER.search(t), _SEITE.search(t)
+    if not nummer and not seite:
+        return None
+    return {"nummer": nummer.group(1) if nummer else None, "seite": seite.group(1).replace(" ", "") if seite else None}
+
+
+def stelle_intern(a: dict, fragen: dict[str, dict]) -> dict:
+    """Interne Anzeige einer Stelle (Auftrag 21.11.2026, C8): Quelle, Fundstelle, Ergebnis der Prüfung, Status des Hinweises.
+    Nur für das Cockpit – die Förderprüfung schreibt nie in einen Bericht und legt keine Auslegungsfrage selbst an."""
+    rang = RANG_TEXT.get(a.get("rang") or "unbekannt", "Rang unbekannt")
+    ergebnis = ("offiziell belegt" if a.get("sicherheit") == "offiziell" else "zu prüfen") + f" – {rang}"
+    if a.get("geplant"):
+        ergebnis += f" – in Version {a['geplant']['version']} geplant"
+    return {**a, "fundstelle": fundstelle_aus_text(a.get("erlaeuterung")), "ergebnis_text": ergebnis,
+            "auslegung": fragen.get(a.get("feld"))}
+
+
+def _aus(m: FoerderMeldung, namen: dict[int, str], voll: bool = False, fragen: dict[str, dict] | None = None) -> dict:
     erg = {k: v for k, v in m.ergebnis.items() if voll or k != "rohtext"}
+    erg["abweichungen"] = [stelle_intern(a, fragen or {}) for a in erg.get("abweichungen") or [] if isinstance(a, dict)]
     if isinstance(erg.get("hinweise"), list):   # alter Satz zu geplanten Abweichungen steht jetzt im Ergebnis-Text
         erg["hinweise"] = [h for h in erg["hinweise"] if not _ALTER_GEPLANT_HINWEIS.match(str(h))]
     return {"id": m.id, "zeit": m.zeit, "konditionen_version": m.konditionen_version, "status": m.status, "ergebnis": erg,
@@ -892,13 +918,15 @@ def meldungen(status: str | None = None, limit: int = 20, _: Benutzer = Depends(
         abfrage = abfrage.where(FoerderMeldung.status == status)
     liste = list(db.scalars(abfrage))
     namen = _namen(db, {i for m in liste for i in (m.ausgeloest_von_id, m.bearbeitet_von_id)})
-    return [_aus(m, namen) for m in liste]
+    from app.auslegung_api import fragen_zur_meldung
+    return [_aus(m, namen, fragen=fragen_zur_meldung(db, m.id)) for m in liste]
 
 
 @router.get("/foerderpruefung/meldungen/{meldung_id}")
 def meldung_lesen(meldung_id: int, _: Benutzer = Depends(meldungen_leser), db: Session = Depends(get_db)):
     m = _meldung(db, meldung_id)
-    return _aus(m, _namen(db, [m.ausgeloest_von_id, m.bearbeitet_von_id]), voll=True)
+    from app.auslegung_api import fragen_zur_meldung
+    return _aus(m, _namen(db, [m.ausgeloest_von_id, m.bearbeitet_von_id]), voll=True, fragen=fragen_zur_meldung(db, m.id))
 
 
 @router.get("/foerderpruefung/lauf")

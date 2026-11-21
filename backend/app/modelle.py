@@ -329,3 +329,41 @@ class Einstellung(Base):
     wert: Mapped[dict] = mapped_column(DETAILS_TYP, nullable=False)
     geaendert_von_id: Mapped[int | None] = mapped_column(ForeignKey("benutzer.id", ondelete="SET NULL"))
     geaendert_am: Mapped[datetime] = mapped_column(UTCZeit, nullable=False, default=jetzt)
+
+
+class Auslegungsfrage(Base):
+    """Offene Auslegungsfrage (Migration 0020, Geschäftsführung 21.11.2026): je Projekt (optional Bericht) oder je Stelle einer
+    Förderprüfung. Wird nie gelöscht; Status offen | geklaert | widerspruechlich, Antworten nur ergänzt."""
+    __tablename__ = "auslegungsfragen"
+    id: Mapped[int] = mapped_column(Integer, primary_key=True)
+    projekt_id: Mapped[int | None] = mapped_column(ForeignKey("projekte.id", ondelete="CASCADE"), index=True)
+    bericht_id: Mapped[int | None] = mapped_column(ForeignKey("berichte.id", ondelete="SET NULL"))
+    modul: Mapped[str | None] = mapped_column(String(30))
+    meldung_id: Mapped[int | None] = mapped_column(ForeignKey("foerder_meldungen.id", ondelete="SET NULL"), index=True)
+    meldung_feld: Mapped[str | None] = mapped_column(String(120))
+    frage: Mapped[str] = mapped_column(Text, nullable=False)
+    quelle_id: Mapped[int] = mapped_column(ForeignKey("konditionen_quellen.id", ondelete="RESTRICT"), nullable=False)
+    fundstelle_nummer: Mapped[str | None] = mapped_column(String(60))
+    fundstelle_seite: Mapped[str | None] = mapped_column(String(20))
+    kategorie: Mapped[str] = mapped_column(String(20), nullable=False)
+    status: Mapped[str] = mapped_column(String(20), nullable=False)
+    anfrage_an: Mapped[str | None] = mapped_column(String(10))
+    anfrage_datum: Mapped[date | None] = mapped_column(Date)
+    kundentext: Mapped[str] = mapped_column(Text, nullable=False)
+    geklaert_am: Mapped[datetime | None] = mapped_column(UTCZeit)
+    erstellt_von_id: Mapped[int | None] = mapped_column(ForeignKey("benutzer.id", ondelete="SET NULL"))
+    erstellt_am: Mapped[datetime] = mapped_column(UTCZeit, nullable=False, default=jetzt)
+    geaendert_am: Mapped[datetime | None] = mapped_column(UTCZeit)
+
+
+class AuslegungsAntwort(Base):
+    """Antwort einer Förderstelle auf eine Auslegungsfrage – nur ergänzt, nie geändert oder gelöscht."""
+    __tablename__ = "auslegungs_antworten"
+    id: Mapped[int] = mapped_column(Integer, primary_key=True)
+    frage_id: Mapped[int] = mapped_column(ForeignKey("auslegungsfragen.id", ondelete="CASCADE"), nullable=False, index=True)
+    stelle: Mapped[str] = mapped_column(String(10), nullable=False)
+    datum: Mapped[date] = mapped_column(Date, nullable=False)
+    aktenzeichen: Mapped[str | None] = mapped_column(String(100))
+    text: Mapped[str] = mapped_column(Text, nullable=False)
+    erfasst_von_id: Mapped[int | None] = mapped_column(ForeignKey("benutzer.id", ondelete="SET NULL"))
+    erfasst_am: Mapped[datetime] = mapped_column(UTCZeit, nullable=False, default=jetzt)

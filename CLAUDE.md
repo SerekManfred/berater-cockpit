@@ -466,6 +466,29 @@ Verbindlich zusätzlich zu den unverhandelbaren Regeln; Einzelheiten in den Absc
   „– Quelle nicht geprüft“ im Fördervergleich (Quellen; ab Generator 0.6.2 für jedes gemeldete Programm).
   Tests: `tests/test_entscheidungen_20261120.py`.
 
+## Offene Auslegungsfragen (Auftrag Geschäftsführung 21.11.2026, Pakete P1 + P4 lokal, nicht eingespielt)
+Auftrag `docs/auftraege/Auftrag_Auslegungsfragen_Quellenstand_20261121.md` mit den Entscheidungen 21.11.2026 (Rückfragen 1–8).
+- **Migration 0020** (lokal, im Testsystem **nicht** eingespielt – vorher `scripts/sicherung.sh`): Tabellen `auslegungsfragen`
+  (Frage, `quelle_id` = Quelldokument der Quellenbibliothek, Fundstelle `fundstelle_nummer`/`_seite` – mindestens eins,
+  `kategorie` foerderhoehe | foerderweg | frist | sonstiges, Voreinstellung **foerderhoehe**, `status` offen | geklaert |
+  widerspruechlich, `anfrage_an` KfW/BAFA nur mit `anfrage_datum`, `kundentext` Pflicht, erstellt von/am, `geklaert_am`; Bezug
+  Projekt (+ optional Bericht) **oder** Stelle einer Förderprüfung `meldung_id` + `meldung_feld`) und `auslegungs_antworten`
+  (Stelle, Datum, Aktenzeichen, Text – nur ergänzt). Beide in `scripts/kennzahlen.sh`.
+- `app/auslegung_api.py`: `GET/POST /projekte/{id}/auslegungsfragen`, `GET/PATCH /auslegungsfragen/{id}`,
+  `POST /auslegungsfragen/{id}/antworten`, `POST /foerderpruefung/meldungen/{id}/auslegungsfragen` („Als Auslegungsfrage anlegen“).
+  Lesen alle Angemeldeten; schreiben berater, pruefer, admin, **nie technisch**. **Keine Löschroute**; „geklärt“ erst mit ≥ 1,
+  „widersprüchlich“ mit ≥ 2 Antworten (alle bleiben). Protokoll `auslegungsfrage_angelegt`, `_geaendert` (Werte alt/neu, Texte nur
+  „geändert“), `_antwort`. Endgültiges Löschen eines Projekts löscht seine Fragen ausdrücklich mit (Zähler im Protokoll).
+  `kritisch` (Förderhöhe/-weg/Frist) wird in Paket P2 den Kundenversand sperren.
+- **P4 Förderprüfung intern:** `stelle_intern()` ergänzt je Stelle nur in der Antwort (nicht gespeichert) `fundstelle`
+  (`fundstelle_aus_text()` aus der Erläuterung), `ergebnis_text` („offiziell belegt|zu prüfen – Rang“) und `auslegung` (Status
+  der Frage). Oberfläche Spalte „Prüfung (intern)“ in `MeldungTabelle`. Die Förderprüfung schreibt nie in Berichte und legt
+  keine Fragen selbst an (Test). Tests: `tests/test_auslegungsfragen.py`, `frontend/src/MeldungAuslegung.test.jsx`.
+- **Kombinationsverbot:** Richtlinie BEG EM Nr. 8.6 erst nach Prüfung der amtlichen Fassung (BAnz) zitieren; die Vorabfassung
+  17.07.2026 nicht als Quelle nennen (GF 21.11.2026). Offen: P2 (Versand-Freigabe, Rolle `freigabe`, Stichprobe, Vermerk
+  „Entwurf, nicht freigegeben“ im Word), P3 (Antragsdatum, Quellenverzeichnis, Quellenfehler bis V6 Warnung / ab V7 Sperre,
+  Generator), P5, P6 (Testberichte über das Berater-Konto, INIT-Testkosten 60.000 €).
+
 ## Zahlenfelder in der Oberfläche (Stand 14.11.2026)
 - **Alle Zahlenfelder** über `ZahlFeld`/`ZahlEingabe` (`frontend/src/ZahlFeld.jsx`) und `frontend/src/zahl.js` – kein `type="number"`,
   keine Einzellösungen. Das Feld hält den getippten Text (leer bleibt leer, „0“ lässt sich löschen) und meldet Zahl, `null` (leer)

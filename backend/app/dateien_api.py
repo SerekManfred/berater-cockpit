@@ -251,11 +251,17 @@ def projekt_endgueltig_loeschen(projekt_id: int, daten: Bestaetigung, request: R
         raise HTTPException(422, f"Zur Bestätigung bitte die Projektnummer {p.projektnummer} eingeben.")
     speichernamen = list(db.scalars(select(Datei.speichername).where(Datei.projekt_id == p.id)))
     db.execute(delete(BerichtEntwurf).where(BerichtEntwurf.projekt_id == p.id))  # verweist auf Berichte → zuerst
+    # Auslegungsfragen des Projekts (Migration 0020) ausdrücklich mitlöschen und im Protokoll zählen – nie still
+    from app.modelle import Auslegungsfrage, AuslegungsAntwort
+    fragen_ids = list(db.scalars(select(Auslegungsfrage.id).where(Auslegungsfrage.projekt_id == p.id)))
+    if fragen_ids:
+        db.execute(delete(AuslegungsAntwort).where(AuslegungsAntwort.frage_id.in_(fragen_ids)))
+        db.execute(delete(Auslegungsfrage).where(Auslegungsfrage.id.in_(fragen_ids)))
     anzahl_berichte = db.execute(delete(Bericht).where(Bericht.projekt_id == p.id)).rowcount
     db.execute(delete(Datei).where(Datei.projekt_id == p.id))
     db.delete(p)
     protokollieren(db, request, "projekt_endgueltig_geloescht", ich.id, projekt_id=p.id, projektnummer=p.projektnummer,
-                   berichte=anzahl_berichte, dateien=len(speichernamen))
+                   berichte=anzahl_berichte, dateien=len(speichernamen), auslegungsfragen=len(fragen_ids))
     db.commit()
     for name in speichernamen:  # Inhalte erst nach erfolgreichem Commit entfernen
         dateien.entfernen(name)

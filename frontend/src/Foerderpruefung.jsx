@@ -39,14 +39,66 @@ export function PruefungVeraltet() {
   return <div className="info" role="status" style={{ marginBottom: 12 }}>{s.text}</div>;
 }
 
-export function MeldungTabelle({ m }) {
+// Interne Anzeige je Stelle (Auftrag 21.11.2026, C7/C8): Fundstelle, Ergebnis der Prüfung, Status des Hinweises – nur im
+// Cockpit für den Berater; nichts davon geht automatisch in einen Bericht. Werte kommen aus dem Backend (stelle_intern).
+export function fundstelleText(f) {
+  if (!f) return "–";
+  return [f.nummer && `Nr. ${f.nummer}`, f.seite && `S. ${f.seite}`].filter(Boolean).join(", ");
+}
+export const darfAuslegungAnlegen = ich => !!ich && hatRolle(ich, "berater", "pruefer");
+
+export function AuslegungAnlegen({ m, a, onFertig, onAbbrechen }) {
+  const [quellen, setQuellen] = useState([]);
+  const [f, setF] = useState({ frage: `${a.label || a.feld}: ${a.erlaeuterung || ""}`.trim().slice(0, 2000),
+    quelle_id: "", fundstelle_nummer: a.fundstelle?.nummer || "", fundstelle_seite: a.fundstelle?.seite || "",
+    kategorie: "foerderhoehe", kundentext: "" });
+  const [fehler, setFehler] = useState("");
+  useEffect(() => { api("/konditionen/quellen").then(q => setQuellen(Array.isArray(q) ? q : [])).catch(() => setQuellen([])); }, []);
+  const set = (k, v) => setF({ ...f, [k]: v });
+  async function speichern() {
+    setFehler("");
+    try {
+      await api(`/foerderpruefung/meldungen/${m.id}/auslegungsfragen`, { method: "POST",
+        body: { ...f, feld: a.feld, quelle_id: Number(f.quelle_id) || 0 } });
+      onFertig?.();
+    } catch (e) { setFehler(e.message); }
+  }
+  return (
+    <fieldset className="karte" style={{ marginTop: 6 }}>
+      <legend>Als Auslegungsfrage anlegen – {a.label || a.feld}</legend>
+      <p className="klein" style={{ marginTop: 0 }}>Nur intern: Die Frage erscheint nicht automatisch im Bericht.</p>
+      {fehler && <div className="fehler" role="alert">{fehler}</div>}
+      <div className="felder">
+        <label style={{ gridColumn: "1 / -1" }}>Frage (Pflicht)<textarea rows={3} value={f.frage} onChange={e => set("frage", e.target.value)} /></label>
+        <label>Quelle (Quellenbibliothek, Pflicht)<select value={f.quelle_id} onChange={e => set("quelle_id", e.target.value)}>
+          <option value="">– bitte wählen –</option>
+          {quellen.map(q => <option key={q.id} value={q.id}>{q.titel} (Stand {q.stand}){q.aktuell_gueltig === false ? " – nicht mehr gültig" : ""}</option>)}</select></label>
+        <label>Fundstelle Nummer<input maxLength={60} value={f.fundstelle_nummer} onChange={e => set("fundstelle_nummer", e.target.value)} /></label>
+        <label>Fundstelle Seite<input maxLength={20} value={f.fundstelle_seite} onChange={e => set("fundstelle_seite", e.target.value)} /></label>
+        <label>Betrifft<select value={f.kategorie} onChange={e => set("kategorie", e.target.value)}>
+          <option value="foerderhoehe">Förderhöhe</option><option value="foerderweg">Förderweg</option>
+          <option value="frist">Frist</option><option value="sonstiges">sonstiges</option></select></label>
+        <label style={{ gridColumn: "1 / -1" }}>Hinweistext für den Kunden (Pflicht, mit Stand und Quelle)
+          <textarea rows={3} value={f.kundentext} onChange={e => set("kundentext", e.target.value)} /></label>
+      </div>
+      <div className="aktionen">
+        <button type="button" className="btn" onClick={speichern}>Auslegungsfrage anlegen</button>
+        <button type="button" className="btn2" onClick={onAbbrechen}>Abbrechen</button>
+      </div>
+    </fieldset>
+  );
+}
+
+export function MeldungTabelle({ m, ich = null, onGeaendert }) {
   const abw = Array.isArray(m?.ergebnis?.abweichungen) ? m.ergebnis.abweichungen : [];
+  const [anlegen, setAnlegen] = useState(null);
   if (!abw.length) return <p className="klein">Keine Abweichungen.</p>;
   return (
     <div className="tabelle"><table className="vergleich">
-      <thead><tr><th>Programm</th><th>Feld</th><th>hinterlegt</th><th>neu</th><th>gilt ab</th><th>Sicherheit</th><th>Quelle</th></tr></thead>
+      <thead><tr><th>Programm</th><th>Feld</th><th>hinterlegt</th><th>neu</th><th>gilt ab</th><th>Sicherheit</th><th>Quelle</th><th>Prüfung (intern)</th></tr></thead>
       <tbody>{abw.map(a => (
-        <tr key={a.feld} className="z-geaendert">
+        <React.Fragment key={a.feld}>
+        <tr className="z-geaendert">
           <td>{a.programm_titel || a.programm}</td>
           <td>{a.label || a.feld}{a.erlaeuterung && <><br /><span className="klein">{a.erlaeuterung}</span></>}</td>
           <td className="alt">{anzeige(a, a.hinterlegt)}</td><td className="neu">{anzeige(a, a.neu)}</td>
@@ -55,7 +107,14 @@ export function MeldungTabelle({ m }) {
             {belegText(a) && <><br /><span className="klein">{belegText(a)}</span></>}
             {a.geplant && <><br /><span className="status kstatus-geplant">in Version {a.geplant.version} geplant (ab {a.geplant.gueltig_ab.split("-").reverse().join(".")})</span></>}</td>
           <td>{istLink(a.quelle) ? <a href={a.quelle} target="_blank" rel="noopener noreferrer">Quelle öffnen</a> : "–"}</td>
-        </tr>))}
+          <td className="klein">Fundstelle: {fundstelleText(a.fundstelle)}<br />Ergebnis: {a.ergebnis_text || "–"}<br />
+            Hinweis: {a.auslegung ? <strong>Auslegungsfrage {a.auslegung.status_text}</strong> : "keine Auslegungsfrage"}
+            {!a.auslegung && darfAuslegungAnlegen(ich) && anlegen !== a.feld &&
+              <><br /><button type="button" className="btn2 klein-knopf" onClick={() => setAnlegen(a.feld)}>Als Auslegungsfrage anlegen</button></>}</td>
+        </tr>
+        {anlegen === a.feld && <tr><td colSpan={8}>
+          <AuslegungAnlegen m={m} a={a} onAbbrechen={() => setAnlegen(null)} onFertig={() => { setAnlegen(null); onGeaendert?.(); }} /></td></tr>}
+        </React.Fragment>))}
       </tbody>
     </table></div>
   );
@@ -144,7 +203,7 @@ export function OffeneMeldungen({ ich, onEntwurf }) {
       <h2>Handlungsbedarf Förderkonditionen</h2>
       <p className="klein" style={{ marginTop: 0 }}>Förderprüfung vom {zeit(m.zeit)} ({m.ausgeloest_von}) gegen Version {m.konditionen_version}:
         {" "}{ergebnisText(m)}. Nichts wurde automatisch geändert – eine neue Version gilt erst nach Vier-Augen-Freigabe.</p>
-      <MeldungTabelle m={m} />
+      <MeldungTabelle m={m} ich={ich} onGeaendert={laden} />
       {darfEntwurfAnlegen(ich) ? <MeldungAktionen m={m} ich={ich} onEntwurf={onEntwurf} onFertig={laden} />
         : <p className="klein">Entwurf anlegen oder verwerfen: durch einen Admin oder Empfänger der Benachrichtigungen.</p>}
     </section>
@@ -247,7 +306,7 @@ function MeldungDetails({ m, ich, onEntwurf, onFertig }) {
   return (
     <div>
       {e.zusammenfassung && <p>{e.zusammenfassung}</p>}
-      <MeldungTabelle m={m} />
+      <MeldungTabelle m={m} ich={ich} onGeaendert={onFertig} />
       {m.status === "offen" && darfEntwurfAnlegen(ich) && <MeldungAktionen m={m} ich={ich} onEntwurf={onEntwurf} onFertig={onFertig} />}
       {m.begruendung && <p className="klein"><strong>Begründung (verworfen):</strong> {m.begruendung}</p>}
       {m.benachrichtigung && <p className="klein">E-Mail: {m.benachrichtigung.fehler ? `fehlgeschlagen – ${m.benachrichtigung.fehler}` : `an ${m.benachrichtigung.an} Empfänger`}</p>}

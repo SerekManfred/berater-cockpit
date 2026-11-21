@@ -72,3 +72,12 @@ G. Rückmeldung
 16. Commit-Liste, Kurzbeschreibung je Commit, Testergebnis, offene Punkte.
     Dateipfade für Word-Durchläufe der Testberichte.
     Nichts pushen, bis ich freigegeben habe.
+
+## Entscheidungen der Geschäftsführung (21.11.2026) zu den Rückfragen 1–8
+Wie vorgeschlagen, mit diesen Änderungen:
+- Punkt 3: Quellenfehler sind bis Version 6 eine Warnung, ab Version 7 eine Sperre (Fundstellen-Pflicht).
+- Punkt 4: Der Word-Download trägt bis zur Freigabe den Vermerk „Entwurf, nicht freigegeben“.
+- Punkt 8: Testberichte über das Berater-Konto anlegen. Testkosten INIT: 60.000 €.
+- Kombinationsverbot: Zitat Nr. 8.6 erst nach Prüfung der amtlichen Richtlinie-Fassung vom 17.08.2026 übernehmen. Die
+  Vorabfassung 17.07.2026 nicht als Quelle nennen.
+- Start mit P1 (Auslegungsfragen) und P4 (Förderprüfung intern). Nichts pushen, nichts einspielen.

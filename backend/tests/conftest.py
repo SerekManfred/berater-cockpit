@@ -78,6 +78,9 @@ def _leere_tabellen():
     from app.modelle import FoerderMeldung
     mail.GESENDET.clear()
     with SessionLocal() as db:
+        from app.modelle import AuslegungsAntwort, Auslegungsfrage
+        db.execute(delete(AuslegungsAntwort))  # vor Fragen, Meldungen, Quellen, Projekten (Fremdschlüssel)
+        db.execute(delete(Auslegungsfrage))
         db.execute(delete(FoerderMeldung))   # vor Konditionen und Benutzern (Fremdschlüssel)
         from app.modelle import KiReferenz
         db.execute(delete(KiReferenz))       # Handschrift-Profil: zurück auf die ausgelieferte Datei
