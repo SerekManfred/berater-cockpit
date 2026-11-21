@@ -83,8 +83,10 @@ Verbindlich zusätzlich zu den unverhandelbaren Regeln; Einzelheiten in den Absc
   Änderung wird mit alt/neu protokolliert. **Plausibilitätswarnung** bei mehr als **±30 % Abweichung** zum bisherigen Wert und bei
   **0 oder leer**; Speichern dann nur mit **Bestätigung und Grund** (Grund im Protokoll), **keine Sperre**. Der verwendete
   Kennwert wird **im Bericht eingefroren** (spätere Änderungen wirken nur auf neue Berichte bzw. neue Versionen). Sie sind
-  keine Förderkonditionen und stehen nicht in `konditionen_versionen`. Kosten im Fördervergleich bleiben Vorschlag, bis der Berater
-  bestätigt.
+  keine Förderkonditionen und stehen nicht in `konditionen_versionen`. Kosten im Fördervergleich trägt die **Rolle verwaltung** ein
+  (aus vorhandenen Angeboten oder als angenommene Kosten, im Dokument und im System als „Annahme“ gekennzeichnet). Eine Bestätigung
+  durch den Berater ist dafür nicht vorgesehen (Entscheidung 21.11.2026). Die Verwaltung arbeitet autark; Fragen gehen nur bei
+  technischen Fragen, speziellen Objekten oder Kunden an Modellierung oder Berater.
 - **Umgebungen:** Der Hostinger-Server (`cockpit.mybase-test.de`, `/home/dev/berater-cockpit`) ist **ausschließlich Testsystem**
   (nur Testdaten) und wird **nie „Produktion“** genannt. **Produktion = HostEurope, noch nicht eingerichtet.** „Produktion“ in
   dieser Datei meint immer HostEurope.
