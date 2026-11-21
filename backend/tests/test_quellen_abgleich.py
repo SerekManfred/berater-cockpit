@@ -268,3 +268,16 @@ def test_technischer_benutzer_darf_programme_nicht_aendern(tmp_path):
         with pytest.raises(HTTPException) as e:
             kq.quelle_programme(qid, kq.ProgrammeIn(programme=["beg_em"]), None, t, db)
         assert e.value.status_code == 403 and db.get(KonditionenQuelle, qid).programme == []
+
+
+def test_lange_faq_wird_nicht_mehr_gekuerzt(tmp_path, monkeypatch):
+    """Geschäftsführung 21.11.2026: Kürzungsgrenze aufgehoben – die Technische FAQ Effizienzhaus (383.166 Zeichen) geht ganz mit."""
+    from app.modelle import KonditionenQuelle
+    qid = quelle(tmp_path, PDF_A, None, titel="BEG TFAQ Effizienzhaus", programme=("beg_wg",))
+    with SessionLocal() as db:
+        q = db.get(KonditionenQuelle, qid)
+        q.rang = "faq"
+        db.commit()
+        monkeypatch.setattr(quellen_abgleich, "pdf_text", lambda inhalt: "x" * 383_166)
+        doks, hinweise = quellen_abgleich.dokumente(db, {"beg_wg"}, [], {})
+    assert len(doks) == 1 and len(doks[0]["text"]) == 383_166 and not any("gekürzt" in h for h in hinweise)

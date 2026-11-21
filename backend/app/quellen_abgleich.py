@@ -35,7 +35,9 @@ log = logging.getLogger("cockpit.quellen")
 NICHT_ABRUFBAR = ("energiewechsel.de",)       # Abruf-Werkzeug der KI liefert hier nur die HTML-Seite (Test 20.11.2026)
 MAX_BYTES = 25_000_000
 ZEITLIMIT = 30.0
-DOKUMENT_MAX_ZEICHEN = 200_000                  # je Dokument (Richtlinie BEG EM ≈ 150.000, BEG-FAQ ≈ 179.000 Zeichen)
+# Kürzung aufgehoben (Geschäftsführung 21.11.2026; bis dahin 200.000 Zeichen, Technische FAQ Effizienzhaus 383.166 Zeichen wurde
+# gekürzt). Bleibt nur als Sicherung gegen das Kontextfenster (Opus/Sonnet 5.5: 1 Mio. Tokens; 1 Mio. Zeichen ≈ 330.000 Tokens).
+DOKUMENT_MAX_ZEICHEN = 1_000_000
 KENNUNG = "Berater-Cockpit Foerderpruefung (Abgleich offizieller Merkblaetter)"
 
 

@@ -484,7 +484,12 @@ Auftrag `docs/auftraege/Auftrag_Auslegungsfragen_Quellenstand_20261121.md` mit d
   (`fundstelle_aus_text()` aus der Erläuterung), `ergebnis_text` („offiziell belegt|zu prüfen – Rang“) und `auslegung` (Status
   der Frage). Oberfläche Spalte „Prüfung (intern)“ in `MeldungTabelle`. Die Förderprüfung schreibt nie in Berichte und legt
   keine Fragen selbst an (Test). Tests: `tests/test_auslegungsfragen.py`, `frontend/src/MeldungAuslegung.test.jsx`.
-- **Kombinationsverbot:** Richtlinie BEG EM Nr. 8.6 erst nach Prüfung der amtlichen Fassung (BAnz) zitieren; die Vorabfassung
+- **Quellen 8 und 9 (Technische FAQ) am 21.11.2026 07:11 von Konto 1 gelöscht** (Protokoll `konditionen_quelle_geloescht`);
+  neu: Quelle 10 Richtlinie BEG NWG 17.07.2026, Quelle 12 Richtlinie BEG EM vom 17.08.2026 (BAnz AT 27.08.2026 B1, 34 Seiten;
+  Rang richtlinie, noch ohne gültig von und ohne Programme → geht nicht in die Förderprüfung). pypdf liest Quelle 12 nur in
+  Bruchstücken von 3 Zeichen je Zeile (Spaltensatz) – vor einer Zuordnung zur Förderprüfung Textqualität klären.
+- **Kombinationsverbot – geprüft 21.11.2026 in Quelle 12, Nr. 8.6, S. 12 von 34:** „Eine Kombination mit der BEG WG
+  beziehungsweise der BEG NWG ist ausgeschlossen.“ (wortgleich mit der Vorabfassung). Richtlinie BEG EM Nr. 8.6 nur aus der amtlichen Fassung (BAnz) zitieren; die Vorabfassung
   17.07.2026 nicht als Quelle nennen (GF 21.11.2026). Offen: P2 (Versand-Freigabe, Rolle `freigabe`, Stichprobe, Vermerk
   „Entwurf, nicht freigegeben“ im Word), P3 (Antragsdatum, Quellenverzeichnis, Quellenfehler bis V6 Warnung / ab V7 Sperre,
   Generator), P5, P6 (Testberichte über das Berater-Konto, INIT-Testkosten 60.000 €).
@@ -584,7 +589,7 @@ Auftrag `docs/auftraege/Auftrag_Auslegungsfragen_Quellenstand_20261121.md` mit d
   Rang 3: immer „zu prüfen“, `nur_faq`, nie im Entwurf. Einstufung per CLI (Auftrag im Protokoll): Quelle 8 „BEG TFAQ
   Effizienzhaus“ 7.0 – FAQ, gültig ab 15.12.2025, beg_wg/kfw_266; Quelle 9 „BEG TFAQ Einzelmaßnahme“ 8.0 – FAQ, gültig ab
   01.11.2026, beg_em/beg_em_heizung/kfw_458. Umfang (20.11.2026): Quelle 8 113 Seiten, 383.166 Zeichen (≈ 128.000 Tokens,
-  **gekürzt auf 200.000 Zeichen** ≈ 67.000), Quelle 9 43 Seiten, 137.133 Zeichen (≈ 46.000). Eine gründliche Prüfung gibt damit
+  bis 20.11.2026 gekürzt auf 200.000 Zeichen ≈ 67.000; **Kürzung aufgehoben 21.11.2026**, `DOKUMENT_MAX_ZEICHEN` = 1 Mio. nur noch als Sicherung gegen das Kontextfenster), Quelle 9 43 Seiten, 137.133 Zeichen (≈ 46.000). Eine gründliche Prüfung gibt damit
   Quellen 1, 5, 8, 9 mit ≈ 216.000 Tokens mit; Mehrkosten FAQ ≈ 0,90 $ je gründlichem Lauf (Opus, ≈ 15 Zwischenschritte),
   ungekürzt ≈ 1,40 $; die Vorprüfung ist unverändert.
 - **Anzeige der Läufe (20.11.2026, gespeicherter Status unverändert):** `uebersicht(m)` in jeder Meldung der API: `ergebnis_text`
