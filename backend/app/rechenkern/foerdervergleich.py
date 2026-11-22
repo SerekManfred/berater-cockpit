@@ -59,6 +59,8 @@ class Eingaben:
     isfp: bool = True
     eh_stufe: str = "EH55EE"
     ee_klasse_erreichbar: bool = True
+    # KfW 266 verlangt EH 85 EE zwingend nachgewiesen (bei Denkmal EH Denkmal EE). Bei Einzelmaßnahmen nur per Bilanz-Nachweis.
+    em_eh85ee_nachgewiesen: bool = False
     serielle_sanierung: bool = False   # KfW 261 Bonus serielle Sanierung (Satz je Stufe aus beg_wg.sersan_bonus)
     kfw266: bool = False
     we_neu: int = 0
@@ -91,6 +93,9 @@ class Szenario:
     kreditrahmen: float = 0.0
     kredit_pflicht: bool = False
     zuschuss_266: float = 0.0
+    # KfW 266 nur mit Vorbehalt: EH 85 EE (bzw. EH Denkmal EE) ist noch nicht per Bilanz nachgewiesen. Der Betrag bleibt
+    # sichtbar, wird aber im Kundenauftritt als Vorbehalt bei der Förderlinie ausgewiesen.
+    vorbehalt_266: bool = False
     kosten_energetisch: float = 0.0
     foerderfaehig: bool = True
     hinweise: list[str] = field(default_factory=list)
@@ -108,6 +113,11 @@ class Szenario:
     @property
     def summe_zuschuesse_energetisch(self) -> float:
         return round(sum(self.zuschuesse.values()), 2)
+
+    @property
+    def summe_zuschuesse_ohne_266(self) -> float:
+        """Zuschüsse ohne KfW 266 – die Variante „nur EM“ bzw. „nur Effizienzhaus“ im Kundenauftritt."""
+        return self.summe_zuschuesse_energetisch
 
     @property
     def summe_zuschuesse_gesamt(self) -> float:
@@ -130,7 +140,8 @@ class Szenario:
             "schluessel": self.schluessel, "titel": self.titel, "foerderfaehig": self.foerderfaehig,
             "zuschuesse": self.zuschuesse, "summe_zuschuesse_energetisch": self.summe_zuschuesse_energetisch,
             "kreditprogramm": self.kreditprogramm, "kreditrahmen": self.kreditrahmen, "kredit_pflicht": self.kredit_pflicht,
-            "zuschuss_266": self.zuschuss_266, "summe_zuschuesse_gesamt": self.summe_zuschuesse_gesamt,
+            "zuschuss_266": self.zuschuss_266, "vorbehalt_266": self.vorbehalt_266,
+            "summe_zuschuesse_ohne_266": self.summe_zuschuesse_ohne_266, "summe_zuschuesse_gesamt": self.summe_zuschuesse_gesamt,
             "kosten_energetisch": self.kosten_energetisch, "eigenanteil_energetisch": self.eigenanteil_energetisch,
             "foerderquote_energetisch": self.foerderquote_energetisch, "hinweise": self.hinweise,
             "angebotsweg": self.angebotsweg,
@@ -178,6 +189,21 @@ def _angebotsweg(e: Eingaben, weg: str, zuschuss: float, satz: float) -> dict | 
         "anrechnung_a": _r(e.angebote.a) if weg == "EH" and e.angebote.anrechnung_a_in_d else 0.0,
         "hoechstgrenze_greift": zuschuss < _r(satz * summe) - 0.005,
     }
+
+
+# Reihenfolge der Effizienzhausstufen, besser → schlechter. Alle Stufen außer Denkmal müssen EE erreichen.
+# Denkmal EE ist ein eigener Standard: Er ist für Baudenkmale das Mindestziel bei KfW 266 und ersetzt EH 85 EE.
+EH_RANG = ["EH40EE", "EH55EE", "EH70EE", "EH85EE"]
+DENKMAL = "DenkmalEE"
+
+
+def _stufe_erreicht(stufe: str, minimum: str) -> bool:
+    """Erfüllt die Stufe das Mindestziel? Denkmal EE gilt als eigener Standard (Baudenkmal). Unbekannte Stufen erfüllen nichts."""
+    if stufe == DENKMAL:
+        return True
+    if stufe not in EH_RANG or minimum not in EH_RANG:
+        return False
+    return EH_RANG.index(stufe) <= EH_RANG.index(minimum)
 
 
 def _kfw266(e: Eingaben, k: dict, stufe_ok: bool) -> tuple[float, list[str]]:
@@ -343,9 +369,13 @@ def einzelmassnahmen(e: Eingaben, kond: dict, wpb: bool) -> Szenario:
     s.kreditrahmen = _r(min(basis + kosten_heizung, em["ergaenzungskredit"]["je_we"] * e.we_nach_sanierung))
     s.kosten_energetisch = _r(sum(m.kosten for m in e.massnahmen) + e.bb_kosten("EM") + (e.kosten_isfp if e.isfp else 0)
                               + e.kosten_baubegleitung_heizung)
-    # KfW 266 verlangt auch bei Einzelmaßnahmen mindestens EH 85 EE
+    # KfW 266 verlangt EH 85 EE (bzw. EH Denkmal EE) zwingend nachgewiesen. Bei Einzelmaßnahmen ist das nur per Bilanz möglich:
+    # ohne Nachweis bleibt der Betrag als Vorbehalt sichtbar, mit Nachweis (em_eh85ee_nachgewiesen) gilt er ohne Vorbehalt.
     s.zuschuss_266, h = _kfw266(e, kond["kfw_266"], stufe_ok=True)
     s.hinweise += h
+    if s.zuschuss_266 and not e.em_eh85ee_nachgewiesen:
+        s.vorbehalt_266 = True
+        s.hinweise.append("KfW 266 nur mit Vorbehalt: setzt den Nachweis EH 85 EE (bzw. EH Denkmal EE) per Bilanz voraus")
     return s
 
 
@@ -396,7 +426,7 @@ def effizienzhaus(e: Eingaben, kond: dict, wpb: bool) -> Szenario:
     s.kreditprogramm, s.kredit_pflicht = "KfW 261", True
     s.kreditrahmen = _r(ff + e.bb_kosten("EH"))
     s.hinweise.append("Tilgungszuschuss nur auf tatsächlich abgerufenen Kredit")
-    s.zuschuss_266, h = _kfw266(e, kond["kfw_266"], stufe_ok=True)
+    s.zuschuss_266, h = _kfw266(e, kond["kfw_266"], stufe_ok=_stufe_erreicht(e.eh_stufe, kond["kfw_266"]["mindeststufe"]))
     s.hinweise += h
     return s
 
