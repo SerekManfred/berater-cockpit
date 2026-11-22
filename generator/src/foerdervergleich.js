@@ -378,7 +378,7 @@ function erstelleFoerdervergleich(d) {
     zeile("Kreditaufnahme Pflicht?", x => x.kredit_pflicht ? "ja" : "nein, optional"),
   ];
   // Unterabschnitte 8.1–8.4 (bis 0.4.9 „A–D“ – Verwechslung mit unseren Angeboten A–D in Kapitel 9)
-  if (mit266) t9.push(SEC("8.3  Zusätzlich: KfW 266 „Gewerbe zu Wohnen“"), zeile("Zuschuss Umbau neue WE", x => eur(x.zuschuss_266)));
+  if (mit266) t9.push(SEC("8.3  Zusätzlich: KfW 266 „Gewerbe zu Wohnen“"), zeile("Zuschuss Umbau neue WE", x => eur(x.zuschuss_266) + (x.vorbehalt_266 ? " (Vorbehalt: EH 85 EE per Bilanz nachzuweisen)" : "")));
   t9.push(SEC((mit266 ? "8.4" : "8.3") + "  Ergebnis"),
     ...(mit266 ? [zeile("Zuschüsse gesamt inkl. KfW 266", x => eur(x.summe_zuschuesse_gesamt), { bold: true, markiere: true, fussnote: true })] : []),
     zeile("Eigenanteil energetische Maßnahmen", x => eur(x.eigenanteil_energetisch)),

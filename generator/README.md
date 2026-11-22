@@ -233,3 +233,9 @@ Nr. 9.15, S. 53).“ Ohne Stromdirektheizung unverändert.
 Textvergleich gegen 0.6.2 (Daten des Word-Durchlaufs 20.11.2026): Fall C, Fall E, EFH, INIT mit Kosten gleich; Stromdirekt nur
 der neue Satz.
 
+
+## KfW 266 mit Vorbehalt (ab 0.6.4)
+Der Rechenkern kennzeichnet den Zuschuss KfW 266 bei Einzelmaßnahmen als Vorbehalt (`vorbehalt_266`), solange der Nachweis
+EH 85 EE per Bilanz nicht vorliegt (Eingabe `em_eh85ee_nachgewiesen`). Der Betrag bleibt unverändert. Im Fördervergleich
+erscheint hinter „Zuschuss Umbau neue WE“ der Zusatz „(Vorbehalt: EH 85 EE per Bilanz nachzuweisen)“. Ohne Vorbehalt unverändert.
+Noch nicht umgesetzt: eigene Szenarien „EM ohne 266“ und „EM mit 266“ im Bericht sowie die Auswahl der Förderlinien.

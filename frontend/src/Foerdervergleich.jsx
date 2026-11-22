@@ -612,7 +612,7 @@ export function Ergebnis({ erg }) {
             <tr><td>Kreditrahmen</td>{z("k", x => "bis " + eur(x.kreditrahmen))}</tr>
             <tr><td>Kredit Pflicht?</td>{z("k", x => x.kredit_pflicht ? "ja" : "nein")}</tr>
             <tr className="abschnitt"><td colSpan="5">KfW 266 „Gewerbe zu Wohnen“</td></tr>
-            <tr><td>Zuschuss Umbau neue WE</td>{z("k", x => eur(x.zuschuss_266))}</tr>
+            <tr><td>Zuschuss Umbau neue WE</td>{z("k", x => eur(x.zuschuss_266) + (x.vorbehalt_266 ? " (Vorbehalt: EH 85 EE per Bilanz nachzuweisen)" : ""))}</tr>
             <tr className="abschnitt"><td colSpan="5">Ergebnis</td></tr>
             <tr className="summe"><td>Zuschüsse gesamt</td>{z("summe", x => eur(x.summe_zuschuesse_gesamt))}</tr>
             <tr><td>Eigenanteil energetisch</td>{z("k", x => eur(x.eigenanteil_energetisch))}</tr>
