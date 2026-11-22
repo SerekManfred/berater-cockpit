@@ -1,20 +1,19 @@
 import React from "react";
 import { afterEach, describe, expect, it } from "vitest";
 import { cleanup, render, screen } from "@testing-library/react";
-import { Angebotsweg, empfehlung, eur2 } from "./Angebotsweg.jsx";
+import { Angebotsweg, eur2 } from "./Angebotsweg.jsx";
 
 afterEach(cleanup);
 
 // Ergebnis wie vom Rechenkern für den Abnahmefall (4 WE, KfW 266, A 2.975 / B 8.330 / C 2.975 / D 15.000)
 const posten = (k, betrag, zuschuss, eigenanteil) => ({ kennung: k, betrag, zuschuss, eigenanteil });
-function ergebnis({ mitB = true, ehOk = true, beste = { ohne_WPB: "EM_ohne_WPB", WPB: "EH_WPB" }, grenze = false } = {}) {
+function ergebnis({ mitB = true, ehOk = true, grenze = false } = {}) {
   const b = mitB ? [posten("B", 8330, 0, 8330)] : [];
   const em = { posten: [posten("A", 2975, 1487.5, 1487.5), ...b, posten("C", 2975, 1487.5, 1487.5)],
     kosten: mitB ? 14280 : 5950, zuschuss: 2975, eigenanteil: mitB ? 11305 : 2975, anrechnung_a: 0, hoechstgrenze_greift: grenze };
   const eh = { posten: [posten("A", 2975, 1487.5, 1487.5), ...b, posten("D", 12025, 6012.5, 6012.5)],
     kosten: mitB ? 23330 : 15000, zuschuss: 7500, eigenanteil: mitB ? 15830 : 7500, anrechnung_a: 2975, hoechstgrenze_greift: false };
   return {
-    beste_wahl: beste,
     szenarien: [
       { schluessel: "EM_ohne_WPB", foerderfaehig: true, angebotsweg: em },
       { schluessel: "EM_WPB", foerderfaehig: true, angebotsweg: em },
@@ -60,24 +59,20 @@ describe("Angebotsweg – Ablaufgrafik wie Kapitel 9", () => {
     expect(text()).not.toContain("KfW 266");
   });
 
-  it.each([
-    ["nein", { ohne_WPB: "EM_ohne_WPB", WPB: "EH_WPB" }, "C"],
-    ["nein", { ohne_WPB: "EH_ohne_WPB", WPB: "EM_WPB" }, "D"],
-    ["ja", { ohne_WPB: "EH_ohne_WPB", WPB: "EM_WPB" }, "C"],
-  ])("Empfehlung bei WPB „%s“ nach beste_wahl → %s (grüner Rahmen)", (wpb, beste, empfohlen) => {
-    render(<Angebotsweg erg={ergebnis({ beste })} eingaben={{ ...EINGABEN, wpb_status: wpb }} />);
-    const anderer = empfohlen === "C" ? "D" : "C";
-    expect(kasten(empfohlen).className).toContain("aw-empfohlen");
-    expect(kasten(empfohlen).textContent).toContain("Empfehlung für Ihr Gebäude");
-    expect(kasten(anderer).className).not.toContain("aw-empfohlen");
-    expect(screen.getAllByText("Empfehlung für Ihr Gebäude")).toHaveLength(1);
-  });
-
-  it.each([["unbekannt"], [undefined]])("keine Empfehlung bei WPB-Status %s", wpb => {
+  // Keine Empfehlung mehr (Entscheidung 22.11.2026): beide Wege gleich gekennzeichnet, unabhängig vom WPB-Status
+  it.each([["nein"], ["ja"], ["unbekannt"], [undefined]])("keine Empfehlung bei WPB-Status %s", wpb => {
     render(<Angebotsweg erg={ergebnis()} eingaben={{ ...EINGABEN, wpb_status: wpb }} />);
     expect(screen.queryByText("Empfehlung für Ihr Gebäude")).toBeNull();
     expect(document.querySelector(".aw-empfohlen")).toBeNull();
+    expect(document.querySelectorAll(".aw-kasten").length).toBeGreaterThan(0);
+  });
+
+  it("ohne WPB-Status der Hinweis, dass der Weg von der WPB-Einstufung abhängt", () => {
+    render(<Angebotsweg erg={ergebnis()} eingaben={{ ...EINGABEN, wpb_status: undefined }} />);
     expect(text()).toContain("hängt von der WPB-Einstufung ab");
+    cleanup();
+    render(<Angebotsweg erg={ergebnis()} eingaben={{ ...EINGABEN, wpb_status: "ja" }} />);
+    expect(text()).not.toContain("hängt von der WPB-Einstufung ab");
   });
 
   it("EH nicht förderfähig: Hinweis statt Zuschuss bei D", () => {
@@ -98,9 +93,7 @@ describe("Angebotsweg – Ablaufgrafik wie Kapitel 9", () => {
     expect(container.innerHTML).toBe("");
   });
 
-  it("Beträge wie im Word (eur2) und empfehlung()", () => {
+  it("Beträge wie im Word (eur2)", () => {
     expect([eur2(2975), eur2(1487.5), eur2(0)]).toEqual(["2.975 €", "1.487,50 €", "0 €"]);
-    expect(empfehlung({ beste_wahl: { WPB: "EH_WPB" } }, { wpb_status: "ja" })).toBe("EH");
-    expect(empfehlung({ beste_wahl: { WPB: "EH_WPB" } }, {})).toBeNull();
   });
 });

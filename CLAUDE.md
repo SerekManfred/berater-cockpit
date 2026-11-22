@@ -186,7 +186,7 @@ Verbindlich zusätzlich zu den unverhandelbaren Regeln; Einzelheiten in den Absc
   Projekt / Auftraggeber / Kunde (Haken) / Objekt / „Berichte adressiert an“. API liefert zusätzlich `berichtskunde` (Name).
 - Ablaufgrafik „Unsere Leistungen auf Ihrem Weg“ im Cockpit: `frontend/src/Angebotsweg.jsx` unter dem Ergebnis (Fördervergleich
   und gespeicherter Bericht), Aufbau wie Kapitel 9. Beträge nur aus `ergebnis.szenarien.*.angebotsweg`, Texte und Preis D vor Anrechnung
-  aus `eingaben.angebote` – die Oberfläche rechnet nichts. Empfehlung nur bei WPB „ja“/„nein“ nach `beste_wahl`. Schmal: C/D untereinander.
+  aus `eingaben.angebote` – die Oberfläche rechnet nichts. Keine Empfehlung mehr (Entscheidung 22.11.2026): beide Wege gleich gekennzeichnet. Schmal: C/D untereinander.
 
 ## Wohneinheiten-Plausibilität und Angebotsvorlagen (Stand 14.11.2026, Phase 2e)
 - **Regeln nur in `app/wohneinheiten.py`** (eine Funktion je Bericht, getestet in `tests/test_wohneinheiten.py`); die Oberfläche zeigt
@@ -681,14 +681,14 @@ Auftrag `docs/auftraege/Auftrag_Auslegungsfragen_Quellenstand_20261121.md` mit d
 - Konditionen ab Version 4: `beg_em.wpb_bonus_status` (`angekuendigt` | `in_kraft`, Pflicht), `beg_em.wpb_bonus_ab_text`
   (z. B. „voraussichtlich Q1 2027“), `wpb_bonus_ab` nur bei `in_kraft` Pflicht (Prüfregel). Version 1–3 ohne Status gelten als
   angekündigt, solange `gueltig_ab` < `wpb_bonus_ab` (`wpb_em_angekuendigt` im Rechenkern). Startwerte `ergaenzung_v4_wpb.json`.
-- Rechenkern: `EM_WPB` behält den Betrag, bekommt aber `angekuendigt`, `angekuendigt_text`, `zuschuss_angekuendigt`;
-  jedes Szenario `summe_zuschuesse_in_kraft`. **„Beste Wahl“ nur nach Zuschüssen in Kraft**; würde der angekündigte Bonus sie
-  umdrehen: `beste_wahl_mit_angekuendigt` + `beste_wahl_hinweis`. Wird mit dem Bericht gespeichert.
+- Rechenkern (Stand 22.11.2026): `EM_WPB` ist `angekuendigt` mit `angekuendigt_text`; der Bonus ist **in den Summen enthalten**.
+  Kein `beste_wahl`, kein `beste_wahl_hinweis`, kein `summe_zuschuesse_in_kraft`. Nur ein interner Berater-Hinweis
+  `interner_hinweis` (Rechenkern `interner_hinweis_aus`) – er erscheint nur im Cockpit, nie im Word.
 - Ältere gespeicherte Berichte: `kennzeichnung_nachtragen()` (`app/rechnen.py`) leitet die Kennzeichnung beim Lesen
   (`GET /berichte/{id}`, Word) aus dem Snapshot ab – nichts gespeichert, Beträge und gespeicherte „beste Wahl“ unverändert
   (geprüft 16.11.2026: bei den 3 vorhandenen Berichten dreht sich nichts um), `kennzeichnung_nachgetragen: true`.
-- Oberfläche (`Ergebnis` in `Foerdervergleich.jsx`): gelber Hinweis über der Tabelle, Spalte 1b „angekündigt“, „¹“ an
-  WPB-Bonus und Summen mit Fußnote, `beste_wahl_hinweis` als Hinweis. Test `ErgebnisAngekuendigt.test.jsx`, `tests/test_wpb_angekuendigt.py`.
+- Oberfläche (`Ergebnis` in `Foerdervergleich.jsx`): keine Sonderspalte, kein „¹“, kein Vorbehalt; `interner_hinweis` als
+  Berater-Hinweis (Rolle „nur für Sie als Berater“). Test `ErgebnisAngekuendigt.test.jsx`, `tests/test_wpb_angekuendigt.py`.
 - **Word: Generator 0.4.4** (eingespielt 17.11.2026, Datenvertrag `docs/Datenvertrag_Generator_WPB_angekuendigt.md`, Fixtures
   `docs/fixtures/`) kennzeichnet den Bonus in Kapitel 1, 3, 8 („b) mit WPB¹“, Fußnote, `beste_wahl_hinweis`) und „Zeitpunkt“;
   ein leeres `wpb_bonus_ab` druckt kein „ab ****“ mehr → **`wpb_bonus_ab` darf in einer späteren Konditionen-Version leer bleiben**
@@ -998,3 +998,13 @@ vollständig erhalten und getestet. Bevor echte Nutzer oder Kundendaten ins Syst
   nichts darüber hinaus** (Geschäftsführer 19.11.2026 – beim Push von vier freigegebenen Commits ging ein fünfter, `75889c8`, mit;
   nachträglich freigegeben). Kommt nach der Freigabe ein Commit hinzu, Liste erneut vorlegen.
 - Oberfläche: barrierearm (echte Buttons/Labels, Kontrast ≥ 4,5:1, Klickflächen ≥ 44 px), tablet-tauglich.
+
+## Keine Empfehlung im Fördervergleich (Entscheidung 22.11.2026)
+- Die Auswahl zwischen Einzelmaßnahmen und Effizienzhaus trifft der Kunde. Entfernt: `beste_wahl`, `beste_wahl_mit_angekuendigt`,
+  `beste_wahl_hinweis`, die Markierung „beste Wahl“, die Zeile „Bewertung“, die Empfehlung in der Ablaufgrafik (grüner Rahmen,
+  „Empfehlung für Ihr Gebäude“) und „Empfohlen:“ im Kurzfazit. Zuständig bleibt die Berechnung, nicht die Bewertung.
+- Der angekündigte WPB-Bonus Einzelmaßnahmen ist in den normalen Summen enthalten. Kein eigener Vorbehalt, keine Sonderspalte.
+  Nur der interne Hinweis `interner_hinweis` (Cockpit) erinnert den Berater, vor der Zusage zu prüfen.
+- Der Vorbehalt für KfW 266 bei Einzelmaßnahmen (EH 85 EE per Bilanz) bleibt davon unberührt.
+- Generator 0.7.0 (Word): keine Empfehlung, keine Markierung, kein Vorbehalt-Zeichen bei WPB. Datenvertrag
+  `docs/Datenvertrag_Generator_WPB_angekuendigt.md` gilt nur noch für die Felder `angekuendigt` und `angekuendigt_text`.

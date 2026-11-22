@@ -55,12 +55,12 @@ async function text(daten) {
   for (const z of ["300 kWh", "Klasse H bzw."]) assert(!tr.includes(z), "0.5.1: unbelegte Schwelle entfernt: " + z);
   assert(tr.includes("Kriterien laut BEG-Infoblatt"), "0.5.1: Kriterien ohne Zahlen ohne konditionen.wpb");
   const wpbJa = await text({ ...ref, eingaben: { ...ref.eingaben, wpb_status: "ja" }, wpb_grundlage_text: G });
-  for (const z of ["Ihr Gebäude ist als Worst Performing Building eingestuft – Grundlage: " + G, "Empfohlen:", "Nicht zutreffend: Ohne WPB-Einstufung",
+  for (const z of ["Ihr Gebäude ist als Worst Performing Building eingestuft – Grundlage: " + G, "Zutreffend für Ihr Gebäude:", "Nicht zutreffend: Ohne WPB-Einstufung",
     "a) ohne WPB – nicht zutreffend", "Gebäude ist WPB – trifft zu", "ja – Grundlage: " + G]) assert(wpbJa.includes(z), "0.5.1 WPB ja: " + z);
-  assert(!wpbJa.includes("beste Wahl ohne WPB") && wpbJa.includes("beste Wahl mit WPB"), "0.5.1: keine beste Wahl in nicht zutreffenden Spalten");
+  assert(!wpbJa.includes("beste Wahl") && !wpbJa.includes("Empfohlen") && !wpbJa.includes("Empfehlung"), "0.7.0: keine Empfehlung im Bericht");
   const wpbNein = await text({ ...ref, eingaben: { ...ref.eingaben, wpb_status: "nein" }, wpb_grundlage_text: G });
   assert(wpbNein.includes("Ihr Gebäude ist kein Worst Performing Building") && wpbNein.includes("b) mit WPB – nicht zutreffend")
-    && wpbNein.includes("beste Wahl ohne WPB") && !wpbNein.includes("beste Wahl mit WPB"), "0.5.1 WPB nein");
+    && !wpbNein.includes("beste Wahl"), "0.7.0 WPB nein: keine Empfehlung");
   const ohneGrundlage = await text({ ...ref, eingaben: { ...ref.eingaben, wpb_status: "ja" } });
   assert(ohneGrundlage.includes("maßgeblich ist die zweite Zeile") && !ohneGrundlage.includes("nicht zutreffend"), "0.5.1: ohne Grundlage wie 0.5.0");
   const mitKw = await text({ ...ref, konditionen: { ...ref.konditionen, wpb: { energieausweis_klasse: "H", baujahr_bis: 1957, anteil_aussenwand_unsaniert_min: 0.75 } } });
@@ -159,12 +159,12 @@ async function text(daten) {
   // WPB-Bonus Einzelmaßnahmen „angekündigt, noch nicht in Kraft“ (ab 0.4.4, Fixtures aus dem Cockpit, Datenvertrag 16.11.2026)
   const fx = n => JSON.parse(fs.readFileSync(path.join(__dirname, "fixtures_wpb", `foerdervergleich_wpb_${n}.json`), "utf8"));
   const w1 = await text(fx("fall1_angekuendigt"));
-  for (const z of ["b) mit WPB¹", "5.555 €¹", "49.155 €¹", "169.155 €¹", "¹ Enthält den WPB-Bonus Einzelmaßnahmen: angekündigt, noch nicht in Kraft (voraussichtlich Q1 2027)",
-    "WPB-Bonus +5 % – angekündigt, voraussichtlich Q1 2027 (noch nicht in Kraft)", "Angekündigt, noch nicht in Kraft – vor Antragstellung prüfen.",
-    "ist angekündigt (voraussichtlich Q1 2027), aber noch nicht in Kraft", "(Alternative: 169.155 € inkl. WPB-Bonus – angekündigt"]) assert(w1.includes(z), "WPB Fall 1: " + z);
-  assert(!w1.includes("Sobald der angekündigte"), "WPB Fall 1: kein Umkehr-Hinweis");
+  // 0.7.0: der angekündigte Bonus ist in den Summen enthalten, ohne Fußnote, ohne Vorbehalt, ohne Empfehlung
+  for (const z of ["b) mit WPB", "5.555 €", "169.155 €", "WPB-Bonus +5 % – angekündigt, voraussichtlich Q1 2027 (noch nicht in Kraft)",
+    "Angekündigt, noch nicht in Kraft – vor Antragstellung prüfen.", "ist angekündigt (voraussichtlich Q1 2027), aber noch nicht in Kraft"]) assert(w1.includes(z), "WPB Fall 1: " + z);
+  assert(!w1.includes("¹") && !w1.includes("Vorbehalt") && !w1.includes("beste Wahl") && !w1.includes("Sobald der angekündigte"), "WPB Fall 1: keine Fußnote, kein Vorbehalt, keine Empfehlung");
   const w2 = await text(fx("fall2_beste_wahl_hinweis"));
-  assert((w2.match(/Sobald der angekündigte Zuschuss gilt/g) || []).length === 2, "WPB Fall 2: Hinweis in Kapitel 1 und 8");
+  assert(!w2.includes("Sobald der angekündigte Zuschuss gilt") && !w2.includes("Intern, nicht für den Kunden") && !w2.includes("beste Wahl"), "WPB Fall 2: interner Hinweis nicht im Bericht");
   const w3 = await text(fx("fall3_in_kraft"));
   assert(!w3.includes("¹") && !w3.includes("angekündigt") && w3.includes("gilt für BAFA-Anträge ab 01.01.2027"), "WPB Fall 3: in Kraft wie bisher");
   const w4 = await text(fx("fall4_ohne_datum"));

@@ -1,5 +1,7 @@
 # Datenvertrag Generator: WPB-Bonus Einzelmaßnahmen „angekündigt, noch nicht in Kraft“
 
+> **Überholt in Teilen (Entscheidung 22.11.2026):** keine Empfehlung mehr, kein `beste_wahl`, kein `beste_wahl_hinweis`, kein Vorbehalt-Zeichen. Der Bonus steht in den Summen; `interner_hinweis` nur im Cockpit. Maßgeblich ist `CLAUDE.md`, Abschnitt „Keine Empfehlung im Fördervergleich“.
+
 Stand 16.11.2026 · gilt für `POST /foerdervergleich` (Word-Fördervergleich) · Ziel: Generator 0.4.4
 Entscheidung Geschäftsführer 16.11.2026. Das Cockpit liefert die Daten seit Commit „WPB-Bonus Einzelmaßnahmen angekündigt …“.
 

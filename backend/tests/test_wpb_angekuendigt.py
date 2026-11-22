@@ -1,8 +1,9 @@
 """WPB-Bonus Einzelmaßnahmen „angekündigt, noch nicht in Kraft“ (Geschäftsführer 16.11.2026).
 
-Offiziell nur „voraussichtlich Q1 2027“: Der Betrag steht im Szenario „Einzelmaßnahmen mit WPB“, ist aber gekennzeichnet und zählt
-nicht für die „beste Wahl“. Würde er das Ergebnis umdrehen, gibt es einen Zusatzhinweis. Ältere gespeicherte Berichte bekommen die
-Kennzeichnung beim Lesen aus ihrem Konditionen-Snapshot (nichts gespeichert, nichts neu gerechnet).
+Offiziell nur „voraussichtlich Q1 2027“: Der Betrag ist im Szenario „Einzelmaßnahmen mit WPB“ und in den Summen enthalten, ein
+eigener Vorbehalt entfällt. Intern (nur Cockpit) gibt es einen Hinweis für den Berater. Keine Empfehlung mehr (Entscheidung
+22.11.2026). Ältere gespeicherte Berichte bekommen die Kennzeichnung beim Lesen aus ihrem Konditionen-Snapshot (nichts gespeichert,
+nichts neu gerechnet).
 """
 import copy
 
@@ -12,7 +13,7 @@ from app.rechnen import kennzeichnung_nachtragen
 from tests.test_konditionen import FACHWERTE, mit_ergaenzung
 from tests.test_referenzfall_mfh_umnutzung import KOND as KOND_V1, referenzfall
 
-NEU = ("angekuendigt", "angekuendigt_text", "zuschuss_angekuendigt", "summe_zuschuesse_in_kraft")
+NEU = ("angekuendigt", "angekuendigt_text")
 
 
 def sz(r, k):
@@ -36,34 +37,35 @@ def test_status_aus_konditionen():
     assert wpb_em_angekuendigt(k) == (False, None)                       # Stand ab Inkrafttreten
 
 
-def test_referenzfall_gekennzeichnet_beste_wahl_unveraendert():
+def test_referenzfall_gekennzeichnet_summe_mit_bonus():
     r = vergleich(referenzfall(), KOND_V1)
     em = sz(r, "EM_WPB")
-    assert em["angekuendigt"] is True and em["zuschuss_angekuendigt"] == 5555
-    assert em["summe_zuschuesse_gesamt"] == 169155 and em["summe_zuschuesse_in_kraft"] == 169155 - 5555   # Betrag bleibt sichtbar
-    assert any("angekündigt, noch nicht in Kraft" in h and "Vorbehalt" in h for h in em["hinweise"])
+    assert em["angekuendigt"] is True
+    assert em["summe_zuschuesse_gesamt"] == 169155                     # Bonus ist in der Summe enthalten, kein Vorbehalt-Abzug
+    assert any("angekündigt, noch nicht in Kraft" in h and "im Betrag enthalten" in h for h in em["hinweise"])
+    assert not any("Vorbehalt" in h for h in em["hinweise"])
     for k in ("EM_ohne_WPB", "EH_ohne_WPB", "EH_WPB"):
-        assert sz(r, k)["angekuendigt"] is False and sz(r, k)["zuschuss_angekuendigt"] == 0
-    assert r["beste_wahl"] == {"ohne_WPB": "EM_ohne_WPB", "WPB": "EH_WPB"} and r["beste_wahl_hinweis"] is None
-    assert r["beste_wahl_mit_angekuendigt"] == r["beste_wahl"]
+        assert sz(r, k)["angekuendigt"] is False
+    assert r["interner_hinweis"].startswith("Intern, nicht für den Kunden:")
+    assert "beste_wahl" not in r and "beste_wahl_hinweis" not in r
 
 
 def test_in_kraft_ohne_kennzeichnung():
     r = vergleich(referenzfall(), kond(wpb_bonus_status="in_kraft"))
-    assert sz(r, "EM_WPB")["angekuendigt"] is False and sz(r, "EM_WPB")["zuschuss_angekuendigt"] == 0
+    assert sz(r, "EM_WPB")["angekuendigt"] is False and r["interner_hinweis"] is None
     assert "WPB-Bonus Einzelmaßnahmen nur für BAFA-Anträge ab 01.01.2027" in sz(r, "EM_WPB")["hinweise"]
 
 
-def test_beste_wahl_nur_nach_zuschuessen_in_kraft_mit_zusatzhinweis():
+def test_angekuendigter_bonus_in_summe_mit_internem_hinweis():
     k = kond(wpb_bonus_status="angekuendigt", wpb_bonus_ab_text="voraussichtlich Q1 2027", wpb_bonus=0.5)
     r = vergleich(referenzfall(), k)
-    em, eh = sz(r, "EM_WPB"), sz(r, "EH_WPB")
-    assert em["summe_zuschuesse_gesamt"] > eh["summe_zuschuesse_gesamt"] > em["summe_zuschuesse_in_kraft"]
-    assert r["beste_wahl"]["WPB"] == "EH_WPB" and r["beste_wahl_mit_angekuendigt"]["WPB"] == "EM_WPB"
-    assert r["beste_wahl_hinweis"].startswith("Sobald der angekündigte Zuschuss gilt, wäre „Einzelmaßnahmen mit WPB“ um ")
-    assert r["beste_wahl_hinweis"].endswith("bleibt „EH55EE mit WPB“ die beste Wahl – der Zuschuss ist angekündigt, noch nicht in Kraft (voraussichtlich Q1 2027).")
-    # in Kraft: der Bonus zählt voll
-    assert vergleich(referenzfall(), kond(wpb_bonus_status="in_kraft", wpb_bonus=0.5))["beste_wahl"]["WPB"] == "EM_WPB"
+    em = sz(r, "EM_WPB")
+    assert em["zuschuesse"]["wpb_bonus"] > 0 and em["summe_zuschuesse_gesamt"] == em["summe_zuschuesse_energetisch"] + em["zuschuss_266"]
+    assert "voraussichtlich Q1 2027" in r["interner_hinweis"]
+    assert "beste_wahl" not in r and "beste_wahl_mit_angekuendigt" not in r
+    # in Kraft: kein Hinweis, der Bonus steht ohne Kennzeichnung in der Summe
+    r2 = vergleich(referenzfall(), kond(wpb_bonus_status="in_kraft", wpb_bonus=0.5))
+    assert r2["interner_hinweis"] is None and sz(r2, "EM_WPB")["angekuendigt"] is False
 
 
 def test_ohne_daemmung_oder_ohne_isfp_keine_kennzeichnung():
@@ -78,13 +80,12 @@ def test_gespeicherte_berichte_beim_lesen_gekennzeichnet():
         for k in NEU:
             x.pop(k)
         x["hinweise"] = [h if "angekündigt" not in h else "WPB-Bonus Einzelmaßnahmen nur für BAFA-Anträge ab 01.01.2027" for h in x["hinweise"]]
-    for k in ("beste_wahl_hinweis", "beste_wahl_mit_angekuendigt"):
-        alt.pop(k)
+    alt.pop("interner_hinweis")
     gelesen = kennzeichnung_nachtragen(alt, KOND_V1)
     assert "angekuendigt" not in alt["szenarien"][0]                     # gespeicherter Bericht bleibt unverändert
     assert [{k: x[k] for k in NEU} for x in gelesen["szenarien"]] == [{k: x[k] for k in NEU} for x in neu["szenarien"]]
     assert sz(gelesen, "EM_WPB")["hinweise"] == sz(neu, "EM_WPB")["hinweise"] and gelesen["kennzeichnung_nachgetragen"] is True
-    assert gelesen["beste_wahl"] == alt["beste_wahl"]
+    assert gelesen["interner_hinweis"] == neu["interner_hinweis"] and "beste_wahl" not in gelesen
     assert kennzeichnung_nachtragen(neu, KOND_V1) is neu                 # neue Ergebnisse unverändert
     init = {"werte": {"eh_foerder": 1}}
     assert kennzeichnung_nachtragen(init, KOND_V1) is init               # andere Module unberührt

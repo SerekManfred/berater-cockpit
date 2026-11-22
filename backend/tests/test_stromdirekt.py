@@ -87,7 +87,7 @@ def test_referenzfall_unveraendert():
     r = vergleich(e, KOND_V1)
     em = next(s for s in r["szenarien"] if s["schluessel"] == "EM_ohne_WPB")
     assert em["zuschuesse"] == {"beg_em": 31500, "isfp_bonus": 5250, "baubegleitung": 6000, "isfp_beratung": 850}
-    assert r["beste_wahl"] == {"ohne_WPB": "EM_ohne_WPB", "WPB": "EH_WPB"}
+    assert "beste_wahl" not in r
 
 
 def test_erkennung_an_der_bezeichnung():

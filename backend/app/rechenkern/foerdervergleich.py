@@ -100,11 +100,10 @@ class Szenario:
     foerderfaehig: bool = True
     hinweise: list[str] = field(default_factory=list)
     angebotsweg: dict | None = None
-    # Angekündigte, noch nicht geltende Zuschüsse (WPB-Bonus Einzelmaßnahmen, Geschäftsführer 16.11.2026): im Betrag enthalten,
-    # aber gekennzeichnet und ohne Gewicht für die „beste Wahl“
+    # Angekündigter, noch nicht geltender Zuschuss (WPB-Bonus Einzelmaßnahmen, Geschäftsführer 16.11.2026): im Betrag enthalten
+    # (Summen). Die Kennzeichnung dient dem Hinweistext, dem internen Hinweis und der Zeitpunkt-Angabe – kein eigener Vorbehalt.
     angekuendigt: bool = False
     angekuendigt_text: str | None = None
-    zuschuss_angekuendigt: float = 0.0
     heizung: dict | None = None          # Herleitung Heizungsposten KfW 458 (nur Weg EM mit Heizungsmaßnahmen)
     # Texte zur Heizung für den Word-Bericht (Generator 0.6.0, Datenvertrag docs/Datenvertrag_Generator_KfW458.md) –
     # fertig formuliert, der Generator setzt sie nur ein; leer = nicht im Ergebnis
@@ -122,10 +121,6 @@ class Szenario:
     @property
     def summe_zuschuesse_gesamt(self) -> float:
         return round(self.summe_zuschuesse_energetisch + self.zuschuss_266, 2)
-
-    @property
-    def summe_zuschuesse_in_kraft(self) -> float:
-        return round(self.summe_zuschuesse_gesamt - self.zuschuss_angekuendigt, 2)
 
     @property
     def eigenanteil_energetisch(self) -> float:
@@ -146,7 +141,6 @@ class Szenario:
             "foerderquote_energetisch": self.foerderquote_energetisch, "hinweise": self.hinweise,
             "angebotsweg": self.angebotsweg,
             "angekuendigt": self.angekuendigt, "angekuendigt_text": self.angekuendigt_text,
-            "zuschuss_angekuendigt": self.zuschuss_angekuendigt, "summe_zuschuesse_in_kraft": self.summe_zuschuesse_in_kraft,
             **({"heizung": self.heizung} if self.heizung is not None else {}),
             **({"heizung_hinweise": self.heizung_hinweise} if self.heizung_hinweise else {}),
         }
@@ -345,8 +339,8 @@ def einzelmassnahmen(e: Eingaben, kond: dict, wpb: bool) -> Szenario:
             s.zuschuesse["wpb_bonus"] = _r(em["wpb_bonus"] * min(daemm, ff))
             angekuendigt, text = wpb_em_angekuendigt(kond)
             if angekuendigt and s.zuschuesse["wpb_bonus"] > 0:
-                s.angekuendigt, s.angekuendigt_text, s.zuschuss_angekuendigt = True, text, s.zuschuesse["wpb_bonus"]
-                s.hinweise.append(f"WPB-Bonus Einzelmaßnahmen {text} – Betrag unter Vorbehalt, zählt nicht für die beste Wahl")
+                s.angekuendigt, s.angekuendigt_text = True, text
+                s.hinweise.append(f"WPB-Bonus Einzelmaßnahmen {text} – im Betrag enthalten")
             elif em.get("wpb_bonus_ab"):
                 s.hinweise.append("WPB-Bonus Einzelmaßnahmen nur für BAFA-Anträge ab " + _datum_de(em["wpb_bonus_ab"]))
         else:
@@ -432,27 +426,21 @@ def effizienzhaus(e: Eingaben, kond: dict, wpb: bool) -> Szenario:
 
 
 def vergleich(e: Eingaben, kond: dict) -> dict:
-    """Alle vier Szenarien: EM ohne/mit WPB, EH ohne/mit WPB."""
+    """Alle vier Szenarien: EM ohne/mit WPB, EH ohne/mit WPB. Keine Empfehlung – die Auswahl trifft der Kunde (Entscheidung
+    22.11.2026). Ein angekündigter WPB-Bonus ist in den Summen enthalten; interner_hinweis erscheint nur im Cockpit."""
     sz = [einzelmassnahmen(e, kond, False), einzelmassnahmen(e, kond, True),
           effizienzhaus(e, kond, False), effizienzhaus(e, kond, True)]
-    beste = {}
-    # „Beste Wahl“ nur nach Zuschüssen, die in Kraft sind (Geschäftsführer 16.11.2026)
-    for wpb, paar in (("ohne_WPB", (sz[0], sz[2])), ("WPB", (sz[1], sz[3]))):
-        beste[wpb] = max(paar, key=lambda x: x.summe_zuschuesse_in_kraft if x.foerderfaehig else -1).schluessel
-    ergebnis = {"konditionen_version": kond["version"], "szenarien": [x.als_dict() for x in sz], "beste_wahl": beste}
-    return {**ergebnis, **beste_wahl_angekuendigt(ergebnis)}
+    szenarien = [x.als_dict() for x in sz]
+    return {"konditionen_version": kond["version"], "szenarien": szenarien, "interner_hinweis": interner_hinweis_aus(szenarien)}
 
 
-def beste_wahl_angekuendigt(ergebnis: dict) -> dict:
-    """Würde ein angekündigter Zuschuss die beste Wahl umdrehen? → beste_wahl_mit_angekuendigt + beste_wahl_hinweis (sonst None).
-    Auch für gespeicherte Berichte ohne diese Angaben nutzbar (nur lesen, nichts neu rechnen)."""
-    s = {x["schluessel"]: x for x in ergebnis["szenarien"]}
-    mit, hinweis = {}, None
-    for wpb, paar in (("ohne_WPB", ("EM_ohne_WPB", "EH_ohne_WPB")), ("WPB", ("EM_WPB", "EH_WPB"))):
-        mit[wpb] = max(paar, key=lambda k: s[k]["summe_zuschuesse_gesamt"] if s[k]["foerderfaehig"] else -1)
-        if mit[wpb] != ergebnis["beste_wahl"][wpb]:
-            a, b = s[mit[wpb]], s[ergebnis["beste_wahl"][wpb]]
-            diff = f"{a['summe_zuschuesse_gesamt'] - b['summe_zuschuesse_gesamt']:,.0f}".replace(",", ".")
-            hinweis = (f"Sobald der angekündigte Zuschuss gilt, wäre „{a['titel']}“ um {diff} € günstiger. Bis dahin bleibt "
-                       f"„{b['titel']}“ die beste Wahl – der Zuschuss ist {a.get('angekuendigt_text') or 'noch nicht in Kraft'}.")
-    return {"beste_wahl_mit_angekuendigt": mit, "beste_wahl_hinweis": hinweis}
+def interner_hinweis_aus(szenarien: list[dict]) -> str | None:
+    """Nur für den Berater (nicht im Kundenauftritt, nicht im Word): Ist der WPB-Bonus Einzelmaßnahmen angekündigt und im
+    Betrag enthalten, verweist der Hinweis darauf. Nur lesen, nichts neu rechnen – auch für gespeicherte Berichte nutzbar."""
+    em_wpb = next((x for x in szenarien if x.get("schluessel") == "EM_WPB"), None)
+    betrag = ((em_wpb or {}).get("zuschuesse") or {}).get("wpb_bonus") or 0
+    if not em_wpb or not em_wpb.get("angekuendigt") or betrag <= 0:
+        return None
+    eur = f"{betrag:,.0f}".replace(",", ".")
+    return (f"Intern, nicht für den Kunden: Der WPB-Bonus Einzelmaßnahmen ist {em_wpb.get('angekuendigt_text') or 'noch nicht in Kraft'} "
+            f"und mit {eur} € in den Summen enthalten. Vor der Zusage prüfen, ob er zum Antragszeitpunkt gilt.")

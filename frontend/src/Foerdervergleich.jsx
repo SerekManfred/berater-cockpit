@@ -570,22 +570,12 @@ export function Vorschau({ erg }) {
   );
 }
 
-// Angekündigte, noch nicht geltende Zuschüsse (WPB-Bonus Einzelmaßnahmen, 16.11.2026): Kennzeichnung kommt aus dem Rechenkern
-export const ANGEKUENDIGT_HINWEIS = "WPB-Bonus Einzelmaßnahmen angekündigt";
-export function angekuendigt(erg) {
-  const spalten = (erg?.szenarien || []).filter(x => x.angekuendigt);
-  return { spalten: new Set(spalten.map(x => x.schluessel)), text: spalten[0]?.angekuendigt_text || null };
-}
-
 export function Ergebnis({ erg }) {
   const s = Object.fromEntries(erg.szenarien.map(x => [x.schluessel, x]));
   const reihe = ["EM_ohne_WPB", "EM_WPB", "EH_ohne_WPB", "EH_WPB"];
-  const beste = new Set(Object.values(erg.beste_wahl));
-  const ang = angekuendigt(erg);
-  const fn = (r, k) => ang.spalten.has(r) && ["wpb_bonus", "summe"].includes(k) ? <sup>¹</sup> : null;
-  const z = (k, f) => reihe.map(r => <td key={r} className={"z" + (k === "summe" && beste.has(r) ? " beste" : "") + (fn(r, k) ? " angekuendigt" : "")}>
-    {s[r].foerderfaehig ? <>{f(s[r])}{fn(r, k)}</> : "–"}</td>);
-  const kopf = (r, t) => <th key={r} className={"u" + (ang.spalten.has(r) ? " angekuendigt" : "")}>{t}{ang.spalten.has(r) && <><br /><span className="marke-angekuendigt">angekündigt</span></>}</th>;
+  // Keine Empfehlung und keine Markierung (Entscheidung 22.11.2026): der Kunde wählt. Der WPB-Bonus ist in den Summen enthalten.
+  const z = (k, f) => reihe.map(r => <td key={r} className="z">{s[r].foerderfaehig ? f(s[r]) : "–"}</td>);
+  const kopf = (r, t) => <th key={r} className="u">{t}</th>;
   const mitAngebot = reihe.some(r => s[r].angebotsweg);
   const grenze = [["EM", "Einzelmaßnahmen"], ["EH", "Effizienzhaus"]]
     .filter(([w]) => reihe.some(r => r.startsWith(w) && s[r].angebotsweg?.hoechstgrenze_greift)).map(([, t]) => t);
@@ -595,8 +585,6 @@ export function Ergebnis({ erg }) {
   return (
     <section className="karte">
       <h2>Fördervergleich auf einen Blick</h2>
-      {ang.text && <div className="warnung" role="status"><strong>Hinweis:</strong> Der WPB-Bonus für Einzelmaßnahmen ist {ang.text}.
-        Beträge in Spalte 1b unter Vorbehalt – sie zählen nicht für die „beste Wahl“.</div>}
       <div className="tabelle">
         <table>
           <thead>
@@ -619,15 +607,13 @@ export function Ergebnis({ erg }) {
             <tr><td>Förderquote energetisch</td>{z("k", x => pct(x.foerderquote_energetisch))}</tr>
             {mitAngebot && <tr><td>Eigenanteil Planung/Begleitung (unsere Angebote{reihe.some(r => s[r].angebotsweg?.posten.some(p => p.kennung === "B")) ? " inkl. B" : ""})</td>
               {reihe.map(r => <td key={r} className="z">{s[r].angebotsweg ? eur(s[r].angebotsweg.eigenanteil) : "–"}</td>)}</tr>}
-            <tr><td>Bewertung</td>{reihe.map(r => <td key={r} className="z">{beste.has(r) ? <span className="marke">beste Wahl {r.endsWith("ohne_WPB") ? "ohne" : "mit"} WPB</span> : ""}</td>)}</tr>
           </tbody>
         </table>
       </div>
-      {ang.text && <p className="klein"><sup>¹</sup> enthält den WPB-Bonus Einzelmaßnahmen: {ang.text} – Betrag unter Vorbehalt.</p>}
-      {erg.beste_wahl_hinweis && <div className="warnung" role="status">{erg.beste_wahl_hinweis}</div>}
+      {erg.interner_hinweis && <div className="info" role="note"><strong>Nur für Sie als Berater (nicht im Kundenauftritt):</strong> {erg.interner_hinweis}</div>}
       {grenze.length > 0 && <div className="info">Zuschuss für Fachplanung/Baubegleitung durch die Höchstgrenze begrenzt
         ({grenze.join(" und ")}) – der Eigenanteil der Angebote ist entsprechend höher.</div>}
-      {[...new Set(erg.szenarien.flatMap(x => x.hinweise))].filter(h => !(ang.text && h.startsWith(ANGEKUENDIGT_HINWEIS)))
+      {[...new Set(erg.szenarien.flatMap(x => x.hinweise))]
         .map(h => <div key={h} className="info">{h}</div>)}
       <p className="klein" style={{ marginTop: 12 }}>Berechnet mit {standText(erg)}.</p>
     </section>

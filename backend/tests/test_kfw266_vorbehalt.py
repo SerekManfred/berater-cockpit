@@ -67,10 +67,10 @@ def test_summe_ohne_266_ist_energetisch_und_gesamt_addiert_266():
     assert s["summe_zuschuesse_gesamt"] == s["summe_zuschuesse_ohne_266"] + s["zuschuss_266"] == 163600
 
 
-def test_beste_wahl_unveraendert_intern():
-    # Die Auswahl der Darstellung ist Sache des Beraters; der Rechenkern liefert die Zahlen wie bisher.
+def test_keine_empfehlung_im_ergebnis():
+    # Die Auswahl trifft der Kunde (Entscheidung 22.11.2026): der Rechenkern liefert Zahlen, keine „beste Wahl“.
     r = vergleich(referenzfall(), KOND)
-    assert r["beste_wahl"] == {"ohne_WPB": "EM_ohne_WPB", "WPB": "EH_WPB"}
+    assert "beste_wahl" not in r and "beste_wahl_hinweis" not in r
 
 
 # --- Effizienzhaus -----------------------------------------------------------

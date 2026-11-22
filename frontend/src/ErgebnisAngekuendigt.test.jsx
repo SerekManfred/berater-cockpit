@@ -1,49 +1,48 @@
 import React from "react";
 import { afterEach, describe, expect, it } from "vitest";
 import { cleanup, render, screen } from "@testing-library/react";
-import { Ergebnis, angekuendigt } from "./Foerdervergleich.jsx";
+import { Ergebnis } from "./Foerdervergleich.jsx";
 
 afterEach(cleanup);
 
+// WPB-Bonus Einzelmaßnahmen angekündigt (Entscheidung 22.11.2026): im Betrag enthalten, kein Vorbehalt, keine Empfehlung.
+// Der Hinweis dazu kommt aus dem Rechenkern (interner_hinweis) und erscheint nur im Cockpit.
 const TEXT = "angekündigt, noch nicht in Kraft (voraussichtlich Q1 2027)";
+const HINWEIS = "Intern, nicht für den Kunden: Der WPB-Bonus Einzelmaßnahmen ist " + TEXT +
+  " und mit 6.000 € in den Summen enthalten. Vor der Zusage prüfen, ob er zum Antragszeitpunkt gilt.";
 function szenario(schluessel, summe, extra = {}) {
   return { schluessel, titel: schluessel, foerderfaehig: true, zuschuesse: { beg_em: summe }, summe_zuschuesse_energetisch: summe,
     summe_zuschuesse_gesamt: summe, kreditprogramm: "KfW", kreditrahmen: 1, kredit_pflicht: false, zuschuss_266: 0,
-    eigenanteil_energetisch: 1, foerderquote_energetisch: 0.1, hinweise: [], angebotsweg: null, angekuendigt: false,
-    angekuendigt_text: null, zuschuss_angekuendigt: 0, summe_zuschuesse_in_kraft: summe, ...extra };
+    eigenanteil_energetisch: 1, foerderquote_energetisch: 0.1, hinweise: [], angebotsweg: null, ...extra };
 }
 const ERG = {
-  konditionen_version: 4, konditionen_stand: "Förderbedingungen Stand 09.11.2026 (interne Version 4)",
-  beste_wahl: { ohne_WPB: "EM_ohne_WPB", WPB: "EH_WPB" }, beste_wahl_mit_angekuendigt: { ohne_WPB: "EM_ohne_WPB", WPB: "EM_WPB" },
-  beste_wahl_hinweis: "Sobald der angekündigte Zuschuss gilt, wäre „EM_WPB“ um 1.000 € günstiger. Bis dahin bleibt „EH_WPB“ die beste Wahl.",
+  konditionen_version: 4, konditionen_stand: "Förderbedingungen Stand 09.11.2026 (interne Version 4)", interner_hinweis: HINWEIS,
   szenarien: [
     szenario("EM_ohne_WPB", 100000),
     szenario("EM_WPB", 106000, { zuschuesse: { beg_em: 100000, wpb_bonus: 6000 }, angekuendigt: true, angekuendigt_text: TEXT,
-      zuschuss_angekuendigt: 6000, summe_zuschuesse_in_kraft: 100000,
-      hinweise: [`WPB-Bonus Einzelmaßnahmen ${TEXT} – Betrag unter Vorbehalt, zählt nicht für die beste Wahl`] }),
+      hinweise: [`WPB-Bonus Einzelmaßnahmen ${TEXT} – im Betrag enthalten`] }),
     szenario("EH_ohne_WPB", 90000), szenario("EH_WPB", 105000),
   ],
 };
 
 describe("WPB-Bonus Einzelmaßnahmen angekündigt", () => {
-  it("kennzeichnet Spalte 1b, Betrag und Summen und zeigt den Hinweis zur besten Wahl", () => {
+  it("steht in den Summen, ohne Sonderspalte, Vorbehalt oder Empfehlung", () => {
     render(<Ergebnis erg={ERG} />);
-    expect(screen.getAllByText("angekündigt")).toHaveLength(1);                      // nur Spalte 1b
-    const kasten = screen.getAllByRole("status").map(x => x.textContent).join(" | ");
-    expect(kasten).toMatch(/WPB-Bonus für Einzelmaßnahmen ist angekündigt, noch nicht in Kraft \(voraussichtlich Q1 2027\)/);
-    expect(kasten).toMatch(/Bis dahin bleibt „EH_WPB“ die beste Wahl/);
-    expect(document.querySelectorAll("td.angekuendigt sup")).toHaveLength(3);        // WPB-Bonus + 2 Summenzeilen
-    expect(screen.getByText(/enthält den WPB-Bonus Einzelmaßnahmen/)).toBeTruthy();
-    expect(screen.getByText("beste Wahl mit WPB").closest("td").cellIndex).toBe(4);  // EH mit WPB
-    expect(document.body.textContent.match(/Betrag unter Vorbehalt, zählt nicht/g)).toBeNull(); // Szenario-Hinweis nicht doppelt
+    expect(screen.queryByText("angekündigt")).toBeNull();                        // keine Markierung in der Kopfzeile
+    expect(document.querySelectorAll("td.angekuendigt")).toHaveLength(0);
+    expect(document.body.textContent).toContain("106.000 €");                    // Summe mit Bonus
+    expect(document.body.textContent).not.toMatch(/Vorbehalt|beste Wahl|Empfehlung|Bewertung/);
   });
 
-  it("ohne Kennzeichnung (in Kraft) keine Markierung", () => {
-    const erg = { ...ERG, beste_wahl_hinweis: null,
-      szenarien: ERG.szenarien.map(x => ({ ...x, angekuendigt: false, angekuendigt_text: null, hinweise: [] })) };
-    render(<Ergebnis erg={erg} />);
-    expect(screen.queryByText("angekündigt")).toBeNull();
-    expect(screen.queryByRole("status")).toBeNull();
-    expect(angekuendigt(erg)).toEqual({ spalten: new Set(), text: null });
+  it("zeigt den internen Hinweis nur als Berater-Hinweis", () => {
+    render(<Ergebnis erg={ERG} />);
+    const hinweis = screen.getByRole("note");
+    expect(hinweis.textContent).toMatch(/Nur für Sie als Berater/);
+    expect(hinweis.textContent).toContain("Vor der Zusage prüfen");
+  });
+
+  it("ohne internen Hinweis (in Kraft) kein Hinweisfeld", () => {
+    render(<Ergebnis erg={{ ...ERG, interner_hinweis: null }} />);
+    expect(screen.queryByRole("note")).toBeNull();
   });
 });

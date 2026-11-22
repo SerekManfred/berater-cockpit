@@ -239,3 +239,13 @@ Der Rechenkern kennzeichnet den Zuschuss KfW 266 bei Einzelmaßnahmen als Vorbeh
 EH 85 EE per Bilanz nicht vorliegt (Eingabe `em_eh85ee_nachgewiesen`). Der Betrag bleibt unverändert. Im Fördervergleich
 erscheint hinter „Zuschuss Umbau neue WE“ der Zusatz „(Vorbehalt: EH 85 EE per Bilanz nachzuweisen)“. Ohne Vorbehalt unverändert.
 Noch nicht umgesetzt: eigene Szenarien „EM ohne 266“ und „EM mit 266“ im Bericht sowie die Auswahl der Förderlinien.
+
+## Keine Empfehlung, WPB-Bonus in den Summen (ab 0.7.0)
+- Kein `erg.beste_wahl` und kein `erg.beste_wahl_hinweis` mehr. Kurzfazit nennt beide Wege mit ihren Zuschüssen; im zutreffenden
+  WPB-Fall steht der Weg unter „Zutreffend für Ihr Gebäude“, der andere unter „Nicht zutreffend“.
+- Kapitel 8: keine Markierung, keine Zeile „Bewertung“, keine Fußnote „¹“ bei WPB. Der angekündigte Bonus ist in den Summen; die
+  Angabe „angekündigt, noch nicht in Kraft“ steht nur im Zeitpunkt (Kapitel 3, 8 Zeitpunkt, Kurzfazit-Regel).
+- Kapitel 9 (Angebotsweg): keine Empfehlung und kein grüner Rahmen. Der Satz „Welcher Weg für Sie infrage kommt, hängt von der
+  WPB-Einstufung ab“ erscheint nur ohne WPB-Status.
+- `interner_hinweis` (Cockpit) wird nicht gedruckt.
+- Tests: `test/test.js` prüft: keine Empfehlung in beiden WPB-Fällen, keine „beste Wahl“, kein „¹“, und dass der interne Hinweis im Bericht fehlt.

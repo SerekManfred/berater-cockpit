@@ -22,27 +22,26 @@ def konditionen_daten(v) -> dict:
 def kennzeichnung_nachtragen(ergebnis: dict | None, kond: dict | None) -> dict | None:
     """Gespeicherte Fördervergleiche vor dem 16.11.2026 kennen die Kennzeichnung „angekündigt“ noch nicht. Sie wird beim Lesen
     aus dem Konditionen-Snapshot des Berichts abgeleitet (nur Anzeige und Word, nichts gespeichert, kein Betrag neu gerechnet;
-    die gespeicherte „beste Wahl“ bleibt). Neue Ergebnisse und andere Module bleiben unverändert."""
+    Die Empfehlung gibt es nicht mehr – auch gespeicherte Berichte zeigen keine „beste Wahl“). Neue Ergebnisse und andere
+    Module bleiben unverändert."""
     if not isinstance(ergebnis, dict) or not ergebnis.get("szenarien") or not kond or "beg_em" not in kond:
         return ergebnis
     if all("angekuendigt" in x for x in ergebnis["szenarien"]):
         return ergebnis
     import copy
 
-    from app.rechenkern.foerdervergleich import beste_wahl_angekuendigt, wpb_em_angekuendigt
+    from app.rechenkern.foerdervergleich import interner_hinweis_aus, wpb_em_angekuendigt
     e = copy.deepcopy(ergebnis)
     angekuendigt, text = wpb_em_angekuendigt(kond)
     for x in e["szenarien"]:
         betrag = (x.get("zuschuesse") or {}).get("wpb_bonus") or 0 if x.get("schluessel") == "EM_WPB" else 0
         x["angekuendigt"] = bool(angekuendigt and betrag > 0)
         x["angekuendigt_text"] = text if x["angekuendigt"] else None
-        x["zuschuss_angekuendigt"] = float(betrag) if x["angekuendigt"] else 0.0
-        x["summe_zuschuesse_in_kraft"] = round(x["summe_zuschuesse_gesamt"] - x["zuschuss_angekuendigt"], 2)
         if x["angekuendigt"]:   # alten Datumshinweis an seiner Stelle ersetzen (Reihenfolge wie bei neuen Ergebnissen)
-            neu = f"WPB-Bonus Einzelmaßnahmen {text} – Betrag unter Vorbehalt, zählt nicht für die beste Wahl"
+            neu = f"WPB-Bonus Einzelmaßnahmen {text} – im Betrag enthalten"
             alt = [h for h in x.get("hinweise", []) if h.startswith("WPB-Bonus Einzelmaßnahmen nur für BAFA-Anträge ab")]
             x["hinweise"] = [neu if h in alt else h for h in x.get("hinweise", [])] if alt else [*x.get("hinweise", []), neu]
-    e.update(beste_wahl_angekuendigt(e))
+    e["interner_hinweis"] = interner_hinweis_aus(e["szenarien"])
     e["kennzeichnung_nachgetragen"] = True
     return e
 

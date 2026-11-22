@@ -87,7 +87,7 @@ PROGRAMME = [
         F("beg_em.wpb_bonus", "WPB-Bonus", "prozent", kern=True),
         F("beg_em.wpb_bonus_regel", "Regel WPB-Bonus", "text_lang"),
         # WPB-Bonus EM: angekündigt oder in Kraft (Geschäftsführer 16.11.2026) – angekündigt = im Fördervergleich gekennzeichnet,
-        # zählt nicht für die „beste Wahl“. Datum nur Pflicht, wenn in Kraft (offiziell oft nur „voraussichtlich Q1 2027“).
+        # ist im Betrag enthalten. Datum nur Pflicht, wenn in Kraft (offiziell oft nur „voraussichtlich Q1 2027“).
         F("beg_em.wpb_bonus_status", "WPB-Bonus – Status (ab Version 4)", "auswahl", kern=True,
           optionen=[["angekuendigt", "angekündigt, noch nicht in Kraft"], ["in_kraft", "in Kraft"]]),
         F("beg_em.wpb_bonus_ab", "WPB-Bonus gilt für Anträge ab", "datum", pflicht=False),

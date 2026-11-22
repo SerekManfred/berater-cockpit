@@ -8,13 +8,6 @@ export const eur2 = n => {
 
 const STANDARDTITEL = { a: "Gebäudemodell und WPB-Prüfung", b: "KfW 266 Umnutzung", c: "BAFA Einzelmaßnahmen", d: "KfW Effizienzhaus 261" };
 
-/** Empfohlener Weg nur bei bekanntem WPB-Status – wie Kapitel 9 im Word. */
-export function empfehlung(erg, eingaben) {
-  const wpb = eingaben?.wpb_status === "ja" ? "WPB" : eingaben?.wpb_status === "nein" ? "ohne_WPB" : null;
-  const beste = wpb && erg.beste_wahl?.[wpb];
-  return beste ? (beste.startsWith("EM") ? "EM" : "EH") : null;
-}
-
 /**
  * „Unsere Leistungen auf Ihrem Weg“ – gleicher Aufbau wie Kapitel 9 im Word-Bericht.
  * Alle Beträge kommen aus ergebnis.szenarien.*.angebotsweg (Rechenkern), Texte aus eingaben.angebote.
@@ -28,13 +21,11 @@ export function Angebotsweg({ erg, eingaben }) {
   const posten = (w, k) => w.posten.find(x => x.kennung === k);
   const titel = k => txt[k]?.titel || STANDARDTITEL[k];
   const leistung = k => txt[k]?.leistungen ? <p className="aw-leistung">{txt[k].leistungen}</p> : null;
-  const empf = empfehlung(erg, eingaben);
   const A = posten(em, "A"), B = posten(em, "B"), C = posten(em, "C"), D = posten(eh, "D");
   const ehOk = s.EH_ohne_WPB.foerderfaehig;
   // Preis D vor Anrechnung = eingegebener Angebotsbetrag (keine Rechnung in der Oberfläche)
   const preisD = txt.d?.betrag;
   const pfeil = <div className="aw-pfeil" aria-hidden="true">▼</div>;
-  const markierung = weg => empf === weg ? <p className="aw-empfehlung">Empfehlung für Ihr Gebäude</p> : null;
   const summe = (weg, w, buchst) => (
     <div className="aw-kasten aw-summe">
       <p className="aw-titel">Weg {weg}: A + {B ? "B + " : ""}{buchst}</p>
@@ -64,25 +55,23 @@ export function Angebotsweg({ erg, eingaben }) {
         <div className="aw-wege">
           <div className="aw-spalte">
             {pfeil}
-            <div className={"aw-kasten" + (empf === "EM" ? " aw-empfohlen" : "")} data-kennung="C">
+            <div className="aw-kasten" data-kennung="C">
               <p className="aw-titel">C&nbsp;&nbsp;{titel("c")}</p>{leistung("c")}
               <p>Preis {eur2(C.betrag)}</p>
               <p>Zuschuss {eur2(C.zuschuss)} · Eigenanteil <strong>{eur2(C.eigenanteil)}</strong></p>
-              {markierung("EM")}
             </div>
             {pfeil}
             {summe("Einzelmaßnahmen", em, "C")}
           </div>
           <div className="aw-spalte">
             {pfeil}
-            <div className={"aw-kasten" + (empf === "EH" ? " aw-empfohlen" : "")} data-kennung="D">
+            <div className="aw-kasten" data-kennung="D">
               <p className="aw-titel">D&nbsp;&nbsp;{titel("d")}</p>{leistung("d")}
               <p>{eh.anrechnung_a && preisD !== undefined
                 ? `Preis ${eur2(preisD)} abzgl. Anrechnung A = ${eur2(D.betrag)}` : `Preis ${eur2(D.betrag)}`}</p>
               {ehOk
                 ? <p>Zuschuss {eur2(D.zuschuss)} · Eigenanteil <strong>{eur2(D.eigenanteil)}</strong></p>
                 : <p className="aw-nicht"><strong>Nicht förderfähig</strong> (EE-Klasse nicht erreichbar)</p>}
-              {markierung("EH")}
             </div>
             {pfeil}
             {summe("Effizienzhaus", eh, "D")}
@@ -94,7 +83,7 @@ export function Angebotsweg({ erg, eingaben }) {
           Der Eigenanteil von A ist in der Summe des Effizienzhaus-Weges enthalten.</p> : null}
         <p>Zuschuss für Fachplanung und Baubegleitung nach BEG{B ? "; die Leistungen für KfW 266 (B) sind nicht förderfähig" : ""}.</p>
         {grenze.length > 0 && <p>Der Zuschuss ist durch die Höchstgrenze für Fachplanung/Baubegleitung begrenzt ({grenze.join(" und ")}).</p>}
-        {!empf && <p>Welcher Weg sich für Sie lohnt, hängt von der WPB-Einstufung ab (Angabe „Worst Performing Building“ im Fördervergleich).</p>}
+        {!(eingaben?.wpb_status === "ja" || eingaben?.wpb_status === "nein") && <p>Welcher Weg für Sie infrage kommt, hängt von der WPB-Einstufung ab (Angabe „Worst Performing Building“ im Fördervergleich).</p>}
       </div>
     </section>
   );

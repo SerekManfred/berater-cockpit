@@ -66,16 +66,12 @@ def test_referenzfall_einzelposten():
     assert all(s["zuschuss_266"] == 120000 for s in r["szenarien"])
 
 
-def test_beste_wahl():
-    assert vergleich(referenzfall(), KOND)["beste_wahl"] == {"ohne_WPB": "EM_ohne_WPB", "WPB": "EH_WPB"}
-
-
 def test_ohne_ee_klasse():
     r = vergleich(referenzfall(ee_klasse_erreichbar=False), KOND)
     assert sz(r, "EM_ohne_WPB")["summe_zuschuesse_gesamt"] == 43600
     assert not sz(r, "EH_ohne_WPB")["foerderfaehig"]
     assert sz(r, "EH_WPB")["summe_zuschuesse_gesamt"] == 0
-    assert r["beste_wahl"] == {"ohne_WPB": "EM_ohne_WPB", "WPB": "EM_WPB"}
+    assert "beste_wahl" not in r
 
 
 def test_ohne_kfw266():
