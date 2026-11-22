@@ -299,5 +299,13 @@ async function text(daten) {
       assert.strictEqual(f.headers.get("x-generator-version"), VERSION, "Kopfzeile auch bei 404");
     } finally { srv.kill(); }
   }
+  // ab 0.6.4: KfW 266 mit Vorbehalt (EH 85 EE per Bilanz nicht nachgewiesen) – Zusatz nur bei gesetztem Flag
+  {
+    const mitVorbehalt = fx("fall1_angekuendigt");
+    mitVorbehalt.ergebnis.szenarien.filter(x => x.schluessel.startsWith("EM")).forEach(x => { x.vorbehalt_266 = true; });
+    const tv = await text(mitVorbehalt);
+    assert(tv.includes("(Vorbehalt: EH 85 EE per Bilanz nachzuweisen)"), "KfW 266 Vorbehalt: Zusatz fehlt im Word-Bericht");
+    assert(!(await text(fx("fall1_angekuendigt"))).includes("(Vorbehalt:"), "KfW 266 ohne Vorbehalt: kein Zusatz");
+  }
   console.log(`OK – KfW 458 (A/B/C/E/EFH, Stromdirekt, NWG, EH, INIT Potenzial/Kosten) + Versionsmeldung + Dokumenteigenschaften + WPB angekündigt (4 Fälle) + Bericht INIT (mit/ohne EH-Vergleich) + ${n} Beispiele + Referenzzahlen + Schutzprüfungen + Fachwerte mit/ohne + ${MODULE.length} Checklisten`);
 })().catch(e => { console.error("FEHLER:", e.message); process.exit(1); });
