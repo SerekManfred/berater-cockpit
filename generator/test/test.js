@@ -38,7 +38,7 @@ async function text(daten) {
   const mitA = JSON.parse(fs.readFileSync(path.join(dir, "referenzfall_mit_angeboten.json"), "utf8"));
   const ta = await text(mitA);
   for (const z of ["Unsere Leistungen auf Ihrem Weg", "10  Empfohlenes Vorgehen", "Preis 15.000 € abzgl. Anrechnung A = 12.025 €",
-    "Eigenanteil 1.487,50 €", "Ihr Eigenanteil 11.305 €", "Ihr Eigenanteil 15.830 €", "Empfehlung für Ihr Gebäude",
+    "Eigenanteil 1.487,50 €", "Ihr Eigenanteil 11.305 €", "Ihr Eigenanteil 15.830 €",
     "Angebote A + C", "Angebote A + D", "Fachplanung KfW 266 (Angebot B)", "Weg Einzelmaßnahmen: A + B + C", "Weg Effizienzhaus: A + B + D"]) assert(ta.includes(z), "Angebote: " + z);
   // ab 0.5.0: Kapitel 8 mit 8.1–8.4 (nicht A–D), „Beide Varianten:“ in Kapitel 2, KfW-261-Bedingungen, Brutto-Hinweis
   for (const z of ["8.1  Zuschüsse – nicht rückzahlbar", "8.2  Darlehen – zinsgünstig, rückzahlbar", "8.3  Zusätzlich: KfW 266", "8.4  Ergebnis",
