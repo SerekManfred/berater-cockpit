@@ -131,7 +131,7 @@ function erstelleFoerdervergleich(d) {
   const titelVon = key => (key.startsWith("EM") ? "Einzelmaßnahmen" : stufe.name) + (key.endsWith("ohne_WPB") ? " ohne WPB" : " mit WPB");
   const s = Object.fromEntries(erg.szenarien.map(x => [x.schluessel, { ...x, titel: titelVon(x.schluessel) }]));
   const em = k.beg_em, wg = k.beg_wg, k266 = k.kfw_266;
-  const mit266 = !!e.kfw266, ee = e.ee_klasse_erreichbar !== false;
+  const mit266 = !!e.kfw266, ee = e.ee_klasse_erreichbar !== false, ausnahme = !!e.ee_ausnahme;
   // Stromdirektheizung: ab 0.6.0 Kennung vom Cockpit (m.stromdirektheizung, gleiche Regel wie der Rechenkern); ältere Daten
   // ohne Kennung wie bis 0.5.1 an der Bezeichnung erkannt
   const mitKennung = (e.massnahmen || []).some(m => m && m.stromdirektheizung !== undefined);
@@ -205,7 +205,8 @@ function erstelleFoerdervergleich(d) {
   }
   if (mit458 && s.EM_ohne_WPB.zuschuesse.kfw_458 !== undefined)
     fazit.push(P(`Im Weg Einzelmaßnahmen enthalten: **Heizungsförderung KfW 458** ${eur(s.EM_ohne_WPB.zuschuesse.kfw_458)} (eigener Zuschuss für den Wärmeerzeuger).`));
-  if (!ee) fazit.push(P("**EE-Klasse nicht erreichbar:** Die Effizienzhaus-Förderung" + (mit266 ? " und KfW 266 entfallen." : " entfällt.")));
+  if (!ee) fazit.push(P("**EE-Klasse nicht erreichbar:** Die Effizienzhaus-Förderung entfällt" + (mit266 && !ausnahme ? " und KfW 266 entfällt ebenfalls." : ".")));
+  if (!ee && ausnahme && mit266) fazit.push(P("**KfW 266 mit EE-Ausnahme** (Merkblatt 266, Stand 07/2026, S. 3): Die EE-Klasse ist nicht erforderlich. Das Niveau EH 85 EE muss trotzdem nachgewiesen werden."));
   else if (wg.ee_klasse_pflicht) fazit.push(P("**Voraussetzung:** Die EE-Klasse muss rechnerisch nachgewiesen werden" + (mit266 ? " – für das Effizienzhaus und für KfW 266 (mindestens " + (FT.eh_stufen[k266.mindeststufe]?.name || k266.mindeststufe) + ")." : ".")));
   if (mit266 && k266.antragsfrist) fazit.push(P(`**Frist:** KfW 266 muss bis **${datum(k266.antragsfrist)}** und vor Beginn des Vorhabens beantragt werden.`, { after: 0 }));
   ch.push(box(fazit));
@@ -283,7 +284,7 @@ function erstelleFoerdervergleich(d) {
   // ---------- 5 Besonderheiten ----------
   ch.push(H1("5  Besonderheiten und Hinweise"));
   const bes = [];
-  if (wg.ee_klasse_pflicht) bes.push(`**EE-Klasse:** Für die Effizienzhaus-Förderung ist sie Pflicht${mit266 ? ", für KfW 266 ebenfalls (auch bei Einzelmaßnahmen)" : ""}. ${ee ? "Sie muss vor dem Antrag rechnerisch nachgewiesen werden." : "Laut Eingabe ist sie **nicht erreichbar**."}`);
+  if (wg.ee_klasse_pflicht) bes.push(`**EE-Klasse:** Für die Effizienzhaus-Förderung ist sie Pflicht${mit266 ? ", für KfW 266 ebenfalls (auch bei Einzelmaßnahmen)" : ""}. ${ee ? "Sie muss vor dem Antrag rechnerisch nachgewiesen werden." : "Laut Eingabe ist sie **nicht erreichbar**."}${!ee && ausnahme && mit266 ? " Für KfW 266 gilt die EE-Ausnahme (Merkblatt 266, S. 3)." : ""}`);
   // ab 0.6.0: Effizienzhaus systemneutral (Entscheidung Geschäftsführung 20.11.2026) – keine Regel je Heizart, maßgeblich ist die
   // Bilanz. Satz zur Bilanzierung als Elektro-Direktheizung (Technische FAQ Nr. 9.15) erst nach Hochladen und Prüfung der FAQ.
   // ab 0.6.3 (Geschäftsführung 20.11.2026, nach Hochladen der Technischen FAQ Effizienzhaus 7.0 als Quelldokument 8, Nr. 9.15 S. 53):
@@ -382,7 +383,7 @@ function erstelleFoerdervergleich(d) {
     zeileOhne() + (s.EH_ohne_WPB.kredit_pflicht ? " Der Weg Effizienzhaus setzt eine Kreditfinanzierung über KfW 261 voraus." : " Kein Kredit nötig.")]);
   regel.push([{ t: "**Gebäude ist WPB**" + (wpbGilt && wpbJa ? " – trifft zu" : ` (${kriterien})`), fill: regelFill(true) },
     zeileMit() + (s.EH_WPB.kredit_pflicht ? " Der Weg Effizienzhaus setzt eine Kreditfinanzierung über KfW 261 voraus." : "")]);
-  if (ee && wg.ee_klasse_pflicht) regel.push([{ t: "**EE-Klasse nicht erreichbar**", fill: C.rotL },
+  if (!ee && wg.ee_klasse_pflicht) regel.push([{ t: "**EE-Klasse nicht erreichbar**", fill: C.rotL },
     `Nur Einzelmaßnahmen${mit266 ? " ohne KfW 266" : ""} möglich (${eur(s.EM_ohne_WPB.summe_zuschuesse_energetisch)}).`]);
   const wpbZeit = A
     ? "Der WPB-Bonus bei Einzelmaßnahmen ist angekündigt (" + (em.wpb_bonus_ab_text || (em.wpb_bonus_ab ? "ab " + datum(em.wpb_bonus_ab) : "Termin offen")) +

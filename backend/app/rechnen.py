@@ -234,6 +234,9 @@ class FoerdervergleichEingaben(BaseModel):
     isfp: bool = True
     eh_stufe: str = "EH55EE"
     ee_klasse_erreichbar: bool = True
+    # EE-Ausnahme nur für KfW 266 (Merkblatt 266, Stand 07/2026, S. 3): Bestandsheizung mit 65 % EE, Wärmenetzanschluss
+    # oder neue Heizung in den letzten 5 Jahren. Befreit von der EE-Klasse, NICHT vom Niveau EH 85 EE (Bilanz).
+    ee_ausnahme: bool = False
     serielle_sanierung: bool = False   # KfW 261 Bonus serielle Sanierung (nur Effizienzhaus)
     kfw266: bool = False
     we_neu: int = Field(0, ge=0)

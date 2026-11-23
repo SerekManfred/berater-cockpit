@@ -511,6 +511,7 @@ function BerichtAnsicht({ ich, id, onZurueck, onGehe }) {
           <dt>Effizienzhaus-Stufe</dt><dd>{e.eh_stufe}</dd>
           <dt>iSFP wird erstellt</dt><dd>{e.isfp ? "ja" : "nein"}</dd>
           <dt>EE-Klasse erreichbar</dt><dd>{e.ee_klasse_erreichbar ? "ja" : "nein"}</dd>
+          {e.ee_ausnahme && <><dt>EE-Ausnahme KfW 266</dt><dd>ja</dd></>}
           {e.serielle_sanierung && <><dt>Serielle Sanierung</dt><dd>ja (Bonus KfW 261)</dd></>}
           <dt>KfW 266</dt><dd>{e.kfw266 ? `ja – ${e.we_neu} neue WE, Umbaukosten ${eur(e.umbaukosten_neue_we)}` : "nein"}</dd>
           <dt>Wohneinheiten vor Sanierung</dt><dd>{e.we_vor_sanierung ?? "keine Angabe"}</dd>

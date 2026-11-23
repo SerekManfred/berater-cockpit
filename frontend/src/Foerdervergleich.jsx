@@ -361,6 +361,7 @@ export function Foerdervergleich({ titel = "Fördervergleich Einzelmaßnahmen / 
         <div className="schalter">
           <label><input type="checkbox" checked={d.isfp} onChange={e => set("isfp", e.target.checked)} /> iSFP wird erstellt</label>
           <label><input type="checkbox" checked={d.ee_klasse_erreichbar} onChange={e => set("ee_klasse_erreichbar", e.target.checked)} /> EE-Klasse rechnerisch erreichbar</label>
+          {!d.ee_klasse_erreichbar && d.kfw266 && <label><input type="checkbox" checked={!!d.ee_ausnahme} onChange={e => set("ee_ausnahme", e.target.checked)} /> EE-Ausnahme für KfW 266 (Bestandsheizung ≥ 65 % EE, Wärmenetz oder Heizung jünger als 5 Jahre)</label>}
           <label><input type="checkbox" checked={!!d.serielle_sanierung} onChange={e => set("serielle_sanierung", e.target.checked)} /> Serielle Sanierung (Bonus KfW 261, Satz je Stufe laut Konditionen)</label>
           <label><input type="checkbox" checked={d.kfw266} disabled={frist266?.status === "abgelaufen" && !d.kfw266}
             onChange={e => setD(mitAngeboten({ ...d, kfw266: e.target.checked }, ang))} /> KfW 266 (Umnutzung zu Wohnraum)

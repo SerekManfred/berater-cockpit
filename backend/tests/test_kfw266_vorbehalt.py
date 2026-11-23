@@ -90,3 +90,26 @@ def test_eh_denkmal_mit_266():
 def test_eh_unbekannte_stufe_ohne_266_und_vorbehalt():
     # Unbekannte Stufe: 266 entfällt. Die Tilgungszuschuss-Tabelle kennt diese Stufe nicht, deshalb hier nur die Prüfung.
     assert _stufe_erreicht("EH100EE", KOND["kfw_266"]["mindeststufe"]) is False
+
+
+# --- EE-Ausnahme (Merkblatt 266, Stand 07/2026, S. 3): befreit von der EE-Klasse, nicht vom Niveau EH 85 EE ---
+
+def test_ee_ausnahme_haelt_266_bei_einzelmassnahmen_mit_vorbehalt():
+    r = vergleich(referenzfall(ee_klasse_erreichbar=False, ee_ausnahme=True), KOND)
+    em = sz(r, "EM_ohne_WPB")
+    assert em["zuschuss_266"] == 120000 and em["vorbehalt_266"] is True
+
+
+def test_ohne_ausnahme_entfaellt_266_bei_nicht_erreichbarer_ee_klasse():
+    r = vergleich(referenzfall(ee_klasse_erreichbar=False), KOND)
+    assert all(s["zuschuss_266"] == 0 for s in r["szenarien"])
+
+
+def test_ee_ausnahme_eh_bleibt_ohne_foerderung_266_mit_eh85():
+    r = vergleich(referenzfall(ee_klasse_erreichbar=False, ee_ausnahme=True, eh_stufe="EH85EE"), KOND)
+    eh = sz(r, "EH_ohne_WPB")
+    assert eh["foerderfaehig"] is False and eh["zuschuesse"] == {} and eh["zuschuss_266"] == 120000
+    # ohne EH 85 EE trotz Ausnahme: 266 entfällt mit Hinweis
+    r2 = vergleich(referenzfall(ee_klasse_erreichbar=False, ee_ausnahme=True, eh_stufe="EH55EE"), KOND)
+    assert sz(r2, "EH_ohne_WPB")["zuschuss_266"] == 0
+

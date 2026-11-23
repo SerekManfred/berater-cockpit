@@ -59,6 +59,9 @@ class Eingaben:
     isfp: bool = True
     eh_stufe: str = "EH55EE"
     ee_klasse_erreichbar: bool = True
+    # EE-Ausnahme nur für KfW 266 (Merkblatt 266, Stand 07/2026, S. 3): Bestandsheizung mit 65 % EE, Wärmenetzanschluss
+    # oder neue Heizung in den letzten 5 Jahren. Befreit von der EE-Klasse, NICHT vom Niveau EH 85 EE (Bilanz).
+    ee_ausnahme: bool = False
     # KfW 266 verlangt EH 85 EE zwingend nachgewiesen (bei Denkmal EH Denkmal EE). Bei Einzelmaßnahmen nur per Bilanz-Nachweis.
     em_eh85ee_nachgewiesen: bool = False
     serielle_sanierung: bool = False   # KfW 261 Bonus serielle Sanierung (Satz je Stufe aus beg_wg.sersan_bonus)
@@ -203,7 +206,9 @@ def _stufe_erreicht(stufe: str, minimum: str) -> bool:
 def _kfw266(e: Eingaben, k: dict, stufe_ok: bool) -> tuple[float, list[str]]:
     if not e.kfw266:
         return 0.0, []
-    if not e.ee_klasse_erreichbar or not stufe_ok:
+    if not e.ee_klasse_erreichbar and not e.ee_ausnahme:
+        return 0.0, ["KfW 266 entfällt: EE-Klasse nicht erreichbar und keine EE-Ausnahme"]
+    if not stufe_ok:
         return 0.0, ["KfW 266 entfällt: Mindeststandard " + k["mindeststufe"] + " nicht nachgewiesen"]
     return _r(k["satz"] * min(e.umbaukosten_neue_we, k["max_kosten_je_neue_we"] * e.we_neu)), []
 
@@ -381,6 +386,9 @@ def effizienzhaus(e: Eingaben, kond: dict, wpb: bool) -> Szenario:
         s.foerderfaehig = False
         s.angebotsweg = _angebotsweg(e, "EH", 0.0, wg["baubegleitung"]["satz"])
         s.hinweise.append("Nicht förderfähig: EE-Klasse ist Pflicht")
+        # KfW 266 hängt nicht am Effizienzhaus-Zuschuss: mit EE-Ausnahme bleibt es möglich (EH 85 EE per Bilanz)
+        s.zuschuss_266, h = _kfw266(e, kond["kfw_266"], stufe_ok=_stufe_erreicht(e.eh_stufe, kond["kfw_266"]["mindeststufe"]))
+        s.hinweise += h
         return s
     ff = min(sum(m.kosten for m in e.massnahmen if m.eh_foerderfaehig), wg["kredit_je_we"] * e.we_nach_sanierung)
     satz = wg["tilgungszuschuss"][e.eh_stufe]
