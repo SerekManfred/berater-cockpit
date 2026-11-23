@@ -57,7 +57,8 @@ async function text(daten) {
   const wpbJa = await text({ ...ref, eingaben: { ...ref.eingaben, wpb_status: "ja" }, wpb_grundlage_text: G });
   for (const z of ["Ihr Gebäude ist als Worst Performing Building eingestuft – Grundlage: " + G, "Zutreffend für Ihr Gebäude:", "Nicht zutreffend: Ohne WPB-Einstufung",
     "a) ohne WPB – nicht zutreffend", "Gebäude ist WPB – trifft zu", "ja – Grundlage: " + G]) assert(wpbJa.includes(z), "0.5.1 WPB ja: " + z);
-  assert(!wpbJa.includes("beste Wahl") && !wpbJa.includes("Empfohlen") && !wpbJa.includes("Empfehlung"), "0.7.0: keine Empfehlung im Bericht");
+  // „10  Empfohlenes Vorgehen“ ist ein Kapitel, keine Wegempfehlung: geprüft werden nur die entfernten Formulierungen
+  assert(!wpbJa.includes("beste Wahl") && !wpbJa.includes("Empfohlen:") && !wpbJa.includes("Empfehlung für Ihr"), "0.7.0: keine Empfehlung im Bericht");
   const wpbNein = await text({ ...ref, eingaben: { ...ref.eingaben, wpb_status: "nein" }, wpb_grundlage_text: G });
   assert(wpbNein.includes("Ihr Gebäude ist kein Worst Performing Building") && wpbNein.includes("b) mit WPB – nicht zutreffend")
     && !wpbNein.includes("beste Wahl"), "0.7.0 WPB nein: keine Empfehlung");
