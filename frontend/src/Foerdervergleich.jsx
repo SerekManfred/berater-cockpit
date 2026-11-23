@@ -25,7 +25,7 @@ export const mitHeizung = d => (d.massnahmen || []).some(m => m.em_kategorie ===
 
 const BEISPIEL_REFERENZFALL = {
   we_nach_sanierung: 6, we_neu: 4, umbaukosten_neue_we: 420000, kosten_baubegleitung: 20000, kosten_isfp: 2800,
-  isfp: true, kfw266: true, ee_klasse_erreichbar: true, eh_stufe: "EH55EE",
+  isfp: true, kfw266: true, ee_klasse_erreichbar: true, eh_stufe: "EH55EE", fuehrend: "EM",
   massnahmen: [
     { name: "Oberste Geschossdecke", kosten: 12000, em_kategorie: "daemmung", eh_foerderfaehig: true },
     { name: "WDVS", kosten: 76000, em_kategorie: "daemmung", eh_foerderfaehig: true },
@@ -352,8 +352,10 @@ export function Foerdervergleich({ titel = "Fördervergleich Einzelmaßnahmen / 
             <span className="klein">Nur, wenn die Fachplanung nicht durch uns erfolgt. Mit unseren Angeboten ergibt sie sich aus A + C bzw. A + D.</span>
           </div>
           <ZahlFeld label="Honorar iSFP (€)" wert={d.kosten_isfp} onChange={v => set("kosten_isfp", v)} />
-          <label>Effizienzhaus-Stufe
-            <select value={d.eh_stufe} onChange={e => set("eh_stufe", e.target.value)}>
+          <label>Sanierungsniveau
+            <select value={d.fuehrend === "EM" ? "EM" : d.eh_stufe}
+              onChange={e => e.target.value === "EM" ? setD({ ...d, fuehrend: "EM" }) : setD({ ...d, fuehrend: "EH", eh_stufe: e.target.value })}>
+              <option value="EM">Einzelmaßnahmen</option>
               {["EH40EE", "EH55EE", "EH70EE", "EH85EE"].map(s => <option key={s} value={s}>{s.replace("EE", " EE").replace("EH", "EH ")}</option>)}
             </select>
           </label>
@@ -537,7 +539,7 @@ export function Foerdervergleich({ titel = "Fördervergleich Einzelmaßnahmen / 
         {onSpeichern && <label><input type="checkbox" checked={stromGeprueft} onChange={e => setStromGeprueft(e.target.checked)} />
           {" "}Stromdirektheizung geprüft – im Weg Einzelmaßnahmen ohne Förderung</label>}
       </div>}
-      {erg && <Ergebnis erg={erg} />}
+      {erg && <Ergebnis erg={erg} fuehrend={d.fuehrend} verzweigt={!!d.kfw266 || d.wpb_status === "ja"} />}
       {vorschau && <Vorschau erg={vorschau} />}
       {erg && berechnetMit && <Angebotsweg erg={erg} eingaben={JSON.parse(berechnetMit)} />}
       {onSpeichern && (
@@ -571,9 +573,15 @@ export function Vorschau({ erg }) {
   );
 }
 
-export function Ergebnis({ erg }) {
+export function Ergebnis({ erg, fuehrend = "EM", verzweigt = true }) {
   const s = Object.fromEntries(erg.szenarien.map(x => [x.schluessel, x]));
-  const reihe = ["EM_ohne_WPB", "EM_WPB", "EH_ohne_WPB", "EH_WPB"];
+  // Einfache Ansicht (ohne WPB und ohne KfW 266): führende Linie links, die andere rechts und abwählbar.
+  // Verzweigt (WPB oder KfW 266 im Spiel): alle vier Wege wie bisher.
+  const [rechtsAn, setRechtsAn] = useState(true);
+  const links = fuehrend === "EH" ? "EH_ohne_WPB" : "EM_ohne_WPB";
+  const rechts = fuehrend === "EH" ? "EM_ohne_WPB" : "EH_ohne_WPB";
+  const reihe = verzweigt ? ["EM_ohne_WPB", "EM_WPB", "EH_ohne_WPB", "EH_WPB"] : (rechtsAn ? [links, rechts] : [links]);
+  const titel = r => r.startsWith("EM") ? "Einzelmaßnahmen" : "Effizienzhaus";
   // Keine Empfehlung und keine Markierung (Entscheidung 22.11.2026): der Kunde wählt. Der WPB-Bonus ist in den Summen enthalten.
   const z = (k, f) => reihe.map(r => <td key={r} className="z">{s[r].foerderfaehig ? f(s[r]) : "–"}</td>);
   const kopf = (r, t) => <th key={r} className="u">{t}</th>;
@@ -582,27 +590,33 @@ export function Ergebnis({ erg }) {
     .filter(([w]) => reihe.some(r => r.startsWith(w) && s[r].angebotsweg?.hoechstgrenze_greift)).map(([, t]) => t);
   const posten = [["beg_em", "BAFA Gebäudehülle + Lüftung"], ["isfp_bonus", "iSFP-Bonus"], ["wpb_bonus", "WPB-Bonus"],
     ["kfw_458", "Heizungsförderung KfW 458"], ["tilgungszuschuss", "Tilgungszuschuss KfW 261"], ["baubegleitung", "Fachplanung / Baubegleitung"],
-    ["isfp_beratung", "iSFP-Beratung"]].filter(([k]) => k !== "kfw_458" || reihe.some(r => s[r].zuschuesse.kfw_458 !== undefined));
+    ["isfp_beratung", "iSFP-Beratung"]].filter(([k]) => (k !== "kfw_458" || reihe.some(r => s[r].zuschuesse.kfw_458 !== undefined))
+      && (k !== "wpb_bonus" || verzweigt));
+  const spalten = reihe.length + 1;
   return (
     <section className="karte">
       <h2>Fördervergleich auf einen Blick</h2>
       <div className="tabelle">
         <table>
           <thead>
-            <tr><th></th><th colSpan="2" style={{ textAlign: "center" }}>1 Einzelmaßnahmen</th><th colSpan="2" style={{ textAlign: "center", background: "#3C3C44" }}>2 Effizienzhaus</th></tr>
-            <tr><th></th>{reihe.map(r => kopf(r, (r.endsWith("ohne_WPB") ? "a) ohne" : "b) mit") + " WPB"))}</tr>
+            {verzweigt ? <>
+              <tr><th></th><th colSpan="2" style={{ textAlign: "center" }}>1 Einzelmaßnahmen</th><th colSpan="2" style={{ textAlign: "center", background: "#3C3C44" }}>2 Effizienzhaus</th></tr>
+              <tr><th></th>{reihe.map(r => kopf(r, (r.endsWith("ohne_WPB") ? "a) ohne" : "b) mit") + " WPB"))}</tr>
+            </> : <tr><th></th>{reihe.map(r => kopf(r, titel(r)))}</tr>}
           </thead>
           <tbody>
-            <tr className="abschnitt"><td colSpan="5">Zuschüsse – nicht rückzahlbar</td></tr>
+            <tr className="abschnitt"><td colSpan={spalten}>Zuschüsse – nicht rückzahlbar</td></tr>
             {posten.map(([k, t]) => <tr key={k}><td>{t}</td>{z(k, x => x.zuschuesse[k] !== undefined ? eur(x.zuschuesse[k]) : "–")}</tr>)}
             <tr className="summe"><td>Summe Zuschüsse energetisch</td>{z("summe", x => eur(x.summe_zuschuesse_energetisch))}</tr>
-            <tr className="abschnitt"><td colSpan="5">Darlehen – zinsgünstig, rückzahlbar</td></tr>
+            <tr className="abschnitt"><td colSpan={spalten}>Darlehen – zinsgünstig, rückzahlbar</td></tr>
             <tr><td>Förderkredit</td>{z("k", x => x.kreditprogramm)}</tr>
             <tr><td>Kreditrahmen</td>{z("k", x => "bis " + eur(x.kreditrahmen))}</tr>
             <tr><td>Kredit Pflicht?</td>{z("k", x => x.kredit_pflicht ? "ja" : "nein")}</tr>
-            <tr className="abschnitt"><td colSpan="5">KfW 266 „Gewerbe zu Wohnen“</td></tr>
-            <tr><td>Zuschuss Umbau neue WE</td>{z("k", x => eur(x.zuschuss_266) + (x.vorbehalt_266 ? " (Vorbehalt: EH 85 EE per Bilanz nachzuweisen)" : ""))}</tr>
-            <tr className="abschnitt"><td colSpan="5">Ergebnis</td></tr>
+            {verzweigt && <>
+              <tr className="abschnitt"><td colSpan={spalten}>KfW 266 „Gewerbe zu Wohnen“</td></tr>
+              <tr><td>Zuschuss Umbau neue WE</td>{z("k", x => eur(x.zuschuss_266) + (x.vorbehalt_266 ? " (Vorbehalt: EH 85 EE per Bilanz nachzuweisen)" : ""))}</tr>
+            </>}
+            <tr className="abschnitt"><td colSpan={spalten}>Ergebnis</td></tr>
             <tr className="summe"><td>Zuschüsse gesamt</td>{z("summe", x => eur(x.summe_zuschuesse_gesamt))}</tr>
             <tr><td>Eigenanteil energetisch</td>{z("k", x => eur(x.eigenanteil_energetisch))}</tr>
             <tr><td>Förderquote energetisch</td>{z("k", x => pct(x.foerderquote_energetisch))}</tr>
@@ -611,7 +625,9 @@ export function Ergebnis({ erg }) {
           </tbody>
         </table>
       </div>
-      {erg.interner_hinweis && <div className="info" role="note"><strong>Nur für Sie als Berater (nicht im Kundenauftritt):</strong> {erg.interner_hinweis}</div>}
+      {!verzweigt && <label className="schalter"><input type="checkbox" checked={rechtsAn} onChange={e => setRechtsAn(e.target.checked)} />
+        {" "}{titel(rechts)} rechts anzeigen</label>}
+      {verzweigt && erg.interner_hinweis && <div className="info" role="note"><strong>Nur für Sie als Berater (nicht im Kundenauftritt):</strong> {erg.interner_hinweis}</div>}
       {grenze.length > 0 && <div className="info">Zuschuss für Fachplanung/Baubegleitung durch die Höchstgrenze begrenzt
         ({grenze.join(" und ")}) – der Eigenanteil der Angebote ist entsprechend höher.</div>}
       {[...new Set(erg.szenarien.flatMap(x => x.hinweise))]

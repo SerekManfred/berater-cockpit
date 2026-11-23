@@ -58,6 +58,8 @@ class Eingaben:
     kosten_isfp: float = 0.0
     isfp: bool = True
     eh_stufe: str = "EH55EE"
+    # Führende Linie (Sanierungsniveau-Schalter): "EM" links, "EH" links. Nur Darstellung, keine Auswirkung auf die Rechnung.
+    fuehrend: Literal["EM", "EH"] = "EM"
     ee_klasse_erreichbar: bool = True
     # EE-Ausnahme nur für KfW 266 (Merkblatt 266, Stand 07/2026, S. 3): Bestandsheizung mit 65 % EE, Wärmenetzanschluss
     # oder neue Heizung in den letzten 5 Jahren. Befreit von der EE-Klasse, NICHT vom Niveau EH 85 EE (Bilanz).
@@ -439,7 +441,8 @@ def vergleich(e: Eingaben, kond: dict) -> dict:
     sz = [einzelmassnahmen(e, kond, False), einzelmassnahmen(e, kond, True),
           effizienzhaus(e, kond, False), effizienzhaus(e, kond, True)]
     szenarien = [x.als_dict() for x in sz]
-    return {"konditionen_version": kond["version"], "szenarien": szenarien, "interner_hinweis": interner_hinweis_aus(szenarien)}
+    return {"konditionen_version": kond["version"], "fuehrend": e.fuehrend, "szenarien": szenarien,
+            "interner_hinweis": interner_hinweis_aus(szenarien)}
 
 
 def interner_hinweis_aus(szenarien: list[dict]) -> str | None:
