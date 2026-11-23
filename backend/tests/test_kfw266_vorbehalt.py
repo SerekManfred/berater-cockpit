@@ -13,6 +13,10 @@ from app.rechenkern.foerdervergleich import _stufe_erreicht, vergleich
 from tests.test_referenzfall_mfh_umnutzung import KOND, referenzfall
 
 
+def sz(r, k):
+    return next(x for x in r["szenarien"] if x["schluessel"] == k)
+
+
 def szenarien(r):
     return {s["schluessel"]: s for s in r["szenarien"]}
 
@@ -96,7 +100,7 @@ def test_eh_unbekannte_stufe_ohne_266_und_vorbehalt():
 
 def test_ee_ausnahme_haelt_266_bei_einzelmassnahmen_mit_vorbehalt():
     r = vergleich(referenzfall(ee_klasse_erreichbar=False, ee_ausnahme=True), KOND)
-    em = sz(r, "EM_ohne_WPB")
+    em = next(x for x in r["szenarien"] if x["schluessel"] == "EM_ohne_WPB")
     assert em["zuschuss_266"] == 120000 and em["vorbehalt_266"] is True
 
 
@@ -107,9 +111,9 @@ def test_ohne_ausnahme_entfaellt_266_bei_nicht_erreichbarer_ee_klasse():
 
 def test_ee_ausnahme_eh_bleibt_ohne_foerderung_266_mit_eh85():
     r = vergleich(referenzfall(ee_klasse_erreichbar=False, ee_ausnahme=True, eh_stufe="EH85EE"), KOND)
-    eh = sz(r, "EH_ohne_WPB")
+    eh = next(x for x in r["szenarien"] if x["schluessel"] == "EH_ohne_WPB")
     assert eh["foerderfaehig"] is False and eh["zuschuesse"] == {} and eh["zuschuss_266"] == 120000
     # ohne EH 85 EE trotz Ausnahme: 266 entfällt mit Hinweis
     r2 = vergleich(referenzfall(ee_klasse_erreichbar=False, ee_ausnahme=True, eh_stufe="EH55EE"), KOND)
-    assert sz(r2, "EH_ohne_WPB")["zuschuss_266"] == 0
+    assert next(x for x in r2["szenarien"] if x["schluessel"] == "EH_ohne_WPB")["zuschuss_266"] == 0
 

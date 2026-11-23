@@ -43,7 +43,7 @@ def test_referenzfall_gekennzeichnet_summe_mit_bonus():
     assert em["angekuendigt"] is True
     assert em["summe_zuschuesse_gesamt"] == 169155                     # Bonus ist in der Summe enthalten, kein Vorbehalt-Abzug
     assert any("angekündigt, noch nicht in Kraft" in h and "im Betrag enthalten" in h for h in em["hinweise"])
-    assert not any("Vorbehalt" in h for h in em["hinweise"])
+    assert not any(h.startswith("WPB-Bonus") and "Vorbehalt" in h for h in em["hinweise"])   # KfW-266-Vorbehalt ist ein anderer Hinweis
     for k in ("EM_ohne_WPB", "EH_ohne_WPB", "EH_WPB"):
         assert sz(r, k)["angekuendigt"] is False
     assert r["interner_hinweis"].startswith("Intern, nicht für den Kunden:")
