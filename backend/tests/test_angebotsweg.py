@@ -32,17 +32,31 @@ def test_einzelmassnahmen_mfh():
     assert w["hoechstgrenze_greift"] is False
 
 
-def test_effizienzhaus_mfh_mit_anrechnung_a():
+def test_effizienzhaus_mfh_mit_266_a_wird_gutgeschrieben():
+    # EH mit KfW 266: A (Vorprüfung) und D sind beide förderfähig, der Kunde zahlt nur B + D (A wird gutgeschrieben)
     w = weg(vergleich(fall(), KOND), "EH_ohne_WPB")
     assert [(p["kennung"], p["betrag"], p["zuschuss"], p["eigenanteil"]) for p in w["posten"]] == [
-        ("A", 2975, 1487.5, 1487.5), ("B", 8330, 0, 8330), ("D", 12025, 6012.5, 6012.5)]
-    assert (w["kosten"], w["zuschuss"], w["eigenanteil"], w["anrechnung_a"]) == (23330, 7500, 15830, 2975)
+        ("A", 2975, 1487.5, 1487.5), ("B", 8330, 0, 8330), ("D", 15000, 7500, 7500), ("GA", -2975, 0, -2975)]
+    assert (w["kosten"], w["zuschuss"], w["eigenanteil"], w["anrechnung_a"]) == (23330, 8987.5, 14342.5, 2975)
+
+
+def test_einzelmassnahmen_wpb_ohne_gutschrift():
+    # EM mit WPB: A und C sind beide Rechnungen, nichts wird gutgeschrieben
+    w = weg(vergleich(fall(kfw266=False, isfp=True), KOND), "EM_WPB")
+    assert [(p["kennung"], p["betrag"]) for p in w["posten"]] == [("A", 2975), ("C", 2975)]
+    assert w["kosten"] == 5950 and w["anrechnung_a"] == 0
+
+
+def test_effizienzhaus_wpb_mit_gutschrift():
+    w = weg(vergleich(fall(kfw266=False, isfp=True), KOND), "EH_WPB")
+    assert [(p["kennung"], p["betrag"]) for p in w["posten"]] == [("A", 2975), ("D", 15000), ("GA", -2975)]
+    assert w["kosten"] == 15000 and w["anrechnung_a"] == 2975
 
 
 def test_ohne_kfw266_kein_b():
     r = vergleich(fall(kfw266=False), KOND)
-    assert [p["kennung"] for p in weg(r, "EM_ohne_WPB")["posten"]] == ["A", "C"]
-    assert weg(r, "EM_ohne_WPB")["eigenanteil"] == 2975
+    assert [p["kennung"] for p in weg(r, "EM_ohne_WPB")["posten"]] == ["C"]
+    assert weg(r, "EM_ohne_WPB")["eigenanteil"] == 1487.5
     assert weg(r, "EH_ohne_WPB")["eigenanteil"] == 7500
 
 
@@ -50,7 +64,7 @@ def test_hoechstgrenze_efh_greift():
     # EFH: förderfähige Kosten Baubegleitung max. 5.000 € (EM) bzw. 10.000 € (EH)
     r = vergleich(fall(we_nach_sanierung=1, kfw266=False), KOND)
     em, eh = weg(r, "EM_ohne_WPB"), weg(r, "EH_ohne_WPB")
-    assert (em["zuschuss"], em["eigenanteil"], em["hoechstgrenze_greift"]) == (2500, 3450, True)
+    assert (em["zuschuss"], em["eigenanteil"], em["hoechstgrenze_greift"]) == (1487.5, 1487.5, False)
     assert (eh["zuschuss"], eh["eigenanteil"], eh["hoechstgrenze_greift"]) == (5000, 10000, True)
     assert sum(p["zuschuss"] for p in eh["posten"]) == 5000
 
@@ -60,7 +74,7 @@ def test_baubegleitung_je_weg_im_szenario():
     em = next(s for s in r["szenarien"] if s["schluessel"] == "EM_ohne_WPB")
     eh = next(s for s in r["szenarien"] if s["schluessel"] == "EH_ohne_WPB")
     assert em["zuschuesse"]["baubegleitung"] == 2975
-    assert eh["zuschuesse"]["baubegleitung"] == 7500
+    assert eh["zuschuesse"]["baubegleitung"] == 8987.5  # Förderbasis A + D (mit 266), 50 % bis Höchstbetrag
 
 
 def test_ee_klasse_fehlt_kein_zuschuss_d():

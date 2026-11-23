@@ -43,8 +43,9 @@ def test_abnahmefall_wird_mit_angeboten_gespeichert():
     _, b = bericht_anlegen(c, eingaben=ABNAHME)
     em, eh = weg(b["ergebnis"], "EM_ohne_WPB"), weg(b["ergebnis"], "EH_ohne_WPB")
     assert (em["kosten"], em["zuschuss"], em["eigenanteil"]) == (14280, 2975, 11305)
-    assert (eh["kosten"], eh["zuschuss"], eh["eigenanteil"], eh["anrechnung_a"]) == (23330, 7500, 15830, 2975)
-    assert [(p["kennung"], p["betrag"]) for p in eh["posten"]] == [("A", 2975), ("B", 8330), ("D", 12025)]
+    # EH mit KfW 266: A + D sind förderfähig (Zuschuss auf A + D), der Kunde zahlt B + D, A wird gutgeschrieben
+    assert (eh["kosten"], eh["zuschuss"], eh["eigenanteil"], eh["anrechnung_a"]) == (23330, 8000, 15330, 2975)
+    assert [(p["kennung"], p["betrag"]) for p in eh["posten"]] == [("A", 2975), ("B", 8330), ("D", 15000), ("GA", -2975)]
     g = gespeichert(b["id"])
     assert g.eingaben["angebote"] == ANGEBOTE                          # Anzeigetexte bleiben für den Bericht erhalten
     assert weg(g.ergebnis, "EH_ohne_WPB") == eh                         # angebotsweg im gespeicherten Ergebnis

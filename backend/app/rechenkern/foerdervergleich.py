@@ -28,11 +28,13 @@ class Massnahme:
 @dataclass
 class Angebote:
     """Unsere Leistungsangebote in der Reihenfolge des Ablaufs (ab 14.11.2026):
-    A Gebäudemodell/WPB-Prüfung (immer), B KfW 266 Umnutzung (nur bei KfW 266),
+    A Vorprüfung/Bilanz WPB bzw. EH 85 (nur bei WPB oder KfW 266), B KfW 266 (nur bei KfW 266),
     C Einzelmaßnahmen, D Effizienzhaus.
 
-    A und C/D sind Fachplanung/Baubegleitung (gefördert nach BEG). B (KfW 266) ist nicht gefördert.
-    Bei anrechnung_a_in_d ist A in D enthalten und wird auf D angerechnet.
+    Einzelmaßnahmen: nur C. Mit WPB oder KfW 266 kommt A dazu, ohne Gutschrift (eigene Pflichtleistung).
+    Effizienzhaus: D. Mit WPB oder KfW 266 kommt A dazu; A wird dann auf D gutgeschrieben (Kunde zahlt nur D),
+    die Förderbasis bleibt A + D (beide Rechnungen, je 50 % Baubegleitung, bis zu den Höchstbeträgen).
+    B ist nicht gefördert. Bei anrechnung_a_in_d=False ist A nicht in D enthalten und wird nicht gutgeschrieben.
     """
     a: float
     c: float
@@ -40,14 +42,27 @@ class Angebote:
     b: float = 0.0
     anrechnung_a_in_d: bool = True
 
-    def posten(self, weg: str) -> list[tuple[str, float]]:
-        """Geförderte Posten (Fachplanung/Baubegleitung) je Weg."""
+    def zeilen(self, weg: str, wpb: bool, kfw266: bool) -> list[dict]:
+        """Ablauf je Weg: Rechnungen (kennung, betrag, foerderfaehig) und ggf. die Gutschrift von A."""
+        mit_a = wpb or kfw266
         if weg == "EM":
-            return [("A", self.a), ("C", self.c)]
-        return [("A", self.a), ("D", self.d - self.a if self.anrechnung_a_in_d else self.d)]
+            z = [{"kennung": "C", "betrag": self.c, "foerderfaehig": True}]
+            return ([{"kennung": "A", "betrag": self.a, "foerderfaehig": True}] if mit_a else []) + z
+        z = [{"kennung": "D", "betrag": self.d, "foerderfaehig": True}]
+        if not mit_a:
+            return z
+        if self.anrechnung_a_in_d:
+            return ([{"kennung": "A", "betrag": self.a, "foerderfaehig": True}] + z
+                    + [{"kennung": "GA", "betrag": -self.a, "foerderfaehig": False}])
+        return [{"kennung": "A", "betrag": self.a, "foerderfaehig": True}] + z
 
-    def kosten_baubegleitung(self, weg: str) -> float:
-        return _r(sum(b for _, b in self.posten(weg)))
+    def foerderbasis(self, weg: str, wpb: bool, kfw266: bool) -> float:
+        return _r(sum(x["betrag"] for x in self.zeilen(weg, wpb, kfw266) if x["foerderfaehig"]))
+
+    def kundenkosten(self, weg: str, wpb: bool, kfw266: bool) -> float:
+        """Was der Kunde zahlt: alle Rechnungen abzüglich der Gutschrift, zuzüglich B (nicht gefördert, zählt aber mit)."""
+        b = self.b if (kfw266 and self.b) else 0.0
+        return _r(sum(x["betrag"] for x in self.zeilen(weg, wpb, kfw266)) + b)
 
 
 @dataclass
@@ -84,9 +99,13 @@ class Eingaben:
     stromdirekt_alleiniges_heizsystem: bool | None = None
     nichtwohngebaeude: bool = False
 
-    def bb_kosten(self, weg: str) -> float:
-        """Kosten Fachplanung/Baubegleitung je Weg: aus den Angeboten, sonst die Pauschaleingabe."""
-        return self.angebote.kosten_baubegleitung(weg) if self.angebote else self.kosten_baubegleitung
+    def bb_kosten(self, weg: str, wpb: bool = False) -> float:
+        """Förderbasis Fachplanung/Baubegleitung je Weg: aus den Angeboten, sonst die Pauschaleingabe."""
+        return self.angebote.foerderbasis(weg, wpb, self.kfw266) if self.angebote else self.kosten_baubegleitung
+
+    def kunden_bb(self, weg: str, wpb: bool = False) -> float:
+        """Was der Kunde für Fachplanung/Baubegleitung zahlt (nach Gutschrift)."""
+        return self.angebote.kundenkosten(weg, wpb, self.kfw266) if self.angebote else self.kosten_baubegleitung
 
 
 @dataclass
@@ -167,25 +186,30 @@ def _baubegleitung(we: int, kosten: float, bb: dict) -> float:
     return _r(bb["satz"] * min(kosten, grenze))
 
 
-def _angebotsweg(e: Eingaben, weg: str, zuschuss: float, satz: float) -> dict | None:
-    """Kosten, Zuschuss und Eigenanteil je Angebot. Der Zuschuss für Fachplanung/Baubegleitung
-    wird anteilig nach Betrag auf A und C bzw. D verteilt (Höchstgrenzen sind darin schon enthalten).
-    Posten in der Reihenfolge des Ablaufs: A, B (nur bei KfW 266), dann C oder D."""
+def _angebotsweg(e: Eingaben, weg: str, zuschuss: float, satz: float, wpb: bool = False) -> dict | None:
+    """Ablauf, Kosten und Zuschuss je Angebot. Der Zuschuss für Fachplanung/Baubegleitung wird anteilig nach Betrag auf die
+    förderfähigen Rechnungen verteilt (Höchstgrenzen sind darin schon enthalten). Gutschrift von A: Zeile mit negativem Betrag.
+    Reihenfolge des Ablaufs: A, B (nur bei KfW 266), dann C bzw. D, dann Gutschrift."""
     if not e.angebote:
         return None
-    posten = e.angebote.posten(weg)
-    summe = _r(sum(b for _, b in posten))
-    zeilen, rest = [], zuschuss
-    for i, (kennung, betrag) in enumerate(posten):
-        z = rest if i == len(posten) - 1 else (_r(zuschuss * betrag / summe) if summe else 0.0)
-        rest = _r(rest - z)
-        zeilen.append({"kennung": kennung, "betrag": _r(betrag), "zuschuss": _r(z), "eigenanteil": _r(betrag - z)})
+    zeilen_ab = e.angebote.zeilen(weg, wpb, e.kfw266)
+    foerder = [x for x in zeilen_ab if x["foerderfaehig"]]
+    summe = _r(sum(x["betrag"] for x in foerder))
+    zeilen, rest, letzte = [], zuschuss, (foerder[-1]["kennung"] if foerder else None)
+    for x in zeilen_ab:
+        if x["foerderfaehig"]:
+            z = rest if x["kennung"] == letzte else (_r(zuschuss * x["betrag"] / summe) if summe else 0.0)
+            rest = _r(rest - z)
+        else:
+            z = 0.0
+        zeilen.append({"kennung": x["kennung"], "betrag": _r(x["betrag"]), "zuschuss": _r(z), "eigenanteil": _r(x["betrag"] - z)})
     if e.kfw266 and e.angebote.b:
-        zeilen.insert(1, {"kennung": "B", "betrag": _r(e.angebote.b), "zuschuss": 0.0, "eigenanteil": _r(e.angebote.b)})
+        pos = 1 if zeilen and zeilen[0]["kennung"] == "A" else 0
+        zeilen.insert(pos, {"kennung": "B", "betrag": _r(e.angebote.b), "zuschuss": 0.0, "eigenanteil": _r(e.angebote.b)})
     kosten = _r(sum(z["betrag"] for z in zeilen))
     return {
         "posten": zeilen, "kosten_baubegleitung": summe, "kosten": kosten, "zuschuss": _r(zuschuss), "eigenanteil": _r(kosten - zuschuss),
-        "anrechnung_a": _r(e.angebote.a) if weg == "EH" and e.angebote.anrechnung_a_in_d else 0.0,
+        "anrechnung_a": _r(e.angebote.a) if weg == "EH" and (wpb or e.kfw266) and e.angebote.anrechnung_a_in_d else 0.0,
         "hoechstgrenze_greift": zuschuss < _r(satz * summe) - 0.005,
     }
 
@@ -352,8 +376,8 @@ def einzelmassnahmen(e: Eingaben, kond: dict, wpb: bool) -> Szenario:
                 s.hinweise.append("WPB-Bonus Einzelmaßnahmen nur für BAFA-Anträge ab " + _datum_de(em["wpb_bonus_ab"]))
         else:
             s.hinweise.append("WPB-Bonus nur mit iSFP möglich")
-    s.zuschuesse["baubegleitung"] = _baubegleitung(e.we_nach_sanierung, e.bb_kosten("EM"), em["baubegleitung"])
-    s.angebotsweg = _angebotsweg(e, "EM", s.zuschuesse["baubegleitung"], em["baubegleitung"]["satz"])
+    s.zuschuesse["baubegleitung"] = _baubegleitung(e.we_nach_sanierung, e.bb_kosten("EM", wpb), em["baubegleitung"])
+    s.angebotsweg = _angebotsweg(e, "EM", s.zuschuesse["baubegleitung"], em["baubegleitung"]["satz"], wpb)
     if e.isfp:
         grenze = bera["efh_zfh_max"] if e.we_nach_sanierung <= 2 else bera["mfh_max"]
         s.zuschuesse["isfp_beratung"] = _r(min(bera["satz"] * e.kosten_isfp, grenze))
@@ -368,7 +392,7 @@ def einzelmassnahmen(e: Eingaben, kond: dict, wpb: bool) -> Szenario:
     kosten_heizung = sum(m.kosten for m in em_m if m.em_kategorie == "heizung")
     s.kreditprogramm = em["ergaenzungskredit"]["programm"]
     s.kreditrahmen = _r(min(basis + kosten_heizung, em["ergaenzungskredit"]["je_we"] * e.we_nach_sanierung))
-    s.kosten_energetisch = _r(sum(m.kosten for m in e.massnahmen) + e.bb_kosten("EM") + (e.kosten_isfp if e.isfp else 0)
+    s.kosten_energetisch = _r(sum(m.kosten for m in e.massnahmen) + e.kunden_bb("EM", wpb) + (e.kosten_isfp if e.isfp else 0)
                               + e.kosten_baubegleitung_heizung)
     # KfW 266 verlangt EH 85 EE (bzw. EH Denkmal EE) zwingend nachgewiesen. Bei Einzelmaßnahmen ist das nur per Bilanz möglich:
     # ohne Nachweis bleibt der Betrag als Vorbehalt sichtbar, mit Nachweis (em_eh85ee_nachgewiesen) gilt er ohne Vorbehalt.
@@ -383,10 +407,10 @@ def einzelmassnahmen(e: Eingaben, kond: dict, wpb: bool) -> Szenario:
 def effizienzhaus(e: Eingaben, kond: dict, wpb: bool) -> Szenario:
     wg = kond["beg_wg"]
     s = Szenario("EH_" + ("WPB" if wpb else "ohne_WPB"), e.eh_stufe + " " + ("mit" if wpb else "ohne") + " WPB")
-    s.kosten_energetisch = _r(sum(m.kosten for m in e.massnahmen) + e.bb_kosten("EH"))
+    s.kosten_energetisch = _r(sum(m.kosten for m in e.massnahmen) + e.kunden_bb("EH", wpb))
     if wg["ee_klasse_pflicht"] and not e.ee_klasse_erreichbar:
         s.foerderfaehig = False
-        s.angebotsweg = _angebotsweg(e, "EH", 0.0, wg["baubegleitung"]["satz"])
+        s.angebotsweg = _angebotsweg(e, "EH", 0.0, wg["baubegleitung"]["satz"], wpb)
         s.hinweise.append("Nicht förderfähig: EE-Klasse ist Pflicht")
         # KfW 266 hängt nicht am Effizienzhaus-Zuschuss: mit EE-Ausnahme bleibt es möglich (EH 85 EE per Bilanz)
         s.zuschuss_266, h = _kfw266(e, kond["kfw_266"], stufe_ok=_stufe_erreicht(e.eh_stufe, kond["kfw_266"]["mindeststufe"]))
@@ -420,8 +444,8 @@ def effizienzhaus(e: Eingaben, kond: dict, wpb: bool) -> Szenario:
         s.hinweise.append(f"Tilgungszuschuss inkl. Bonus serielle Sanierung +{sersan * 100:.0f} %")
     if wpb_satz:
         s.zuschuesse["wpb_bonus"] = _r(wpb_satz * ff)
-    s.zuschuesse["baubegleitung"] = _baubegleitung(e.we_nach_sanierung, e.bb_kosten("EH"), wg["baubegleitung"])
-    s.angebotsweg = _angebotsweg(e, "EH", s.zuschuesse["baubegleitung"], wg["baubegleitung"]["satz"])
+    s.zuschuesse["baubegleitung"] = _baubegleitung(e.we_nach_sanierung, e.bb_kosten("EH", wpb), wg["baubegleitung"])
+    s.angebotsweg = _angebotsweg(e, "EH", s.zuschuesse["baubegleitung"], wg["baubegleitung"]["satz"], wpb)
     # Effizienzhaus systemneutral (Entscheidung Geschäftsführung 20.11.2026): keine Zulässigkeitsregel je Heizart, kein
     # Prüfhinweis – maßgeblich ist die Bilanz (Qp, H′T); die Aussage steht einmal im Bericht (Generator, Kapitel 5)
     if any(m.em_kategorie == "heizung" and m.eh_foerderfaehig and not m.stromdirektheizung for m in e.massnahmen):
