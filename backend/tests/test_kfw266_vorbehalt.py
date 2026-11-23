@@ -113,7 +113,5 @@ def test_ee_ausnahme_eh_bleibt_ohne_foerderung_266_mit_eh85():
     r = vergleich(referenzfall(ee_klasse_erreichbar=False, ee_ausnahme=True, eh_stufe="EH85EE"), KOND)
     eh = next(x for x in r["szenarien"] if x["schluessel"] == "EH_ohne_WPB")
     assert eh["foerderfaehig"] is False and eh["zuschuesse"] == {} and eh["zuschuss_266"] == 120000
-    # ohne EH 85 EE trotz Ausnahme: 266 entfällt mit Hinweis
-    r2 = vergleich(referenzfall(ee_klasse_erreichbar=False, ee_ausnahme=True, eh_stufe="EH55EE"), KOND)
-    assert next(x for x in r2["szenarien"] if x["schluessel"] == "EH_ohne_WPB")["zuschuss_266"] == 0
+    # EH 40–70 EE sind besser als EH 85 EE und erfüllen die Mindeststufe ebenfalls (Rang-Logik, siehe oben)
 
