@@ -18,6 +18,8 @@ if _TEST_URL:
 os.environ["DATABASE_URL"] = _TEST_URL or f"sqlite:///{_ORDNER}/test.db"
 os.environ["SECRET_KEY"] = "test-schluessel-nur-fuer-pytest-" + "x" * 32
 os.environ["DATEI_VERZEICHNIS"] = f"{_ORDNER}/daten"  # Uploads der Tests landen nie im echten Datei-Volume
+os.environ["GENERATOR_URL"] = "http://127.0.0.1:9"  # Tests sprechen nie den laufenden cockpit-generator an (sonst Word „eingefroren“ statt „ausstehend“)
+os.environ["PDF_URL"] = "http://127.0.0.1:9"  # ebenso der PDF-Dienst
 
 import pytest  # noqa: E402
 from alembic import command  # noqa: E402
