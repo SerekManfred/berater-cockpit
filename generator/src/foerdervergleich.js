@@ -62,10 +62,12 @@ function kasten(zeilen, breite, o = {}) {
 }
 
 function angebotsweg(d, s, erg, e) {
-  const em = s.EM_ohne_WPB.angebotsweg, eh = s.EH_ohne_WPB.angebotsweg;
+  const wpbJa = e.wpb_status === "ja";
+  const em = s[wpbJa ? "EM_WPB" : "EM_ohne_WPB"].angebotsweg, eh = s[wpbJa ? "EH_WPB" : "EH_ohne_WPB"].angebotsweg;
   if (!em || !eh) return [];
   const txt = e.angebote || {};
   const p = (w, k) => w.posten.find(x => x.kennung === k);
+  const kennungen = w => w.posten.filter(x => x.kennung !== "GA").map(x => x.kennung).join(" + ");
   const leistung = k => txt[k] && txt[k].leistungen ? [absatz(txt[k].leistungen, { size: 15, color: C.grau })] : [];
   const wpbKey = e.wpb_status === "ja" ? "WPB" : e.wpb_status === "nein" ? "ohne_WPB" : null;
   const ch = [];
@@ -74,16 +76,19 @@ function angebotsweg(d, s, erg, e) {
   // Ab 0.5.0: Angebotsbeträge sind brutto – Text kommt vom Cockpit (angebote_hinweis), der Generator setzt nur ein
   if (d.angebote_hinweis) ch.push(P(d.angebote_hinweis, { size: 16, color: C.grau }));
   const BR = 6600;
-  const A = p(em, "A");
-  ch.push(kasten([absatz("**A  " + (txt.a?.titel || "Gebäudemodell und WPB-Prüfung") + "**", { size: 19 }), ...leistung("a"),
-    absatz(`Immer erforderlich · ${eur2(A.betrag)} · Zuschuss ${eur2(A.zuschuss)} · Eigenanteil **${eur2(A.eigenanteil)}**`)], BR, { fill: C.goldL, randfarbe: C.gold }));
-  const U = p(em, "B"); // B = KfW 266 Umnutzung (nur bei KfW 266, nicht gefördert)
-  if (U) {
+  const A = p(em, "A") || p(eh, "A");
+  if (A) {
+    ch.push(kasten([absatz("**A  " + (txt.a?.titel || "Gebäudemodell und WPB-Prüfung") + "**", { size: 19 }), ...leistung("a"),
+      absatz(`Vorprüfung für Ihren Weg (WPB-Nachweis bzw. Prüfung EH 85) · ${eur2(A.betrag)}`),
+      absatz("Im Effizienzhaus-Weg wird A im Paket D gutgeschrieben – A zahlen Sie also nur einmal.", { size: 15, color: C.grau })], BR, { fill: C.goldL, randfarbe: C.gold }));
     ch.push(pfeil());
-    ch.push(kasten([absatz("**B  " + (txt.b?.titel || "KfW 266 Umnutzung") + "**", { size: 19 }), ...leistung("b"),
-      absatz(`Nötig, weil neuer Wohnraum entsteht · ${eur2(U.betrag)} · kein Zuschuss`)], BR, { fill: C.goldL, randfarbe: C.gold, gestrichelt: true }));
   }
-  ch.push(pfeil());
+  const U = p(em, "B") || p(eh, "B"); // B = KfW 266 Umnutzung (nur bei KfW 266, nicht gefördert)
+  if (U) {
+    ch.push(kasten([absatz("**B  " + (txt.b?.titel || "KfW 266 Umnutzung") + "**", { size: 19 }), ...leistung("b"),
+      absatz(`Leistung für KfW 266: Antragstellung, Rechnungssichtung und Abnahme der Leistungen · ${eur2(U.betrag)} · kein Zuschuss`)], BR, { fill: C.goldL, randfarbe: C.gold, gestrichelt: true }));
+    ch.push(pfeil());
+  }
   ch.push(kasten([absatz("**Welcher Sanierungsweg?**", { size: 19 })], 4200, { fill: C.grauL, randfarbe: C.anth }));
   // Trenner: zwei direkt aufeinanderfolgende Tabellen verschmilzt Word zu einer
   ch.push(new Paragraph({ keepNext: true, spacing: { after: 0, line: 120 }, children: [new TextRun({ text: "", size: 4, font: F })] }));
@@ -91,29 +96,30 @@ function angebotsweg(d, s, erg, e) {
   const SP = 4950, LUECKE = W - 2 * SP;
   const zeile = (links, rechts, o = {}) => new TableRow({ cantSplit: true, children: [
     flussZelle(links, SP, o.l || {}), flussZelle([], LUECKE, { ohne: true }), flussZelle(rechts, SP, o.r || {})] });
-  const E = p(em, "C"), D = p(eh, "D"); // C = Einzelmaßnahmen, D = Effizienzhaus
-  const ehOk = s.EH_ohne_WPB.foerderfaehig;
+  const E = p(em, "C"), D = p(eh, "D"), GA = p(eh, "GA"); // C = Einzelmaßnahmen, D = Effizienzhaus, GA = Gutschrift von A
+  const ehOk = s[wpbJa ? "EH_WPB" : "EH_ohne_WPB"].foerderfaehig;
   // Keine Empfehlung (Entscheidung 22.11.2026): beide Wege gleich gekennzeichnet, der Kunde wählt.
   const karte = () => ({ fill: C.goldL, randfarbe: C.gold, dick: 6 });
   const linksC = [absatz("**C  " + (txt.c?.titel || "BAFA Einzelmaßnahmen") + "**", { size: 19 }), ...leistung("c"),
     absatz(`Preis ${eur2(E.betrag)}`), absatz(`Zuschuss ${eur2(E.zuschuss)} · Eigenanteil **${eur2(E.eigenanteil)}**`)];
   const rechtsD = [absatz("**D  " + (txt.d?.titel || "KfW Effizienzhaus 261") + "**", { size: 19 }), ...leistung("d"),
-    absatz(eh.anrechnung_a ? `Preis ${eur2(D.betrag + eh.anrechnung_a)} abzgl. Anrechnung A = ${eur2(D.betrag)}` : `Preis ${eur2(D.betrag)}`),
+    absatz(`Preis ${eur2(D.betrag)}`),
+    ...(GA ? [absatz(`Gutschrift von A: ${eur2(-GA.betrag)} abgezogen`)] : []),
     absatz(ehOk ? `Zuschuss ${eur2(D.zuschuss)} · Eigenanteil **${eur2(D.eigenanteil)}**` : "**Nicht förderfähig** (EE-Klasse nicht erreichbar)", { color: ehOk ? undefined : C.rot }),
     ];
   const summe = (titel, w, cKosten) => [absatz("**" + titel + "**", { size: 18 }),
-    absatz(`Kosten ${eur2(w.kosten)}` + (cKosten ? " (inkl. B)" : "")),
+    absatz(`Kunde zahlt ${eur2(w.kosten)}` + (cKosten ? " (inkl. B)" : "")),
     absatz(`Zuschuss ${eur2(w.zuschuss)}`),
     absatz(`Ihr Eigenanteil **${eur2(w.eigenanteil)}**`, { size: 19 })];
   ch.push(new Table({ width: { size: W, type: WidthType.DXA }, columnWidths: [SP, LUECKE, SP], rows: [
     zeile([pfeil()], [pfeil()], { l: { ohne: true }, r: { ohne: true } }),
     zeile(linksC, rechtsD, { l: karte("EM"), r: karte("EH") }),
     zeile([pfeil()], [pfeil()], { l: { ohne: true }, r: { ohne: true } }),
-    zeile(summe("Weg Einzelmaßnahmen: A + " + (U ? "B + " : "") + "C", em, !!U), summe("Weg Effizienzhaus: A + " + (U ? "B + " : "") + "D", eh, !!U),
+    zeile(summe("Weg Einzelmaßnahmen: " + kennungen(em), em, !!U), summe("Weg Effizienzhaus: " + kennungen(eh), eh, !!U),
       { l: { fill: C.grauL }, r: { fill: C.grauL } }),
   ] }));
   const fuss = [];
-  if (eh.anrechnung_a) fuss.push(`A ist in D enthalten und wird mit ${eur2(eh.anrechnung_a)} angerechnet – A wird also nur einmal bezahlt. Der Eigenanteil von A ist in der Summe des Effizienzhaus-Weges enthalten.`);
+  if (GA) fuss.push(`Die Vorprüfung A (${eur2(-GA.betrag)}) ist im Paket D enthalten und wird Ihnen gutgeschrieben – A wird also nur einmal bezahlt.`);
   fuss.push("Zuschuss für Fachplanung und Baubegleitung nach BEG" + (U ? "; die Leistungen für KfW 266 (B) sind nicht förderfähig" : "") + ".");
   if (em.hoechstgrenze_greift || eh.hoechstgrenze_greift)
     fuss.push("Der Zuschuss ist durch die Höchstgrenze für Fachplanung/Baubegleitung begrenzt (" +

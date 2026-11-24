@@ -5,14 +5,20 @@ import { Angebotsweg, eur2 } from "./Angebotsweg.jsx";
 
 afterEach(cleanup);
 
-// Ergebnis wie vom Rechenkern für den Abnahmefall (4 WE, KfW 266, A 2.975 / B 8.330 / C 2.975 / D 15.000)
+// Ergebnis wie vom Rechenkern (Stand 24.11.2026): Abnahmefall 4 WE mit KfW 266 – A 2.975 / B 8.330 / C 2.975 / D 15.000
 const posten = (k, betrag, zuschuss, eigenanteil) => ({ kennung: k, betrag, zuschuss, eigenanteil });
 function ergebnis({ mitB = true, ehOk = true, grenze = false } = {}) {
-  const b = mitB ? [posten("B", 8330, 0, 8330)] : [];
-  const em = { posten: [posten("A", 2975, 1487.5, 1487.5), ...b, posten("C", 2975, 1487.5, 1487.5)],
-    kosten: mitB ? 14280 : 5950, zuschuss: 2975, eigenanteil: mitB ? 11305 : 2975, anrechnung_a: 0, hoechstgrenze_greift: grenze };
-  const eh = { posten: [posten("A", 2975, 1487.5, 1487.5), ...b, posten("D", 12025, 6012.5, 6012.5)],
-    kosten: mitB ? 23330 : 15000, zuschuss: 7500, eigenanteil: mitB ? 15830 : 7500, anrechnung_a: 2975, hoechstgrenze_greift: false };
+  const em = mitB
+    ? { posten: [posten("A", 2975, 1487.5, 1487.5), posten("B", 8330, 0, 8330), posten("C", 2975, 1487.5, 1487.5)],
+      kosten: 14280, zuschuss: 2975, eigenanteil: 11305, anrechnung_a: 0, hoechstgrenze_greift: grenze }
+    : { posten: [posten("C", 2975, 1487.5, 1487.5)], kosten: 2975, zuschuss: 1487.5, eigenanteil: 1487.5,
+      anrechnung_a: 0, hoechstgrenze_greift: grenze };
+  const eh = mitB
+    ? { posten: [posten("A", 2975, 1324.06, 1650.94), posten("B", 8330, 0, 8330), posten("D", 15000, 6675.94, 8324.06),
+      posten("GA", -2975, 0, -2975)], kosten: 23330, zuschuss: 8000, eigenanteil: 15330, anrechnung_a: 2975,
+      hoechstgrenze_greift: false }
+    : { posten: [posten("D", 15000, 7500, 7500)], kosten: 15000, zuschuss: 7500, eigenanteil: 7500, anrechnung_a: 0,
+      hoechstgrenze_greift: false };
   return {
     szenarien: [
       { schluessel: "EM_ohne_WPB", foerderfaehig: true, angebotsweg: em },
@@ -31,32 +37,35 @@ const kasten = k => document.querySelector(`[data-kennung="${k}"]`);
 const text = () => document.body.textContent;
 
 describe("Angebotsweg – Ablaufgrafik wie Kapitel 9", () => {
-  it("mit B: A → B → Welcher Sanierungsweg? → C | D, Zahlen aus dem Rechenkern", () => {
+  it("mit KfW 266: A → B → Welcher Sanierungsweg? → C | D, Zahlen aus dem Rechenkern", () => {
     render(<Angebotsweg erg={ergebnis()} eingaben={EINGABEN} />);
     const folge = ["A", "B"].map(kasten).concat([screen.getByText("Welcher Sanierungsweg?"), kasten("C"), kasten("D")]);
     for (let i = 1; i < folge.length; i++)
       expect(folge[i - 1].compareDocumentPosition(folge[i]) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
     expect(kasten("B").className).toContain("aw-gestrichelt");
     expect(kasten("B").textContent).toContain("8.330 € · kein Zuschuss");
-    expect(kasten("A").textContent).toContain("3D-Erfassung, Prüfung WPB");
-    expect(kasten("D").textContent).toContain("Preis 15.000 € abzgl. Anrechnung A = 12.025 €");
+    expect(kasten("A").textContent).toContain("Vorprüfung für Ihren Weg");
+    expect(kasten("D").textContent).toContain("Gutschrift von A");
     expect(text()).toContain("Weg Einzelmaßnahmen: A + B + C");
     expect(text()).toContain("Weg Effizienzhaus: A + B + D");
-    expect(text()).toContain("Kosten 14.280 € (inkl. B)");
+    expect(text()).toContain("Kunde zahlt 14.280 € (inkl. B)");
+    expect(text()).toContain("Kunde zahlt 23.330 € (inkl. B)");
     expect(text()).toContain("Ihr Eigenanteil 11.305 €");
-    expect(text()).toContain("Ihr Eigenanteil 15.830 €");
-    expect(text()).toContain("die Leistungen für KfW 266 (B) sind nicht förderfähig");
-    expect(text()).toContain("A ist in D enthalten und wird mit 2.975 € angerechnet");
+    expect(text()).toContain("Ihr Eigenanteil 15.330 €");
+    expect(text()).toContain("die Leistung für KfW 266 (B) ist nicht förderfähig");
+    expect(text()).toContain("Die Vorprüfung A (2.975 €) ist im Paket D enthalten und wird Ihnen gutgeschrieben");
   });
 
-  it("ohne B: kein Kasten B, Wege A + C / A + D", () => {
+  it("ohne KfW 266 und ohne WPB: nur C bzw. D, kein A und kein B", () => {
     const e = { ...EINGABEN, angebote: { ...EINGABEN.angebote, b: undefined } };
     render(<Angebotsweg erg={ergebnis({ mitB: false })} eingaben={e} />);
+    expect(kasten("A")).toBeNull();
     expect(kasten("B")).toBeNull();
-    expect(text()).toContain("Weg Einzelmaßnahmen: A + C");
-    expect(text()).toContain("Weg Effizienzhaus: A + D");
+    expect(text()).toContain("Weg Einzelmaßnahmen: C");
+    expect(text()).toContain("Weg Effizienzhaus: D");
     expect(text()).not.toContain("(inkl. B)");
     expect(text()).not.toContain("KfW 266");
+    expect(text()).not.toContain("Gutschrift");
   });
 
   // Keine Empfehlung mehr (Entscheidung 22.11.2026): beide Wege gleich gekennzeichnet, unabhängig vom WPB-Status
@@ -78,7 +87,7 @@ describe("Angebotsweg – Ablaufgrafik wie Kapitel 9", () => {
   it("EH nicht förderfähig: Hinweis statt Zuschuss bei D", () => {
     render(<Angebotsweg erg={ergebnis({ ehOk: false })} eingaben={EINGABEN} />);
     expect(kasten("D").textContent).toContain("Nicht förderfähig (EE-Klasse nicht erreichbar)");
-    expect(kasten("D").textContent).not.toContain("Zuschuss 6.012,50 €");
+    expect(kasten("D").textContent).not.toContain("Zuschuss");
   });
 
   it("Höchstgrenze greift: Fußnote", () => {

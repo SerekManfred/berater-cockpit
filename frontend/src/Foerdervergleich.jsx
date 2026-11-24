@@ -48,7 +48,7 @@ export const WPB_STATUS = ["ja", "nein", "unbekannt"];
 // Unsere Angebote A–D in der Reihenfolge des Ablaufs (ab 14.11.2026): [Kennung, vorbelegter Titel, Hinweis, Beispiel].
 // Beträge, Zuschüsse und Eigenanteile rechnet nur der Rechenkern.
 export const ANGEBOTE = [
-  ["a", "Modellierung Gebäude", "immer – gefördert als Fachplanung/Baubegleitung", "z. B. 3D-Erfassung, Prüfung WPB"],
+  ["a", "Modellierung Gebäude", "bei WPB oder KfW 266 – Vorprüfung/Bilanz (im Effizienzhaus auf D gutgeschrieben)", "z. B. 3D-Erfassung, Prüfung WPB"],
   ["b", "KfW 266 Umnutzung", "nur mit KfW 266 – nicht gefördert", "z. B. Nachweise KfW 266"],
   ["c", "BAFA Einzelmaßnahmen", "Weg Einzelmaßnahmen – gefördert", "z. B. Fachplanung und Baubegleitung BAFA"],
   ["d", "KfW Effizienzhaus 261", "Weg Effizienzhaus – gefördert", "z. B. Effizienzhaus-Nachweis, Baubegleitung KfW"],
@@ -427,7 +427,7 @@ export function Foerdervergleich({ titel = "Fördervergleich Einzelmaßnahmen / 
           <label><input type="checkbox" checked={ang.anrechnung_a_in_d} onChange={e => setAnrechnung(e.target.checked)} />
             A ist in D enthalten (wird angerechnet)</label>
         </div>}
-        {d.angebote && ang.anrechnung_a_in_d && <p className="klein">Im Weg Effizienzhaus wird D abzüglich A berechnet – A wird nur einmal bezahlt.</p>}
+        {d.angebote && ang.anrechnung_a_in_d && <p className="klein">Im Effizienzhaus wird A (bei WPB oder KfW 266) auf D gutgeschrieben – A wird nur einmal bezahlt.</p>}
       </details>
 
       {onSpeichern && (

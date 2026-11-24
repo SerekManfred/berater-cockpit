@@ -4,7 +4,7 @@ import { ZahlFeld } from "./ZahlFeld.jsx";
 import { zahlUngueltig } from "./zahl.js";
 import { eur } from "./Foerdervergleich.jsx";
 
-const ROLLE = { a: "immer – gefördert als Fachplanung/Baubegleitung", b: "nur mit KfW 266 – nicht gefördert",
+const ROLLE = { a: "bei WPB oder KfW 266 – Vorprüfung/Bilanz (im Effizienzhaus auf D gutgeschrieben)", b: "nur mit KfW 266 – nicht gefördert",
   c: "Weg Einzelmaßnahmen – gefördert", d: "Weg Effizienzhaus – gefördert" };
 
 /** Prüfung einer Vorlage im Formular (das Backend prüft dasselbe noch einmal). */
