@@ -99,6 +99,11 @@ def _leere_tabellen():
         for kennung, titel, leistungen in vorlagen_startwerte():
             db.execute(update(Angebotsvorlage).where(Angebotsvorlage.kennung == kennung).values(
                 titel=titel, leistungen=leistungen, standardbetrag=None, geaendert_von_id=None))
+        # Hottgenroth/Zusammenfassung (Migration 0021): vor Dateien und Projekten; Vorlage zurück auf Version 1
+        from app.modelle import EhZusammenfassung, HottgenrothImport, ZusammenfassungVorlage
+        db.execute(delete(EhZusammenfassung))
+        db.execute(delete(HottgenrothImport))
+        db.execute(delete(ZusammenfassungVorlage).where(ZusammenfassungVorlage.version != 1))
         for tabelle in (BerichtEntwurf, Datei, Bericht, Projekt, ProjektnummerZaehler, Protokoll, Sitzung, Benutzer):
             db.execute(delete(tabelle))
         db.commit()

@@ -1,7 +1,7 @@
 """Tabellen benutzer, sitzung, protokoll. Änderungen nur zusammen mit einer Alembic-Migration."""
 from datetime import UTC, date, datetime
 
-from sqlalchemy import (JSON, BigInteger, Boolean, Date, DateTime, ForeignKey, Index, Integer, Numeric, SmallInteger, String, Text,
+from sqlalchemy import (JSON, BigInteger, Boolean, Date, DateTime, ForeignKey, Index, Integer, LargeBinary, Numeric, SmallInteger, String, Text,
                         UniqueConstraint, text)
 from sqlalchemy.dialects.postgresql import ARRAY, JSONB
 from sqlalchemy.orm import Mapped, mapped_column
@@ -162,7 +162,8 @@ class Bericht(Base):
     word: Mapped[dict | None] = mapped_column(DETAILS_TYP)
 
 
-DATEI_KATEGORIEN = ("kostenschaetzung", "energieausweis", "plaene", "fotos", "checkliste", "angebote", "bericht", "sonstiges")
+DATEI_KATEGORIEN = ("kostenschaetzung", "energieausweis", "plaene", "fotos", "checkliste", "angebote", "bericht", "energieberechnung",
+                    "sonstiges")
 
 
 class Datei(Base):
@@ -367,3 +368,62 @@ class AuslegungsAntwort(Base):
     text: Mapped[str] = mapped_column(Text, nullable=False)
     erfasst_von_id: Mapped[int | None] = mapped_column(ForeignKey("benutzer.id", ondelete="SET NULL"))
     erfasst_am: Mapped[datetime] = mapped_column(UTCZeit, nullable=False, default=jetzt)
+
+
+# ---------- Hottgenroth-Import und Zusammenfassung Effizienzhaus (Migration 0021) ----------
+
+class HottgenrothImport(Base):
+    """Import einer Hottgenroth-Projektdatei (.sqproj) – je Import ein Datensatz, nie überschrieben. Die Zusammenfassung
+    entsteht nur aus einem Import mit „Übergabedaten geprüft“ (Regel 5)."""
+    __tablename__ = "hottgenroth_importe"
+    __table_args__ = (UniqueConstraint("projekt_id", "nummer", name="uq_hottgenroth_import_nummer"),)
+    id: Mapped[int] = mapped_column(Integer, primary_key=True)
+    projekt_id: Mapped[int] = mapped_column(ForeignKey("projekte.id", ondelete="CASCADE"), nullable=False, index=True)
+    nummer: Mapped[int] = mapped_column(Integer, nullable=False)
+    datei_id: Mapped[int] = mapped_column(ForeignKey("dateien.id", ondelete="RESTRICT"), nullable=False)
+    daten: Mapped[dict] = mapped_column(DETAILS_TYP, nullable=False)
+    kennwerte: Mapped[dict] = mapped_column(DETAILS_TYP, nullable=False)
+    leser_version: Mapped[str] = mapped_column(String(20), nullable=False)
+    auswertung_datei_id: Mapped[int | None] = mapped_column(ForeignKey("dateien.id", ondelete="SET NULL"))
+    uebergabe_datei_id: Mapped[int | None] = mapped_column(ForeignKey("dateien.id", ondelete="SET NULL"))
+    erstellt_von_id: Mapped[int | None] = mapped_column(ForeignKey("benutzer.id", ondelete="SET NULL"))
+    erstellt_am: Mapped[datetime] = mapped_column(UTCZeit, nullable=False, default=jetzt)
+    geprueft_von_id: Mapped[int | None] = mapped_column(ForeignKey("benutzer.id", ondelete="SET NULL"))
+    geprueft_am: Mapped[datetime | None] = mapped_column(UTCZeit)
+    pruefung: Mapped[dict | None] = mapped_column(DETAILS_TYP)   # bestätigte Hinweise, Bemerkung
+
+
+class ZusammenfassungVorlage(Base):
+    """Vorlage „Zusammenfassung Effizienzhaus“ – jede Änderung eine neue Version, Zeilen werden nie geändert."""
+    __tablename__ = "zusammenfassung_vorlagen"
+    id: Mapped[int] = mapped_column(Integer, primary_key=True)
+    version: Mapped[int] = mapped_column(Integer, nullable=False, unique=True)
+    texte: Mapped[dict] = mapped_column(DETAILS_TYP, nullable=False)
+    absender: Mapped[dict] = mapped_column(DETAILS_TYP, nullable=False)
+    unterschrift: Mapped[bytes | None] = mapped_column(LargeBinary)
+    unterschrift_typ: Mapped[str | None] = mapped_column(String(20))
+    siegel: Mapped[bytes | None] = mapped_column(LargeBinary)
+    siegel_typ: Mapped[str | None] = mapped_column(String(20))
+    aenderungsnotiz: Mapped[str] = mapped_column(Text, nullable=False)
+    erstellt_von_id: Mapped[int | None] = mapped_column(ForeignKey("benutzer.id", ondelete="SET NULL"))
+    erstellt_am: Mapped[datetime] = mapped_column(UTCZeit, nullable=False, default=jetzt)
+
+
+class EhZusammenfassung(Base):
+    """Erzeugte Zusammenfassung Effizienzhaus – Word eingefroren (Unterlage, sha256), nie neu erzeugt."""
+    __tablename__ = "eh_zusammenfassungen"
+    __table_args__ = (UniqueConstraint("projekt_id", "versionsnummer", name="uq_eh_zusammenfassung_version"),)
+    id: Mapped[int] = mapped_column(Integer, primary_key=True)
+    projekt_id: Mapped[int] = mapped_column(ForeignKey("projekte.id", ondelete="CASCADE"), nullable=False, index=True)
+    import_id: Mapped[int] = mapped_column(ForeignKey("hottgenroth_importe.id", ondelete="RESTRICT"), nullable=False, index=True)
+    versionsnummer: Mapped[int] = mapped_column(Integer, nullable=False)
+    vorlage_version: Mapped[int] = mapped_column(Integer, nullable=False)
+    konditionen_version: Mapped[int | None] = mapped_column(Integer)
+    inhalt: Mapped[dict] = mapped_column(DETAILS_TYP, nullable=False)
+    platzhalter: Mapped[list] = mapped_column(DETAILS_TYP, nullable=False)
+    datei_id: Mapped[int] = mapped_column(ForeignKey("dateien.id", ondelete="RESTRICT"), nullable=False)
+    sha256: Mapped[str] = mapped_column(String(64), nullable=False)
+    generator_version: Mapped[str | None] = mapped_column(String(40))
+    cockpit: Mapped[str | None] = mapped_column(String(40))
+    erstellt_von_id: Mapped[int | None] = mapped_column(ForeignKey("benutzer.id", ondelete="SET NULL"))
+    erstellt_am: Mapped[datetime] = mapped_column(UTCZeit, nullable=False, default=jetzt)

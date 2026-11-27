@@ -28,7 +28,7 @@ hochladen = rolle("berater", "verwaltung")
 loeschen = rolle("berater")
 nur_admin = rolle("admin")
 
-Kategorie = Literal["kostenschaetzung", "energieausweis", "plaene", "fotos", "checkliste", "angebote", "sonstiges"]
+Kategorie = Literal["kostenschaetzung", "energieausweis", "plaene", "fotos", "checkliste", "angebote", "energieberechnung", "sonstiges"]
 
 
 def _namen(db: Session, ids) -> dict[int, str]:
@@ -98,6 +98,8 @@ async def datei_hochladen(projekt_id: int, kategorie: Kategorie, dateiname: str,
             protokollieren(db, request, "datei_abgelehnt", ich.id, projekt_id=p.id, grund=str(fehler), groesse=groesse)
             db.commit()
             raise HTTPException(415, str(fehler)) from None
+        if typ.schluessel == "sqproj" and kategorie != "energieberechnung":
+            raise HTTPException(415, "Hottgenroth-Projektdateien (.sqproj) bitte in der Kategorie „Energieberechnung“ hochladen.")
 
         doppelt = db.scalar(select(Datei).where(Datei.projekt_id == p.id, Datei.sha256 == sha, Datei.geloescht_am.is_(None)))
         if doppelt is not None:
@@ -257,11 +259,16 @@ def projekt_endgueltig_loeschen(projekt_id: int, daten: Bestaetigung, request: R
     if fragen_ids:
         db.execute(delete(AuslegungsAntwort).where(AuslegungsAntwort.frage_id.in_(fragen_ids)))
         db.execute(delete(Auslegungsfrage).where(Auslegungsfrage.id.in_(fragen_ids)))
+    # Hottgenroth-Importe und Zusammenfassungen (Migration 0021) verweisen auf Dateien → vor den Dateien löschen, im Protokoll zählen
+    from app.modelle import EhZusammenfassung, HottgenrothImport
+    anzahl_zusammenfassungen = db.execute(delete(EhZusammenfassung).where(EhZusammenfassung.projekt_id == p.id)).rowcount
+    anzahl_importe = db.execute(delete(HottgenrothImport).where(HottgenrothImport.projekt_id == p.id)).rowcount
     anzahl_berichte = db.execute(delete(Bericht).where(Bericht.projekt_id == p.id)).rowcount
     db.execute(delete(Datei).where(Datei.projekt_id == p.id))
     db.delete(p)
     protokollieren(db, request, "projekt_endgueltig_geloescht", ich.id, projekt_id=p.id, projektnummer=p.projektnummer,
-                   berichte=anzahl_berichte, dateien=len(speichernamen), auslegungsfragen=len(fragen_ids))
+                   berichte=anzahl_berichte, dateien=len(speichernamen), auslegungsfragen=len(fragen_ids),
+                   hottgenroth_importe=anzahl_importe, eh_zusammenfassungen=anzahl_zusammenfassungen)
     db.commit()
     for name in speichernamen:  # Inhalte erst nach erfolgreichem Commit entfernen
         dateien.entfernen(name)
@@ -274,6 +281,14 @@ def datei_endgueltig_loeschen(datei_id: int, daten: Bestaetigung, request: Reque
     d = _datei_im_papierkorb(db, datei_id)
     if daten.bestaetigung != d.dateiname_original:
         raise HTTPException(422, "Zur Bestätigung bitte den Dateinamen angeben.")
+    from app.modelle import EhZusammenfassung, HottgenrothImport
+    if db.scalar(select(HottgenrothImport.nummer).where(HottgenrothImport.datei_id == d.id)) is not None:
+        raise HTTPException(409, "Diese Projektdatei ist die Grundlage eines Hottgenroth-Imports und bleibt als Nachweis erhalten.")
+    if db.scalar(select(EhZusammenfassung.id).where(EhZusammenfassung.datei_id == d.id)) is not None:
+        raise HTTPException(409, "Dieses Word ist eine eingefrorene Zusammenfassung Effizienzhaus und bleibt als Nachweis erhalten.")
+    for spalte in (HottgenrothImport.auswertung_datei_id, HottgenrothImport.uebergabe_datei_id):  # Verweis lösen (SET NULL)
+        for imp in db.scalars(select(HottgenrothImport).where(spalte == d.id)):
+            setattr(imp, spalte.key, None)
     name, projekt_id = d.speichername, d.projekt_id
     db.delete(d)
     protokollieren(db, request, "datei_endgueltig_geloescht", ich.id, projekt_id=projekt_id, datei_id=datei_id)

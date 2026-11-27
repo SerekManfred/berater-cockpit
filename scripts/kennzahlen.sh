@@ -22,7 +22,10 @@ kireferenzen ki_referenzen schluessel
 einstellungen einstellungen schluessel
 zaehler projektnummer_zaehler jahr
 auslegungsfragen auslegungsfragen id
-auslegungsantworten auslegungs_antworten id"
+auslegungsantworten auslegungs_antworten id
+hottgenrothimporte hottgenroth_importe id
+zusammenfassungsvorlagen zusammenfassung_vorlagen id
+ehzusammenfassungen eh_zusammenfassungen id"
 
 sql() { docker exec -i "$CONTAINER" psql -X -q -v ON_ERROR_STOP=1 -U "$BENUTZER" -d "$DB" -At -F' ' "$@"; }
 

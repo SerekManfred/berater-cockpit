@@ -8,6 +8,7 @@ from sqlalchemy.orm import Session
 from app import (angebotsvorlagen_api, konditionen_quellen, auth, bericht_init, benutzer_api, checkliste, dateien_api, foerderpruefung, konditionen_zentrale,
                  projekte_api, word)
 from app import auslegung_api, init_schnellweg, ki_referenzen_api, systeminfo, wohneinheiten
+from app.hottgenroth import api as hottgenroth_api
 from app.auth import aktueller_benutzer, rolle
 from app.db import get_db
 from app.rechnen import (FoerdervergleichEingaben, FoerdervergleichIn, eingabe_hash, foerdervergleich_rechnen, lade_geplante,
@@ -37,6 +38,7 @@ app.include_router(systeminfo.router)
 app.include_router(angebotsvorlagen_api.router)
 app.include_router(foerderpruefung.router)
 app.include_router(auslegung_api.router)
+app.include_router(hottgenroth_api.router)
 
 
 @app.get("/health")

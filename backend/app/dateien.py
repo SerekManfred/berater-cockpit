@@ -36,7 +36,10 @@ TYPEN = {
     "heic": Typ("heic", "image/heic", (".heic", ".heif"), bild=True),
     "xlsx": Typ("xlsx", "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet", (".xlsx",)),
     "docx": Typ("docx", "application/vnd.openxmlformats-officedocument.wordprocessingml.document", (".docx",)),
+    # Hottgenroth-Projektdatei (Energieberater/HottCAD) – eine SQLite-Datenbank; wird nur lesend ausgewertet (app/hottgenroth)
+    "sqproj": Typ("sqproj", "application/vnd.sqlite3", (".sqproj",)),
 }
+SQLITE_KOPF = b"SQLite format 3\x00"
 ERLAUBTE_ENDUNGEN = sorted({e for t in TYPEN.values() for e in t.endungen})
 HEIC_MARKEN = {b"heic", b"heix", b"hevc", b"hevx", b"heim", b"heis", b"mif1", b"msf1"}
 
@@ -82,6 +85,8 @@ def typ_erkennen(pfad: Path) -> Typ | None:
         kopf = f.read(64)
     if kopf.startswith(b"%PDF-"):
         return TYPEN["pdf"]
+    if kopf.startswith(SQLITE_KOPF):
+        return TYPEN["sqproj"]
     if kopf.startswith(b"\xff\xd8\xff"):
         return TYPEN["jpg"]
     if kopf.startswith(b"\x89PNG\r\n\x1a\n"):
@@ -106,7 +111,7 @@ def typ_erkennen(pfad: Path) -> Typ | None:
 def pruefen(pfad: Path, dateiname: str) -> Typ:
     typ = typ_erkennen(pfad)
     if typ is None:
-        raise DateiAbgelehnt("Dateityp nicht erlaubt. Erlaubt sind PDF, JPG, PNG, HEIC, XLSX und DOCX.")
+        raise DateiAbgelehnt("Dateityp nicht erlaubt. Erlaubt sind PDF, JPG, PNG, HEIC, XLSX, DOCX und Hottgenroth-Projektdateien (SQPROJ).")
     endung = Path(dateiname).suffix.lower()
     if endung not in typ.endungen:
         raise DateiAbgelehnt(f"Die Endung „{endung or '(keine)'}“ passt nicht zum Inhalt der Datei ({typ.schluessel.upper()}).")

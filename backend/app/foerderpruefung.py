@@ -82,7 +82,8 @@ def pruefbare_felder() -> dict[str, dict]:
 
 
 # Einstieg der KfW-Programmseiten (www.kfw.de/<Programmnummer>, Geschäftsführer 20.11.2026) – nur Adressen, keine Werte
-KFW_PROGRAMMNUMMERN = {"beg_em": ("358", "359"), "beg_wg": ("261",), "kfw_266": ("266",), "kfw_458": ("458",)}
+KFW_PROGRAMMNUMMERN = {"beg_em": ("358", "359"), "beg_wg": ("261",), "kfw_266": ("266",), "kfw_297_298": ("297", "298"),
+                       "kfw_458": ("458",)}
 
 
 def bewusst_leer(kond: dict, pfad: str) -> str | None:

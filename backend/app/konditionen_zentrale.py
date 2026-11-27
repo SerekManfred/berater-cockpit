@@ -139,6 +139,20 @@ PROGRAMME = [
         F("kfw_266.ee_ausnahme", "Ausnahme von der EE-Klasse", "text_lang"),
         *frist("kfw_266"),
     ]},
+    # KfW 297/298 Neubau (Auftrag Hottgenroth/Zusammenfassung, Geschäftsführer 27.11.2026): Werte für die Zusammenfassung
+    # Effizienzhaus. Alle Felder optional (ältere Versionen bleiben gültig); sobald ein Wert gesetzt ist, sind Quelle und
+    # Prüfdatum Pflicht (Prüfregel unten). Werte nur über Entwurf und Vier-Augen-Freigabe mit Fundstelle.
+    {"id": "kfw_297_298", "titel": "KfW 297/298 – Klimafreundlicher Neubau Wohngebäude", "quelle_pflicht": False, "felder": [
+        F("kfw_297_298.quelle", "Quelle", "text", pflicht=False, kern=True),
+        F("kfw_297_298.geprueft_am", "Geprüft am", "datum", pflicht=False, kern=True),
+        *[F(f"kfw_297_298.kredit_je_we.{s}", f"Kredithöchstbetrag je WE – {t}", "euro", pflicht=False, kern=True)
+          for s, t in (("EH55", "Effizienzhaus 55"), ("EH40", "Effizienzhaus 40"))],
+        *[F(f"kfw_297_298.ht_anteil.{s}", f"H′T zulässig in % des Referenzgebäudes – {t}", "zahl", pflicht=False)
+          for s, t in (("EH55", "Effizienzhaus 55"), ("EH40", "Effizienzhaus 40"))],
+        F("kfw_297_298.eh55_antragsfrist", "Effizienzhaus 55 – letzte Antragstellung (leer = keine Frist hinterlegt)", "datum",
+          pflicht=False, kern=True),
+        F("kfw_297_298.hinweis", "Hinweis", "text_lang", pflicht=False),
+    ]},
     {"id": "kfw_458", "titel": "KfW 458 – Heizungsförderung (Zuschuss)", "felder": [
         *quelle("kfw_458"),
         F("kfw_458.hoechstkosten.erste_we", "Förderfähige Kosten – 1. WE", "euro", kern=True),
@@ -335,6 +349,17 @@ def pruefen(daten: dict, aenderungsnotiz: str | None = None) -> list[dict]:
             f("wpb.baujahr_bis", "Sanierungszustand nur zusammen mit dem Baujahr angeben")
         elif bj is not None and not zustand:
             f("wpb.huelle_saniert_ab_1984_max", "Zum Baujahr bitte den Sanierungszustand angeben (Gebäudehülle oder Außenwand)")
+    werte_297 = [p for p in FELDER if p.startswith("kfw_297_298.") and p not in ("kfw_297_298.quelle", "kfw_297_298.geprueft_am",
+                                                                                  "kfw_297_298.hinweis")
+                 and not _leer(lesen_pfad(daten, p))]
+    if werte_297:
+        for p in ("kfw_297_298.quelle", "kfw_297_298.geprueft_am"):
+            if _leer(lesen_pfad(daten, p)):
+                f(p, "Pflichtfeld, sobald ein Wert für KfW 297/298 gesetzt ist")
+    for s in ("EH55", "EH40"):
+        anteil = lesen_pfad(daten, f"kfw_297_298.ht_anteil.{s}")
+        if _ist_zahl(anteil) and not 0 < anteil <= 100:
+            f(f"kfw_297_298.ht_anteil.{s}", "Anteil in Prozent (größer 0, höchstens 100)")
     if aenderungsnotiz is not None and not aenderungsnotiz.strip():
         f("aenderungsnotiz", "Bitte kurz beschreiben, was sich ändert und warum")
     return fehler
