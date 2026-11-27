@@ -1008,3 +1008,25 @@ vollständig erhalten und getestet. Bevor echte Nutzer oder Kundendaten ins Syst
 - Der Vorbehalt für KfW 266 bei Einzelmaßnahmen (EH 85 EE per Bilanz) bleibt davon unberührt.
 - Generator 0.7.0 (Word): keine Empfehlung, keine Markierung, kein Vorbehalt-Zeichen bei WPB. Datenvertrag
   `docs/Datenvertrag_Generator_WPB_angekuendigt.md` gilt nur noch für die Felder `angekuendigt` und `angekuendigt_text`.
+
+## Hottgenroth-Import und Zusammenfassung Effizienzhaus (Auftrag Geschäftsführer 27.11.2026, lokal, nicht eingespielt)
+- Auftrag: `docs/auftraege/Auftrag_Hottgenroth_Import_Zusammenfassung.md`. Code: `backend/app/hottgenroth/` (Leser `lesen.py` mit
+  `midas.py`/`nrbf.py`/`geometrie.py`, Excel `auswertung.py` + `uebergabe.py`, Inhalt `zusammenfassung.py`, Startwerte
+  `vorlage_standard.py`, Routen `api.py`), Generator `src/eh_zusammenfassung.js` (0.8.0), Oberfläche `Hottgenroth.jsx` und
+  `ZusammenfassungVorlage.jsx`. Migration **0021** (Tabellen `hottgenroth_importe`, `zusammenfassung_vorlagen`, `eh_zusammenfassungen`,
+  Kategorie `energieberechnung`).
+- Ablauf in der Projektakte: `.sqproj` hochladen (nur Kategorie „Energieberechnung“) → Import Nr. n (Projektauswertung und
+  Übergabedatei `.xlsx` in den Unterlagen) → „Übergabedaten geprüft“ (nur Rolle Berater, alle Warnungen bestätigt, einmal je Import)
+  → Zusammenfassung erzeugen (Berater/Verwaltung/Admin), Word eingefroren mit sha256, nie neu erzeugt.
+- Die Projektdatei wird nur lesend geöffnet (SQLite `mode=ro&immutable=1`, `trusted_schema=OFF`, Grenzen gegen Zip-Bomben, kein
+  DOCTYPE/ENTITY im XML). Kunden- und Objektdaten kommen nur aus der Projektakte (Berichtskunde), nie aus der Datei; Abweichungen
+  werden Warnungen.
+- Förderwerte (Kredit je WE, H′T-Anteil, Antragsfrist EH 55) nur aus dem Konditionen-Programm `kfw_297_298`. Fehlt ein Wert, steht im
+  Word ein gelber Platzhalter «…». Nichts davon ist im Code fest verdrahtet.
+- Vorlage „Zusammenfassung Effizienzhaus“: jede Änderung neue Version (nur Admin, `basis_version` gegen gleichzeitiges Bearbeiten),
+  erlaubte Felder `[[…]]` nur aus `vorlage_standard.FELDER`. Unterschrift und Siegel liegen nur in der Datenbank, nicht im Repo.
+- Löschen: Eine Projektdatei mit Import und ein eingefrorenes Word sind gegen endgültiges Löschen gesperrt (409).
+- Protokoll ohne Namen/Anschriften: `hottgenroth_importiert`, `hottgenroth_import_fehlgeschlagen`, `hottgenroth_geprueft`,
+  `zusammenfassung_vorlage_gespeichert`, `eh_zusammenfassung_erzeugt`, `eh_zusammenfassung_fehlgeschlagen`.
+- Tests: `backend/tests/test_hottgenroth.py` (reduzierte Testdatei `tests/daten/hottgenroth_probe.sqproj.gz`, Testkunde),
+  `frontend/src/Hottgenroth.test.jsx`, Generator `test/test.js`.
