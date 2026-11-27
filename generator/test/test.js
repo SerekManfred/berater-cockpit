@@ -298,6 +298,12 @@ async function text(daten) {
       assert.strictEqual(r.headers.get("x-generator-version"), VERSION, "Kopfzeile /health");
       const f = await fetch(`http://127.0.0.1:${port}/unbekannt`, { method: "POST" });
       assert.strictEqual(f.headers.get("x-generator-version"), VERSION, "Kopfzeile auch bei 404");
+      const zd = fs.readFileSync(path.join(__dirname, "zusammenfassung_eh55.json"));
+      const zr = await fetch(`http://127.0.0.1:${port}/zusammenfassung/effizienzhaus`, { method: "POST", body: zd });
+      assert.strictEqual(zr.status, 200, "Route Zusammenfassung");
+      assert(zr.headers.get("content-type").startsWith("application/vnd.openxmlformats"), "Zusammenfassung: .docx");
+      const zf = await fetch(`http://127.0.0.1:${port}/zusammenfassung/effizienzhaus`, { method: "POST", body: "{}" });
+      assert.strictEqual(zf.status, 422, "Zusammenfassung ohne Daten: 422");
     } finally { srv.kill(); }
   }
   // ab 0.6.4: KfW 266 mit Vorbehalt (EH 85 EE per Bilanz nicht nachgewiesen) – Zusatz nur bei gesetztem Flag
@@ -308,5 +314,34 @@ async function text(daten) {
     assert(tv.includes("(Vorbehalt: EH 85 EE per Bilanz nachzuweisen)"), "KfW 266 Vorbehalt: Zusatz fehlt im Word-Bericht");
     assert(!(await text(fx("fall1_angekuendigt"))).includes("(Vorbehalt:"), "KfW 266 ohne Vorbehalt: kein Zusatz");
   }
-  console.log(`OK – KfW 458 (A/B/C/E/EFH, Stromdirekt, NWG, EH, INIT Potenzial/Kosten) + Versionsmeldung + Dokumenteigenschaften + WPB angekündigt (4 Fälle) + Bericht INIT (mit/ohne EH-Vergleich) + ${n} Beispiele + Referenzzahlen + Schutzprüfungen + Fachwerte mit/ohne + ${MODULE.length} Checklisten`);
+  // ab 0.8.0: Zusammenfassung Effizienzhaus – Blockliste aus dem Cockpit (Testprojekt PROBE), Platzhalter gelb, Schutzprüfungen
+  {
+    const { erzeugeZusammenfassung } = require("../src/eh_zusammenfassung");
+    const { VERSION } = require("../src/version");
+    const JSZip = require("jszip");
+    const zd = JSON.parse(fs.readFileSync(path.join(__dirname, "zusammenfassung_eh55.json"), "utf8"));
+    const lies = async buf => { const z = await JSZip.loadAsync(buf); return { z, doc: (await z.file("word/document.xml").async("string")) }; };
+    const { z, doc } = await lies(await erzeugeZusammenfassung(zd));
+    const t = doc.replace(/<[^>]+>/g, "");
+    for (const s of ["Zusammenfassung zum beiliegenden Nachweis Effizienzhaus 55", "Erika Testbauherr", "Bitte beachten!",
+      "Ergebnis der Berechnung", "Dachfläche Nord", "Mineralfaserdämmung 20 cm – WLG 035 zwischen Sparren (Holzanteil 16,7 %)",
+      "Photovoltaikanlage – 4,5 kWp", "Bitte leiten Sie dies an Ihren Heizungsbauer weiter!", "«Kredit je WE»", "«Antragsfrist EH 55»"])
+      assert(t.includes(s), "Zusammenfassung: fehlt " + s);
+    assert(!/undefined|NaN|\[\[|\{\{/.test(t), "Zusammenfassung: undefined/Feld/Platzhalter-Klammern im Text");
+    assert(/<w:highlight w:val="yellow"\/>[\s\S]{0,400}«Kredit je WE»/.test(doc), "Platzhalter gelb markiert");
+    const custom = await z.file("docProps/custom.xml").async("string");
+    assert(custom.includes('name="Vorlage"') && custom.includes(VERSION), "Zusammenfassung: Dokumenteigenschaften");
+    const ohneBild = Object.keys(z.files).filter(n => n.startsWith("word/media/")).length;
+    // mit Unterschrift und Siegel (PNG): zwei Bilder mehr, Text unverändert
+    const b64 = n => fs.readFileSync(path.join(__dirname, "bilder", n)).toString("base64");
+    const mit = await lies(await erzeugeZusammenfassung({ ...zd, bilder: { unterschrift: b64("dach.jpg"), siegel: b64("front.jpg") } }));
+    assert.strictEqual(Object.keys(mit.z.files).filter(n => n.startsWith("word/media/")).length - ohneBild, 2, "Unterschrift und Siegel eingebettet");
+    assert.strictEqual(mit.doc.replace(/<[^>]+>/g, ""), t, "Bilder ändern den Text nicht");
+    const wirft = async (d, re) => { await assert.rejects(erzeugeZusammenfassung(d), re); };
+    await wirft({ ...zd, absender: { ...zd.absender, firma: "" } }, /absender.firma/);
+    await wirft({ ...zd, bloecke: [...zd.bloecke, { typ: "skript" }] }, /Unbekannter Blocktyp/);
+    await wirft({ ...zd, bloecke: [{ typ: "p", text: "Darlehen [[Kredit je WE]]" }] }, /Nicht ersetztes Vorlagenfeld/);
+    await wirft({ ...zd, bilder: { siegel: Buffer.from("GIF89a").toString("base64") } }, /nur PNG oder JPG/);
+  }
+  console.log(`OK – KfW 458 (A/B/C/E/EFH, Stromdirekt, NWG, EH, INIT Potenzial/Kosten) + Versionsmeldung + Dokumenteigenschaften + WPB angekündigt (4 Fälle) + Bericht INIT (mit/ohne EH-Vergleich) + ${n} Beispiele + Referenzzahlen + Schutzprüfungen + Fachwerte mit/ohne + ${MODULE.length} Checklisten + Zusammenfassung Effizienzhaus`);
 })().catch(e => { console.error("FEHLER:", e.message); process.exit(1); });

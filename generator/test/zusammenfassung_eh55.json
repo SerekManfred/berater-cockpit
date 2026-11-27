@@ -1,0 +1,953 @@
+{
+ "absender": {
+  "firma": "Energieberatung Manfred Serek GmbH",
+  "zeile1": "Energieberatung",
+  "zeile2": "Manfred Serek GmbH",
+  "strasse": "Poststraße 15",
+  "plz_ort": "89352 Ellzee-Stoffenried",
+  "telefon": "08283 897340",
+  "mail": "info@energie-berater.de",
+  "geschaeftsfuehrer": "Andrew Mack",
+  "unterschrift_name": "Manfred Serek",
+  "unterschrift_titel": "Gebäudeenergieberater (GIH), Reg.-Nr. 09-1103"
+ },
+ "bv": "Erika Testbauherr, Bauplatz 7, 51067 Köln",
+ "datum": "27.11.2026",
+ "titel": "Zusammenfassung Effizienzhaus 55",
+ "bloecke": [
+  {
+   "typ": "brief",
+   "empfaenger": [
+    "Erika Testbauherr",
+    "Musterweg 3",
+    "51067 Köln"
+   ],
+   "datum": "27.11.2026"
+  },
+  {
+   "typ": "bv",
+   "text": "**BV:** Erika Testbauherr, Bauplatz 7, 51067 Köln"
+  },
+  {
+   "typ": "titel",
+   "text": "Zusammenfassung zum beiliegenden Nachweis Effizienzhaus 55",
+   "unter": "KfW-Programm 297/298 „Klimafreundlicher Neubau – Wohngebäude“ · Berechnungsstand 19.11.2026"
+  },
+  {
+   "typ": "p",
+   "text": "Sehr geehrte Damen und Herren,"
+  },
+  {
+   "typ": "p",
+   "text": "der beiliegende Nachweis für Ihr geplantes Effizienzhaus 55 stützt sich auf die von Ihnen zur Verfügung gestellten Unterlagen sowie auf Annahmen zu den verwendeten Baumaterialien und deren Eigenschaften. Unter diesen Randbedingungen wird gegenüber der KfW nachgewiesen, dass Ihr Bauvorhaben die Kriterien für die Förderung erfüllt."
+  },
+  {
+   "typ": "p",
+   "text": "In der Praxis bedeutet das: Wird ein hier beschriebenes Bauteil oder die Anlagentechnik geändert, kann das Effizienzhausniveau und damit Ihre Förderung verloren gehen. Bitte sprechen Sie deshalb jede Abweichung vorher mit uns ab, damit Ihrer Förderung nichts im Wege steht."
+  },
+  {
+   "typ": "p",
+   "text": "Bitte beachten Sie: Aufwendige Änderungen der Berechnung stellen wir nach Aufwand auf Stundenbasis in Rechnung."
+  },
+  {
+   "typ": "p",
+   "text": "**Bitte beachten Sie hierzu auch die jeweiligen KfW-Merkblätter!**"
+  },
+  {
+   "typ": "p",
+   "text": "Für Rückfragen stehe ich Ihnen gerne zur Verfügung."
+  },
+  {
+   "typ": "unterschrift"
+  },
+  {
+   "typ": "seitenumbruch"
+  },
+  {
+   "typ": "h1",
+   "text": "Bitte beachten!"
+  },
+  {
+   "typ": "h3",
+   "text": "Mindestanforderungen"
+  },
+  {
+   "typ": "p",
+   "text": "Bitte beachten Sie unbedingt die technischen Mindestanforderungen, die Voraussetzung für die Förderung sind. Sie müssen eingehalten werden, sonst kann die Förderung nicht gewährt werden. Bitte geben Sie diese Unterlagen an die ausführenden Handwerker weiter, damit die geforderten Bauteile und Systeme eingebaut werden. Halten Sie bei Änderungen von Bauteilen, Baustoffen oder Dämmstärken beheizter Flächen bitte immer vorher Rücksprache mit dem Energieberater. Die Prüfung der bau- und handwerklich fachgerechten Ausführung sowie eine Bauleitung oder bauleitende Überwachung gehören **nicht** zu den Aufgaben des Energieeffizienz-Experten."
+  },
+  {
+   "typ": "h3",
+   "text": "Rechnungsdaten"
+  },
+  {
+   "typ": "p",
+   "text": "Achten Sie darauf, dass auf den Rechnungen alle Dämmstoffdicken, die Wärmeleitfähigkeit (Bemessungswert) und der U_{W}-Wert der Fenster bzw. bei Glastausch der U_{g}-Wert ausdrücklich ausgewiesen sind. Auf allen Rechnungen muss der Investitionsort angegeben sein. Die Rechnungen müssen in deutscher Sprache ausgestellt und unbar beglichen sein."
+  },
+  {
+   "typ": "h3",
+   "text": "Hydraulischer Abgleich nach Verfahren B"
+  },
+  {
+   "typ": "p",
+   "text": "Beim Einbau wassergeführter Heiztechnik ist stets ein hydraulischer Abgleich nach Verfahren B durchzuführen und auf dem Formular der VdZ zu bestätigen. Die Ergebnisse zum sommerlichen Wärmeschutz sind zu beachten."
+  },
+  {
+   "typ": "h3",
+   "text": "Bestätigung nach Durchführung"
+  },
+  {
+   "typ": "p",
+   "text": "Nach Fertigstellung aller Maßnahmen muss die planmäßige Durchführung vom betreuenden Energieeffizienz-Experten bestätigt werden. Beachten Sie in diesem Zusammenhang die Fristen Ihrer Bank für die Schlussabnahme."
+  },
+  {
+   "typ": "h3",
+   "text": "Änderung der Flächen"
+  },
+  {
+   "typ": "p",
+   "text": "Bitte ändern Sie beheizte oder unbeheizte Räume nicht ohne vorherige Absprache mit dem Energieberater."
+  },
+  {
+   "typ": "h3",
+   "text": "Kontrolle der Antragsdaten"
+  },
+  {
+   "typ": "p",
+   "text": "Bitte kontrollieren Sie zusätzlich alle Daten im KfW-Formular für Ihr Effizienzhaus sowie die Angaben zu Ihrem Darlehen und merken Sie sich die Fristen vor. Nach Ablauf der Fristen verfällt die Förderung. Nur korrekt und vollständig ausgefüllte Anträge können zügig bearbeitet werden."
+  },
+  {
+   "typ": "h3",
+   "text": "Blower-Door-Test"
+  },
+  {
+   "typ": "p",
+   "text": "Bei einem Effizienzhaus führen wir immer einen Luftdichtheitstest durch. Für Ihr Gebäude mit Fensterlüftung muss n_{50} ≤ 3,0 h^{-1} erreicht werden."
+  },
+  {
+   "typ": "rahmen",
+   "text": "**Förderungen sind immer vor Auftragserteilung bzw. Maßnahmenbeginn zu beantragen.**"
+  },
+  {
+   "typ": "seitenumbruch"
+  },
+  {
+   "typ": "h1",
+   "text": "Ergebnis der Berechnung"
+  },
+  {
+   "typ": "p",
+   "text": "Die Berechnung nach GEG / DIN V 18599 (GModG 2026) ergibt für Ihr Gebäude folgende Kennwerte. Maßgebend für die Förderstufe Effizienzhaus 55 sind der Primärenergiebedarf und der Transmissionswärmeverlust H'_{T}, jeweils bezogen auf das Referenzgebäude."
+  },
+  {
+   "typ": "tabelle",
+   "kopf": [
+    "Kennwert",
+    "Ihr Gebäude",
+    "Anforderung",
+    "bezogen auf Referenzgebäude"
+   ],
+   "breiten": [
+    34,
+    22,
+    22,
+    22
+   ],
+   "zeilen": [
+    [
+     "Gebäudenutzfläche A_{N}",
+     "31,28 m²",
+     "",
+     ""
+    ],
+    [
+     "Primärenergiebedarf Q_{P}",
+     "75,9 kWh/(m²a)",
+     "≤ 89,3 kWh/(m²a)",
+     "47 % (zul. 55 %)"
+    ],
+    [
+     "Transmissionswärmeverlust H'_{T}",
+     "0,334 W/(m²K)",
+     "≤ 0,345 W/(m²K)",
+     "{{HT-Anteil}}"
+    ],
+    [
+     "Anteil erneuerbarer Energien",
+     "86,8 %",
+     "",
+     ""
+    ],
+    [
+     "CO_{2}-Emissionen",
+     "738 kg/a",
+     "",
+     ""
+    ]
+   ]
+  },
+  {
+   "typ": "hinweis",
+   "text": "**Die Anforderungen an das Effizienzhaus 55 werden mit den nachfolgend beschriebenen Bauteilen und der Anlagentechnik eingehalten.**"
+  },
+  {
+   "typ": "seitenumbruch"
+  },
+  {
+   "typ": "h1",
+   "text": "Berechnung aller relevanten Bauteile, Baumaterialien und Anlagentechnik"
+  },
+  {
+   "typ": "h2",
+   "text": "Gebäudehülle Effizienzhaus 55"
+  },
+  {
+   "typ": "bauteil",
+   "titel": "Dachfläche Nord",
+   "zeilen": [
+    "Dampfbremsfolie",
+    "Mineralfaserdämmung 20 cm – WLG 035 zwischen Sparren (Holzanteil 16,7 %)",
+    "Holzfaserdämmplatte 6 cm – WLG 045",
+    "belüftete Dacheindeckung (Lattung, Dachziegel)"
+   ],
+   "u": "⇨ U-Wert_{(Gesamtaufbau)} = 0,18 W/(m²K)",
+   "legende": false
+  },
+  {
+   "typ": "bauteil",
+   "titel": "Dachfläche Süd",
+   "zeilen": [
+    "Gipskartonplatten 2,5 cm",
+    "Polyethylenfolie",
+    "Mineralfaserdämmung 18 cm – WLG 040 zwischen Sparren (Holzanteil 12,5 %)",
+    "belüftete Dacheindeckung (Lattung, Dachziegel)"
+   ],
+   "u": "⇨ U-Wert_{(Gesamtaufbau)} = 0,26 W/(m²K)",
+   "legende": false
+  },
+  {
+   "typ": "bauteil",
+   "titel": "Außenwand, Giebelwand, Kniestock",
+   "zeilen": [
+    "Innenputz 1,5 cm",
+    "Ziegelmauerwerk T9 36,5 cm – λ = 0,09",
+    "Außenputz 2 cm"
+   ],
+   "u": "⇨ U-Wert_{(Gesamtaufbau)} = 0,23 W/(m²K)",
+   "legende": false
+  },
+  {
+   "typ": "bauteil",
+   "titel": "Bodenplatte",
+   "zeilen": [
+    "Bodenbelag Heizparkett 2,4 cm",
+    "Zement-Estrich 6 cm",
+    "Polyethylenfolie",
+    "Estrich-Dämmplatte 2,5 cm – WLG 040",
+    "Betonplatte 20 cm",
+    "Perimeterdämmung 12 cm – WLG 041"
+   ],
+   "u": "⇨ U-Wert_{(Gesamtaufbau)} = 0,25 W/(m²K)",
+   "legende": false
+  },
+  {
+   "typ": "hinweis",
+   "text": "**Alle Bauteile müssen thermisch getrennt werden!** **Achtung: Die Wärmeleitfähigkeit (WLG) der Perimeterdämmung ist der Bemessungswert. Das bestellte Material muss λ ≤ 0,041 W/(mK) (WLG 041) aufweisen!**"
+  },
+  {
+   "typ": "bauteil",
+   "titel": "Außenfenster und Fenstertüren",
+   "zeilen": [
+    "Fenster mit Dreifachverglasung",
+    "Gesamtenergiedurchlassgrad der Verglasung g = 0,50"
+   ],
+   "u": "⇨ U_{W}-Wert ≤ 0,80 W/(m²K)",
+   "legende": true
+  },
+  {
+   "typ": "bauteil",
+   "titel": "Rollladenkasten / Jalousiekasten",
+   "zeilen": [
+    "Verschattungseinrichtungen werden innerhalb der Dämmebene angebracht (lt. Berechnung: RokaLith in Ziegelwand)"
+   ],
+   "u": "⇨ U-Wert_{(Gesamtaufbau)} = 0,23 W/(m²K)",
+   "legende": false
+  },
+  {
+   "typ": "bauteil",
+   "titel": "Türen",
+   "zeilen": [
+    "Hauseingangstür"
+   ],
+   "u": "⇨ U_{D}-Wert ≤ 0,37 W/(m²K)",
+   "legende": false
+  },
+  {
+   "typ": "bauteil",
+   "titel": "Sommerlicher Wärmeschutz",
+   "zeilen": [
+    "Zur Einhaltung des sommerlichen Wärmeschutzes müssen außenliegende Verschattungseinrichtungen angebracht werden (im Nachweis angesetzt: außenliegende Lamellen/Raffstores, F_{C} ≤ 0,25)."
+   ]
+  },
+  {
+   "typ": "fussnote",
+   "text": "* Alle U-Werte in W/(m²K). Bei den materialspezifischen Wärmeleitfähigkeiten (λ) ist **nur der Bemessungswert maßgeblich**."
+  },
+  {
+   "typ": "p_rot",
+   "text": "**Es ist darauf zu achten, dass alle Dämmebenen – vor allem an erdberührten Bauteilen – geschlossen (lückenlos) ausgeführt werden!**"
+  },
+  {
+   "typ": "seitenumbruch"
+  },
+  {
+   "typ": "h1",
+   "text": "Anlagentechnik"
+  },
+  {
+   "typ": "p",
+   "text": "Nach Fertigstellung aller Maßnahmen muss deren Vollständigkeit und der korrekte Einsatz der Mittel bestätigt werden. Bitte beachten Sie, dass nach Abschluss der Maßnahmen eine von einem Fachunternehmen abgestempelte und unterschriebene Erklärung vorliegen muss."
+  },
+  {
+   "typ": "h2",
+   "text": "1. Heizung und Trinkwarmwasser"
+  },
+  {
+   "typ": "liste",
+   "punkte": [
+    "**Luft-Wasser-Wärmepumpe** zur Raumbeheizung"
+   ]
+  },
+  {
+   "typ": "einzug",
+   "text": "Das Heizungssystem mit der einberechneten Wärmepumpe darf keine aktive Kühlfunktion ausüben, da dies das Berechnungsergebnis negativ verändert."
+  },
+  {
+   "typ": "liste",
+   "punkte": [
+    "Wärmeerzeugung und -verteilung"
+   ],
+   "unter": [
+    "mit integriertem Heizstab (elektrische Nachheizung), Deckungsanteil Wärmepumpe 98,5 % lt. Berechnung",
+    "Heizwärmeübergabe durch Flächenheizung",
+    "Auslegungstemperatur 35/28 °C",
+    "Heizungspufferspeicher"
+   ]
+  },
+  {
+   "typ": "liste",
+   "punkte": [
+    "Trinkwassererwärmung"
+   ],
+   "unter": [
+    "dezentral über elektrisch beheizten Warmwasserspeicher (ca. 70 l lt. Berechnung)"
+   ]
+  },
+  {
+   "typ": "warnung",
+   "titel": "Achtung:",
+   "text": "Beim Einbau wassergeführter Heiztechnik bitte den hydraulischen Abgleich der Anlage nach **Verfahren B** vom Heizungsbauer auf dem Formular der VdZ bestätigen lassen."
+  },
+  {
+   "typ": "h3",
+   "text": "Anforderungen an die Wärmepumpe im Effizienzhaus 55"
+  },
+  {
+   "typ": "p",
+   "text": "Effizienzhäuser mit einer Luft-Wasser-Wärmepumpe mit Außeneinheit sind nur förderfähig, wenn die Geräuschemissionen der Außeneinheit die Geräuschemissionsgrenzwerte für Wärmepumpen der Europäischen Durchführungsverordnung (EU) Nr. 813/2013 (Ökodesign-Verordnung) in der Fassung vom 2. August 2013 unterschreiten. **Seit dem 1. Januar 2026 muss der Wert mindestens 10 dB unter diesem Grenzwert liegen** (zuvor 5 dB)."
+  },
+  {
+   "typ": "p",
+   "text": "Zusätzlich sind die Anforderungen der TA Lärm einzuhalten, wie sie im Leitfaden für die Verbesserung des Schutzes gegen Lärm bei stationären Geräten (LAI-Leitfaden) beschrieben sind. Wir empfehlen, die zulässigen Geräuschemissionen des Außengeräts und die Aufstellbedingungen mit dem interaktiven Online-Assistenten auf Basis des LAI-Leitfadens unter http://lwpapp.webyte.de zu bewerten. Zur Dokumentation sollte die Ergebnisseite des Online-Assistenten verwendet werden."
+  },
+  {
+   "typ": "p",
+   "text": "Aufwendungen für eine akustische Fachplanung werden als förderfähige Kosten anerkannt."
+  },
+  {
+   "typ": "p",
+   "text": "Ab dem 1. Januar 2027 dürfen in Effizienzhäusern dieser Förderrichtlinie ausschließlich Wärmepumpen mit natürlichem Kältemittel eingebaut werden."
+  },
+  {
+   "typ": "p",
+   "text": "Wärmepumpen müssen über Schnittstellen verfügen, über die sie automatisiert netzdienlich aktiviert und betrieben werden können (z. B. nach den Standards „SG Ready“ oder „VHP Ready“). Sie müssen außerdem an ein zertifiziertes Smart-Meter-Gateway angeschlossen werden können, damit energiewirtschaftlich relevante Mess- und Steuerungsvorgänge entsprechend dem Energiewirtschaftsgesetz und dem Messstellenbetriebsgesetz abgewickelt werden können."
+  },
+  {
+   "typ": "h2",
+   "text": "2. Lüftung und Luftdichtheit"
+  },
+  {
+   "typ": "p",
+   "text": "Nach Fertigstellung aller Maßnahmen muss deren Vollständigkeit und der korrekte Einsatz der Mittel bestätigt werden. Bitte beachten Sie, dass nach Abschluss der Maßnahmen eine von einem Fachunternehmen abgestempelte und unterschriebene Erklärung vorliegen muss."
+  },
+  {
+   "typ": "liste",
+   "punkte": [
+    "**Fensterlüftung** – in der Berechnung ist keine Lüftungsanlage berücksichtigt.",
+    "Der Feuchteschutz ist über ein Lüftungskonzept nach DIN 1946-6 nachzuweisen (siehe Abschnitt „Lüftung“)."
+   ]
+  },
+  {
+   "typ": "liste",
+   "punkte": [
+    "**Luftdichtheit:** Ein Luftdichtheitstest (Blower-Door-Test) **muss** nach Fertigstellung zur Abnahme durchgeführt werden. Folgender Wert für die volumenbezogene Luftdurchlässigkeit muss erreicht werden:"
+   ],
+   "unter": [
+    "für Gebäude mit mechanischer Lüftung: n_{50} ≤ 1,5 h^{-1}",
+    "für Gebäude mit Fensterlüftung: n_{50} ≤ 3,0 h^{-1}"
+   ]
+  },
+  {
+   "typ": "rahmen",
+   "text": "**Nach Fertigstellung aller Maßnahmen muss deren Vollständigkeit und der korrekte Einsatz der Mittel bestätigt werden. Bei Eigenleistungen muss nach Abschluss der Maßnahmen eine von einem Fachunternehmen abgestempelte und unterschriebene Erklärung vorliegen. Der Energieberater kann nur den Einbau des Materials bestätigen, nicht aber den fachgerechten Einbau.**"
+  },
+  {
+   "typ": "rahmen",
+   "text": "**Sollte das Heizungssystem mit der einberechneten Wärmepumpe __eine aktive Kühlfunktion__ erhalten, muss die Berechnung nach DIN V 18599 angepasst werden. Das verursacht Mehrkosten für die Berechnung und kann das Ergebnis verändern.**"
+  },
+  {
+   "typ": "h2",
+   "text": "3. Photovoltaikanlage"
+  },
+  {
+   "typ": "liste",
+   "punkte": [
+    "**Photovoltaikanlage – 4,5 kWp** (Modulfläche 16 m², Neigung 30°)"
+   ]
+  },
+  {
+   "typ": "einzug",
+   "text": "⇨ PV-Anlage mit mindestens 4,5 kWp Leistung notwendig für das Erreichen des Effizienzhaus 55."
+  },
+  {
+   "typ": "liste",
+   "punkte": [
+    "**Um eine Gefährdung des Effizienzhausniveaus auszuschließen, müssen Sie uns eine Vergrößerung oder Verkleinerung der PV-Anlage mitteilen; sie muss von uns freigegeben werden!**"
+   ]
+  },
+  {
+   "typ": "seitenumbruch"
+  },
+  {
+   "typ": "h3",
+   "text": "Sommerlicher Wärmeschutz"
+  },
+  {
+   "typ": "p",
+   "text": "Nicht nur ein zu geringer Wärmeschutz im Winter, sondern auch ein unzureichender Sonnenschutz im Sommer kann den Energieverbrauch erhöhen, wenn zu hohe Innentemperaturen durch Sonneneinstrahlung eine Kühlung erfordern. Der Nachweis nach DIN 4108-2 ist für jedes Effizienzhaus Bestandteil der Planung."
+  },
+  {
+   "typ": "h3",
+   "text": "Lüftung"
+  },
+  {
+   "typ": "p",
+   "text": "Nach DIN 1946-6 ist für Neubauten und Sanierungen nachzuweisen, dass der zum Feuchteschutz notwendige Luftaustausch unabhängig vom Nutzerverhalten sichergestellt ist. Im Zuge der Bauplanung muss deshalb mit einem Lüftungskonzept nachgewiesen werden, ob eine lüftungstechnische Maßnahme erforderlich ist. Eine Lüftungsanlage darf im KfW-Nachweis nur angerechnet werden, wenn sie nach DIN 1946-6 ausgelegt ist."
+  },
+  {
+   "typ": "p",
+   "text": "__Wegen der hohen Anforderungen an die Luftdichtheit empfehlen wir zur Sicherstellung des hygienischen Luftwechsels eine ventilatorgestützte Lüftung.__"
+  },
+  {
+   "typ": "p",
+   "text": "Die Veranlassung der Umsetzung lüftungstechnischer Maßnahmen verantwortet der Bauherr."
+  },
+  {
+   "typ": "hinweis",
+   "text": "**Achtung: Nur bei Auslegung der Lüftungsanlage nach DIN 1946-6 kann diese im Nachweis angerechnet werden. Bitte reichen Sie uns eine schriftliche Lüftungsplanung nach DIN 1946-6 ein.**"
+  },
+  {
+   "typ": "h3",
+   "text": "Luftdichtheit"
+  },
+  {
+   "typ": "p",
+   "text": "Ein Luftdichtheitstest (Blower-Door-Test) **muss** nach Fertigstellung zur Abnahme durchgeführt werden."
+  },
+  {
+   "typ": "p",
+   "text": "Während der Rohbauphase – nach Fertigstellung der luftdichten Hülle – **muss** zur Qualitätssicherung ein vorgezogener Luftdichtheitstest erfolgen, um Leckagen (z. B. an Folienanschlüssen, Fenstereinbindungen und sonstigen Anschlüssen) zu finden."
+  },
+  {
+   "typ": "h3",
+   "text": "Vermeidung und Optimierung von Wärmebrücken"
+  },
+  {
+   "typ": "p",
+   "text": "Für Wärmebrücken sieht der Gesetzgeber in der Berechnung einen hohen Pauschalwert vor. Mit diesem Pauschalwert lässt sich ein Effizienzhausstandard oft nur mit größerem Aufwand bei Dämmung oder Anlagentechnik erreichen. Wird dagegen die tatsächliche bauliche Situation mit den vorhandenen Details rechnerisch nachgewiesen, kann ein deutlich geringerer Zuschlag angesetzt werden."
+  },
+  {
+   "typ": "p",
+   "text": "Durch gut geplante Anschlüsse wird der Einfluss der Wärmebrücken verringert; die Auswahl der Dämmstoffe und ihre Lage in der Dämmebene senken ihn weiter. Das verringert den Energiebedarf und kann Dämmstärken einsparen. Zusätzlich sinkt durch die durchgehende Dämmung an Ecken und Kanten das Risiko bauphysikalischer Schäden durch Tauwasser an kühlen Ecken und Wandflächen erheblich."
+  },
+  {
+   "typ": "p",
+   "text": "**In der vorliegenden Berechnung ist ein Wärmebrückenzuschlag von ΔU_{WB} = 0,10 W/(m²K) angesetzt.** Ein detaillierter Wärmebrückennachweis oder ein Gleichwertigkeitsnachweis nach DIN 4108 Beiblatt 2 kann diesen Zuschlag deutlich senken. Gerne beraten wir Sie dazu."
+  },
+  {
+   "typ": "seitenumbruch"
+  },
+  {
+   "typ": "h3",
+   "text": "Baubegleitung"
+  },
+  {
+   "typ": "p",
+   "text": "Für ein **KfW-Effizienzhaus** sind die energetische Fachplanung und die Baubegleitung durch einen Energieeffizienz-Experten verbindlich nachzuweisen."
+  },
+  {
+   "typ": "kasten",
+   "titel": "Der Energieeffizienz-Experte muss mindestens folgende Leistungen erbringen:",
+   "punkte": [
+    "Entwicklung und planerische Umsetzung eines energetischen Gesamtkonzepts",
+    "Planung zur Minimierung von Wärmebrücken (Wärmebrückenkonzept) und zur Gebäudeluftdichtheit (Luftdichtheitskonzept)",
+    "Information des Bauherrn über die Notwendigkeit lüftungstechnischer Maßnahmen (Lüftungskonzept); die Veranlassung der Umsetzung verantwortet der Bauherr",
+    "Bestätigung des geplanten energetischen Niveaus auf dem KfW-Formular „Bestätigung zum Antrag“",
+    "Mitwirkung bei Ausschreibung bzw. Angebotseinholung sowie Prüfung der Angebote auf Übereinstimmung mit Umfang und Qualität der geplanten energetischen Maßnahmen",
+    "mindestens eine Baustellenbegehung zur Prüfung der Ausführung energetisch relevanter, insbesondere später nicht mehr zugänglicher Bauteile (z. B. wärmeschutztechnischer Bauteilaufbau) sowie der Umsetzung des Wärmebrücken- und Luftdichtheitskonzepts und der Anlagenteile",
+    "Prüfung der Umsetzung lüftungstechnischer Maßnahmen (sofern durchgeführt)",
+    "Prüfung der Durchführung einer Luftdichtheitsmessung",
+    "Prüfung der eingebauten Materialien, Produkte und Komponenten an Gebäudehülle und Anlagentechnik auf Übereinstimmung mit der Effizienzhausberechnung",
+    "Weitergabe der Parameter aus der Energiebedarfsberechnung an den Heizungsbauer; Prüfung des Nachweises des hydraulischen Abgleichs und der Einregulierung der Anlage",
+    "Dokumentation der energetischen Fachplanung und der Baubegleitung",
+    "Bestätigung der Umsetzung des geförderten Vorhabens auf dem KfW-Formular „Bestätigung nach Durchführung“"
+   ]
+  },
+  {
+   "typ": "seitenumbruch"
+  },
+  {
+   "typ": "h3",
+   "text": "Mögliche Förderungen"
+  },
+  {
+   "typ": "p",
+   "text": "Die KfW fördert den Neubau von Wohngebäuden im Programm „Klimafreundlicher Neubau – Wohngebäude“ (Kredit Nr. 297 für Privatpersonen, Nr. 298 für Unternehmen) mit zinsgünstigen Darlehen."
+  },
+  {
+   "typ": "liste",
+   "punkte": [
+    "**Förderstufe Effizienzhaus 55:** zinsgünstiges Darlehen bis {{Kredit je WE}} je Wohneinheit"
+   ],
+   "unter": [
+    "Die Finanzierung kann mit unterschiedlichen Laufzeiten und Zinsbindungen abgeschlossen werden.",
+    "Die Kosten der energetischen Fachplanung und Baubegleitung sind förderfähig und können über das Darlehen mitfinanziert werden."
+   ]
+  },
+  {
+   "typ": "warnung",
+   "titel": "Frist:",
+   "text": "**Die Förderstufe Effizienzhaus 55 kann nur noch bis längstens {{Antragsfrist EH 55}} beantragt werden – und nur, solange Fördermittel verfügbar sind.** Zum Zeitpunkt der Antragstellung muss eine gültige Baugenehmigung vorliegen (bzw. bei genehmigungsfreien Vorhaben die Baubehörde Kenntnis erlangt haben und mit dem Bau begonnen werden dürfen)."
+  },
+  {
+   "typ": "h3",
+   "text": "Förderübersicht"
+  },
+  {
+   "typ": "foerdertabelle",
+   "titel": "Effizienzhaus 55 mit Luft-Wasser-Wärmepumpe, Fensterlüftung und PV-Anlage 4,5 kWp",
+   "zeilen": [
+    [
+     "KfW EH 55 (1 WE)",
+     "Darlehen bis {{Kredit je WE}} je WE"
+    ],
+    [
+     "KfW PV-Anlage",
+     "Darlehen über KfW-Programm „Erneuerbare Energien – Standard“ (270), bitte mit der Hausbank abklären"
+    ]
+   ],
+   "fuss": [
+    "**KfW-Förderungen sind immer vor der ersten Vergabe von Liefer- und Leistungsverträgen zu beantragen. Bitte beachten Sie hierzu auch die jeweiligen KfW-Merkblätter!**",
+    "**Wohneinheiten sind in sich abgeschlossene Räume in Wohngebäuden, die zu dauerhaften Wohnzwecken bestimmt sind und die Führung eines Haushalts ermöglichen (eigener abschließbarer Zugang, Zimmer, Küche bzw. Kochnische und Bad/WC). Bitte klären Sie die Förderfähigkeit der Wohneinheiten mit Ihrer Hausbank.**"
+   ]
+  },
+  {
+   "typ": "h3",
+   "text": "Hinweise zur Beantragung der Förderung"
+  },
+  {
+   "typ": "liste",
+   "punkte": [
+    "**KfW-Darlehen**"
+   ],
+   "unter": [
+    "Die Beantragung des Darlehens erfolgt über Ihre Hausbank. Dem Darlehensantrag muss die von uns erstellte „Bestätigung zum Antrag“ beigelegt werden.",
+    "Nach Erhalt der Kreditzusage können Sie mit Ihrem Bauvorhaben beginnen. Als Antrag in diesem Sinne gilt bereits ein aktenkundiges Finanzierungsgespräch inklusive KfW-Förderung bei Ihrem Finanzierungspartner zum geplanten Vorhaben (KfW-Formular „Nachweis eines Beratungsgesprächs“)."
+   ]
+  },
+  {
+   "typ": "liste",
+   "punkte": [
+    "**Aktuelle Konditionen der KfW im Programm 297/298**"
+   ],
+   "unter": [
+    "Die tagesaktuellen Zinskonditionen finden Sie im Konditionenanzeiger der KfW: https://www.kfw-formularsammlung.de/KonditionenanzeigerINet/KonditionenAnzeiger"
+   ]
+  },
+  {
+   "typ": "seitenumbruch"
+  },
+  {
+   "typ": "h3",
+   "text": "Bestätigung der antragsgemäßen Verwendung der Mittel"
+  },
+  {
+   "typ": "p",
+   "text": "Nach Fertigstellung aller Maßnahmen müssen deren Vollständigkeit und der korrekte Einsatz der Mittel bestätigt werden. Hierzu benötigen wir folgende Unterlagen:"
+  },
+  {
+   "typ": "liste",
+   "punkte": [
+    "Rechnungen mit technischen Daten der Baustoffe (Dämmstoffe, Ziegel) und der technischen Einrichtungen (Heizung, Lüftungsanlage, Pumpen, Solaranlage, Pufferspeicher …), aufgelistet in **einer Excel-Tabelle** mit den **tatsächlichen Zahlbeträgen**",
+    "geschwärzter Kontoauszug, aus dem das Kreditinstitut, Ihre Bankverbindung und Ihr Name hervorgehen",
+    "Bestätigung des hydraulischen Abgleichs auf dem Formular der VdZ",
+    "Messprotokoll und Volumenberechnung des Blower-Door-Tests",
+    "Fachunternehmererklärungen"
+   ]
+  },
+  {
+   "typ": "p",
+   "text": "Anhand der Rechnungen müssen sich die einzelnen Rechnungspositionen eindeutig den förderfähigen Maßnahmen zuordnen lassen. Die aufbewahrungspflichtigen Rechnungen müssen die förderfähigen Maßnahmen, die Arbeitsleistung und die Adresse des Investitionsobjekts ausweisen, nach Gewerken getrennt und in deutscher Sprache ausgestellt sein. Rechnungen werden nur anerkannt, wenn sie **unbar** beglichen wurden. **Kassenzettel werden nicht anerkannt!**"
+  },
+  {
+   "typ": "p",
+   "text": "Ein Vor-Ort-Termin zur Prüfung der vorgelegten Angaben erfolgt nach Absprache."
+  },
+  {
+   "typ": "hinweis",
+   "text": "**Bitte beachten Sie die technischen Mindestanforderungen der KfW, wie in der Anlage und den Merkblättern beschrieben. Bei Nichteinhaltung der Anforderungen gefährden Sie Ihre Förderung!**"
+  },
+  {
+   "typ": "p",
+   "text": "Im Falle einer Vor-Ort-Prüfung durch die KfW trägt der Antragsteller die Aufwendungen für die Erstellung der Prüfungsunterlagen und gegebenenfalls für den Vor-Ort-Termin."
+  },
+  {
+   "typ": "h3",
+   "text": "Weitere Informationen"
+  },
+  {
+   "typ": "p",
+   "text": "Alle weiteren Informationen zum Förderprogramm „Klimafreundlicher Neubau – Wohngebäude“ finden Sie unter www.kfw.de/297 und www.kfw.de/298."
+  },
+  {
+   "typ": "seitenumbruch"
+  },
+  {
+   "typ": "h1",
+   "text": "Anforderungen an die Förderstufe Effizienzhaus 55"
+  },
+  {
+   "typ": "p",
+   "text": "Der Standard Effizienzhaus 55 wird durch bauliche und anlagentechnische Maßnahmen zur Verbesserung der Energieeffizienz und die Einbindung erneuerbarer Energien erreicht. Ein Wohngebäude erreicht diese Förderstufe, wenn"
+  },
+  {
+   "typ": "liste",
+   "punkte": [
+    "die Anforderungen an ein Effizienzhaus 55 erfüllt sind (Primärenergiebedarf ≤ 55 %, H'_{T} ≤ {{HT-Anteil}} % des Referenzgebäudes),",
+    "keine Wärmeerzeuger auf Basis fossiler Energie eingesetzt werden und",
+    "zum Zeitpunkt der Antragstellung eine gültige Baugenehmigung vorliegt oder bei einem nach der jeweiligen Landesbauordnung nicht genehmigungspflichtigen Vorhaben die zuständige Baubehörde Kenntnis erlangt hat und mit der Ausführung begonnen werden darf."
+   ]
+  },
+  {
+   "typ": "h3",
+   "text": "Ausschluss fossiler Energieträger zur Wärmeerzeugung"
+  },
+  {
+   "typ": "p",
+   "text": "Im Gebäude dürfen keine Wärmeerzeuger auf Basis folgender Energieträger eingesetzt werden:"
+  },
+  {
+   "typ": "liste",
+   "punkte": [
+    "fossiles Gas oder Öl,",
+    "Kohlebrennstoffe und Torf,",
+    "fossil erzeugter Wasserstoff."
+   ]
+  },
+  {
+   "typ": "p",
+   "text": "Der Ausschluss gilt auch für Kombinationen, z. B. mit fossilem Gas oder Öl betriebene Brennwertkessel zusammen mit Anlagen zur Nutzung erneuerbarer Energien (Hybridsysteme). In einem Gebäudenetz ist der Einsatz der genannten Energieträger bis zu einem Anteil von 30 % der jährlichen kumulierten Erzeugernutzwärmeabgabe möglich, wenn das Gebäudenetz mindestens ein Gebäude versorgt, dessen Baujahr vor 1995 liegt oder für das der Bauantrag vor dem Inkrafttreten der Wärmeschutzverordnung 1995 am 01.01.1995 gestellt wurde."
+  },
+  {
+   "typ": "p",
+   "text": "Für Wärmenetze bestehen – mit Ausnahme von Gebäudenetzen – keine Einschränkungen."
+  },
+  {
+   "typ": "p",
+   "text": "Ein Gebäudenetz ist ein Netz zur ausschließlichen Versorgung mit Wärme von bis zu 16 Gebäuden (Wohn- oder Nichtwohngebäude) und bis zu 100 Wohneinheiten. Ein Wärmenetz dient der Versorgung von Gebäuden mit leitungsgebundener Wärme und ist kein Gebäudenetz."
+  },
+  {
+   "typ": "seitenumbruch"
+  },
+  {
+   "typ": "weitergabe",
+   "an": "Ihren Bauunternehmer",
+   "bv": "Erika Testbauherr, Bauplatz 7, 51067 Köln"
+  },
+  {
+   "typ": "h2",
+   "text": "Mindestanforderungen an die Bauteile der Gebäudehülle"
+  },
+  {
+   "typ": "p",
+   "text": "Nach Fertigstellung aller Maßnahmen muss deren Vollständigkeit und der korrekte Einsatz der Mittel bestätigt werden. Bitte beachten Sie, dass nach Abschluss der Maßnahmen eine von einem Fachunternehmen abgestempelte und unterschriebene Erklärung vorliegen muss."
+  },
+  {
+   "typ": "h2",
+   "text": "Gebäudehülle Effizienzhaus 55"
+  },
+  {
+   "typ": "bauteil",
+   "titel": "Dachfläche Nord",
+   "zeilen": [
+    "Dampfbremsfolie",
+    "Mineralfaserdämmung 20 cm – WLG 035 zwischen Sparren (Holzanteil 16,7 %)",
+    "Holzfaserdämmplatte 6 cm – WLG 045",
+    "belüftete Dacheindeckung (Lattung, Dachziegel)"
+   ],
+   "u": "⇨ U-Wert_{(Gesamtaufbau)} = 0,18 W/(m²K)",
+   "legende": false
+  },
+  {
+   "typ": "bauteil",
+   "titel": "Dachfläche Süd",
+   "zeilen": [
+    "Gipskartonplatten 2,5 cm",
+    "Polyethylenfolie",
+    "Mineralfaserdämmung 18 cm – WLG 040 zwischen Sparren (Holzanteil 12,5 %)",
+    "belüftete Dacheindeckung (Lattung, Dachziegel)"
+   ],
+   "u": "⇨ U-Wert_{(Gesamtaufbau)} = 0,26 W/(m²K)",
+   "legende": false
+  },
+  {
+   "typ": "bauteil",
+   "titel": "Außenwand, Giebelwand, Kniestock",
+   "zeilen": [
+    "Innenputz 1,5 cm",
+    "Ziegelmauerwerk T9 36,5 cm – λ = 0,09",
+    "Außenputz 2 cm"
+   ],
+   "u": "⇨ U-Wert_{(Gesamtaufbau)} = 0,23 W/(m²K)",
+   "legende": false
+  },
+  {
+   "typ": "bauteil",
+   "titel": "Bodenplatte",
+   "zeilen": [
+    "Bodenbelag Heizparkett 2,4 cm",
+    "Zement-Estrich 6 cm",
+    "Polyethylenfolie",
+    "Estrich-Dämmplatte 2,5 cm – WLG 040",
+    "Betonplatte 20 cm",
+    "Perimeterdämmung 12 cm – WLG 041"
+   ],
+   "u": "⇨ U-Wert_{(Gesamtaufbau)} = 0,25 W/(m²K)",
+   "legende": false
+  },
+  {
+   "typ": "hinweis",
+   "text": "**Alle Bauteile müssen thermisch getrennt werden!** **Achtung: Die Wärmeleitfähigkeit (WLG) der Perimeterdämmung ist der Bemessungswert. Das bestellte Material muss λ ≤ 0,041 W/(mK) (WLG 041) aufweisen!**"
+  },
+  {
+   "typ": "bauteil",
+   "titel": "Außenfenster und Fenstertüren",
+   "zeilen": [
+    "Fenster mit Dreifachverglasung",
+    "Gesamtenergiedurchlassgrad der Verglasung g = 0,50"
+   ],
+   "u": "⇨ U_{W}-Wert ≤ 0,80 W/(m²K)",
+   "legende": true
+  },
+  {
+   "typ": "bauteil",
+   "titel": "Rollladenkasten / Jalousiekasten",
+   "zeilen": [
+    "Verschattungseinrichtungen werden innerhalb der Dämmebene angebracht (lt. Berechnung: RokaLith in Ziegelwand)"
+   ],
+   "u": "⇨ U-Wert_{(Gesamtaufbau)} = 0,23 W/(m²K)",
+   "legende": false
+  },
+  {
+   "typ": "bauteil",
+   "titel": "Türen",
+   "zeilen": [
+    "Hauseingangstür"
+   ],
+   "u": "⇨ U_{D}-Wert ≤ 0,37 W/(m²K)",
+   "legende": false
+  },
+  {
+   "typ": "bauteil",
+   "titel": "Sommerlicher Wärmeschutz",
+   "zeilen": [
+    "Zur Einhaltung des sommerlichen Wärmeschutzes müssen außenliegende Verschattungseinrichtungen angebracht werden (im Nachweis angesetzt: außenliegende Lamellen/Raffstores, F_{C} ≤ 0,25)."
+   ]
+  },
+  {
+   "typ": "fussnote",
+   "text": "* Alle U-Werte in W/(m²K). Bei den materialspezifischen Wärmeleitfähigkeiten (λ) ist **nur der Bemessungswert maßgeblich**."
+  },
+  {
+   "typ": "p_rot",
+   "text": "**Es ist darauf zu achten, dass alle Dämmebenen – vor allem an erdberührten Bauteilen – geschlossen (lückenlos) ausgeführt werden!**"
+  },
+  {
+   "typ": "warnung",
+   "titel": "Achtung:",
+   "text": "**Bei der Auswahl von Dämmstoffen ist darauf zu achten, dass die angegebene Wärmeleitfähigkeit (WLG) auf den __Bemessungswert λ__ des Dämmstoffes bezogen ist.**"
+  },
+  {
+   "typ": "seitenumbruch"
+  },
+  {
+   "typ": "weitergabe",
+   "an": "Ihren Heizungsbauer",
+   "bv": "Erika Testbauherr, Bauplatz 7, 51067 Köln"
+  },
+  {
+   "typ": "h2",
+   "text": "Mindestanforderungen an die Anlagentechnik"
+  },
+  {
+   "typ": "p",
+   "text": "Nach Fertigstellung aller Maßnahmen muss deren Vollständigkeit und der korrekte Einsatz der Mittel bestätigt werden. Bitte beachten Sie, dass nach Abschluss der Maßnahmen eine von einem Fachunternehmen abgestempelte und unterschriebene Erklärung vorliegen muss."
+  },
+  {
+   "typ": "liste",
+   "punkte": [
+    "**Luft-Wasser-Wärmepumpe** zur Raumbeheizung"
+   ]
+  },
+  {
+   "typ": "einzug",
+   "text": "Das Heizungssystem mit der einberechneten Wärmepumpe darf keine aktive Kühlfunktion ausüben, da dies das Berechnungsergebnis negativ verändert."
+  },
+  {
+   "typ": "liste",
+   "punkte": [
+    "Wärmeerzeugung und -verteilung"
+   ],
+   "unter": [
+    "mit integriertem Heizstab (elektrische Nachheizung), Deckungsanteil Wärmepumpe 98,5 % lt. Berechnung",
+    "Heizwärmeübergabe durch Flächenheizung",
+    "Auslegungstemperatur 35/28 °C",
+    "Heizungspufferspeicher"
+   ]
+  },
+  {
+   "typ": "liste",
+   "punkte": [
+    "Trinkwassererwärmung"
+   ],
+   "unter": [
+    "dezentral über elektrisch beheizten Warmwasserspeicher (ca. 70 l lt. Berechnung)"
+   ]
+  },
+  {
+   "typ": "warnung",
+   "titel": "Achtung:",
+   "text": "Beim Einbau wassergeführter Heiztechnik bitte den hydraulischen Abgleich der Anlage nach **Verfahren B** vom Heizungsbauer auf dem Formular der VdZ bestätigen lassen."
+  },
+  {
+   "typ": "seitenumbruch"
+  },
+  {
+   "typ": "h3",
+   "text": "Anforderungen an die Wärmepumpe im Effizienzhaus 55"
+  },
+  {
+   "typ": "p",
+   "text": "Effizienzhäuser mit einer Luft-Wasser-Wärmepumpe mit Außeneinheit sind nur förderfähig, wenn die Geräuschemissionen der Außeneinheit die Geräuschemissionsgrenzwerte für Wärmepumpen der Europäischen Durchführungsverordnung (EU) Nr. 813/2013 (Ökodesign-Verordnung) in der Fassung vom 2. August 2013 unterschreiten. **Seit dem 1. Januar 2026 muss der Wert mindestens 10 dB unter diesem Grenzwert liegen** (zuvor 5 dB)."
+  },
+  {
+   "typ": "p",
+   "text": "Zusätzlich sind die Anforderungen der TA Lärm einzuhalten, wie sie im Leitfaden für die Verbesserung des Schutzes gegen Lärm bei stationären Geräten (LAI-Leitfaden) beschrieben sind. Wir empfehlen, die zulässigen Geräuschemissionen des Außengeräts und die Aufstellbedingungen mit dem interaktiven Online-Assistenten auf Basis des LAI-Leitfadens unter http://lwpapp.webyte.de zu bewerten. Zur Dokumentation sollte die Ergebnisseite des Online-Assistenten verwendet werden."
+  },
+  {
+   "typ": "p",
+   "text": "Aufwendungen für eine akustische Fachplanung werden als förderfähige Kosten anerkannt."
+  },
+  {
+   "typ": "p",
+   "text": "Ab dem 1. Januar 2027 dürfen in Effizienzhäusern dieser Förderrichtlinie ausschließlich Wärmepumpen mit natürlichem Kältemittel eingebaut werden."
+  },
+  {
+   "typ": "p",
+   "text": "Wärmepumpen müssen über Schnittstellen verfügen, über die sie automatisiert netzdienlich aktiviert und betrieben werden können (z. B. nach den Standards „SG Ready“ oder „VHP Ready“). Sie müssen außerdem an ein zertifiziertes Smart-Meter-Gateway angeschlossen werden können, damit energiewirtschaftlich relevante Mess- und Steuerungsvorgänge entsprechend dem Energiewirtschaftsgesetz und dem Messstellenbetriebsgesetz abgewickelt werden können."
+  },
+  {
+   "typ": "seitenumbruch"
+  },
+  {
+   "typ": "weitergabe",
+   "an": "Ihren PV-Installateur",
+   "bv": "Erika Testbauherr, Bauplatz 7, 51067 Köln"
+  },
+  {
+   "typ": "h2",
+   "text": "Mindestanforderungen an die Photovoltaikanlage"
+  },
+  {
+   "typ": "p",
+   "text": "Nach Fertigstellung aller Maßnahmen muss deren Vollständigkeit und der korrekte Einsatz der Mittel bestätigt werden. Bitte beachten Sie, dass nach Abschluss der Maßnahmen eine von einem Fachunternehmen abgestempelte und unterschriebene Erklärung vorliegen muss."
+  },
+  {
+   "typ": "liste",
+   "punkte": [
+    "**Photovoltaikanlage – 4,5 kWp** (Modulfläche 16 m², Neigung 30°)"
+   ]
+  },
+  {
+   "typ": "einzug",
+   "text": "⇨ PV-Anlage mit mindestens 4,5 kWp Leistung notwendig für das Erreichen des Effizienzhaus 55."
+  },
+  {
+   "typ": "liste",
+   "punkte": [
+    "**Um eine Gefährdung des Effizienzhausniveaus auszuschließen, müssen Sie uns eine Vergrößerung oder Verkleinerung der PV-Anlage mitteilen; sie muss von uns freigegeben werden!**"
+   ]
+  },
+  {
+   "typ": "seitenumbruch"
+  },
+  {
+   "typ": "h1",
+   "text": "Wichtige Daten für Ihr Gebäude, um Ihre Förderung nicht zu gefährden",
+   "rot": true
+  },
+  {
+   "typ": "p",
+   "text": "Die gesetzlichen Anforderungen steigen stetig und spiegeln sich in den Berechnungsergebnissen wider. Bitte beachten und erfüllen Sie unbedingt die aufgeführten Anforderungen und weisen Sie Ihre Fachunternehmen im Vorfeld darauf hin – andernfalls gefährden Sie Ihre Förderung."
+  },
+  {
+   "typ": "h3",
+   "text": "Luftdichtheit"
+  },
+  {
+   "typ": "p",
+   "text": "In der Rohbauphase kann nach Fertigstellung der luftdichten Hülle zur Qualitätssicherung ein vorgezogener Luftdichtheitstest (Blower-Door-Test) durchgeführt werden, um Leckagen (z. B. an Folienanschlüssen, Fenstereinbindungen und sonstigen Anschlüssen) zu finden. Zu diesem Zeitpunkt können Anschlüsse noch nachgebessert werden."
+  },
+  {
+   "typ": "p",
+   "text": "Ein Angebot hierfür legen wir Ihren Unterlagen bei."
+  },
+  {
+   "typ": "p",
+   "text": "Der abschließende Luftdichtheitstest **muss** nach Fertigstellung zur Abnahme durchgeführt werden. Dieser Messwert ist verbindlich. Folgender Wert für die volumenbezogene Luftdurchlässigkeit **muss** erreicht werden:"
+  },
+  {
+   "typ": "kennwert",
+   "text": "für Ihr Gebäude mit Fensterlüftung: n_{50} ≤ 3,0 h^{-1}"
+  }
+ ],
+ "platzhalter": [
+  "Antragsfrist EH 55",
+  "HT-Anteil",
+  "Kredit je WE"
+ ],
+ "bilder": {},
+ "dokument_eigenschaften": {
+  "Cockpit": "test",
+  "Vorlage": "Zusammenfassung EH V1"
+ }
+}

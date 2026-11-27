@@ -249,3 +249,16 @@ Noch nicht umgesetzt: eigene Szenarien „EM ohne 266“ und „EM mit 266“ im
   WPB-Einstufung ab“ erscheint nur ohne WPB-Status.
 - `interner_hinweis` (Cockpit) wird nicht gedruckt.
 - Tests: `test/test.js` prüft: keine Empfehlung in beiden WPB-Fällen, keine „beste Wahl“, kein „¹“, und dass der interne Hinweis im Bericht fehlt.
+
+## Zusammenfassung Effizienzhaus (ab 0.8.0)
+- Neue Route `POST /zusammenfassung/effizienzhaus` (höchstens 8 MB). Antwort: Word (`.docx`) im CI Energieberatung Manfred Serek.
+- Datenvertrag (vom Cockpit, `backend/app/hottgenroth/zusammenfassung.py` → `bauen()`):
+  `absender` {firma, zeile1, zeile2, strasse, plz_ort, telefon, mail, geschaeftsfuehrer, unterschrift_name, unterschrift_titel},
+  `bv` (Kunde und Bauvorhaben), `datum`, `titel`, `bloecke` (Liste typisierter Blöcke, `BLOCKTYPEN` in `src/eh_zusammenfassung.js`),
+  `platzhalter`, `projektnummer`, `versionsnummer`, optional `bilder` {unterschrift, siegel} als Base64 (nur PNG/JPG, Seitenverhältnis
+  bleibt) und `dokument_eigenschaften` (u. a. „Vorlage“, „Import“).
+- Der Generator rechnet nicht. Alle Werte kommen fertig formatiert. `{{Feld}}` im Text wird als «Feld» gelb markiert gedruckt (fehlender
+  Wert aus den Konditionen, z. B. «Kredit je WE»). Ein nicht ersetztes `[[Feld]]` oder ein unbekannter Blocktyp ergibt 422.
+- Tests: `test/test.js` (Textprüfung, gelber Platzhalter, Dokumenteigenschaft „Vorlage“, Bilder als zusätzliche Medien ohne
+  Textänderung, Fehlerfälle, Route über den Server). Testdaten `test/zusammenfassung_eh55.json` (Testkunde, keine echten Personen).
+- Textvergleich: Fördervergleich-Beispiele in 0.7.0 und 0.8.0 textgleich. PDF-Sichtprüfung der Zusammenfassung (18 Seiten) am 27.11.2026.
