@@ -2,13 +2,14 @@ import React, { useRef, useState } from "react";
 import { api, dateiHochladen, ZEITLIMIT_LANG_MS, groesseText, hatRolle, zeit } from "./api.js";
 
 export const KATEGORIEN_DATEI = [["kostenschaetzung", "Kostenschätzung"], ["energieausweis", "Energieausweis"], ["plaene", "Pläne"],
-  ["fotos", "Fotos"], ["checkliste", "Checkliste"], ["angebote", "Angebote"], ["bericht", "Berichte (erzeugt)"], ["sonstiges", "Sonstiges"]];
+  ["fotos", "Fotos"], ["checkliste", "Checkliste"], ["energieberechnung", "Energieberechnung"], ["angebote", "Angebote"], ["bericht", "Berichte (erzeugt)"], ["sonstiges", "Sonstiges"]];
 const NUR_ERZEUGT = ["bericht"]; // diese Kategorien füllt nur das Cockpit selbst
-const ERLAUBT = ".pdf,.jpg,.jpeg,.png,.heic,.heif,.xlsx,.docx";
+const ERLAUBT = ".pdf,.jpg,.jpeg,.png,.heic,.heif,.xlsx,.docx,.sqproj";
 const MAX = 25_000_000;
 const TYP = { "application/pdf": "PDF", "image/jpeg": "JPG", "image/png": "PNG", "image/heic": "HEIC",
   "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet": "XLSX",
-  "application/vnd.openxmlformats-officedocument.wordprocessingml.document": "DOCX" };
+  "application/vnd.openxmlformats-officedocument.wordprocessingml.document": "DOCX",
+  "application/vnd.sqlite3": "SQPROJ" };
 const ANZEIGBAR = ["application/pdf", "image/jpeg", "image/png"];
 
 /** Bereich „Unterlagen“ in der Projektakte: Upload (mehrere Dateien, Drag & Drop, Handy/Tablet) und Liste nach Kategorie. */
@@ -69,7 +70,7 @@ export function Unterlagen({ ich, projektId, dateien, onGeaendert }) {
               onKeyDown={e => (e.key === "Enter" || e.key === " ") && kategorie && (e.preventDefault(), eingabe.current?.click())}>
               Dateien auswählen
             </label>
-            <p className="klein">PDF, JPG, PNG, HEIC, XLSX, DOCX · höchstens 25 MB je Datei · mehrere auf einmal möglich</p>
+            <p className="klein">PDF, JPG, PNG, HEIC, XLSX, DOCX, Hottgenroth-Projektdatei (.sqproj, nur Kategorie Energieberechnung) · höchstens 25 MB je Datei · mehrere auf einmal möglich</p>
           </div>
           {laeufe.length > 0 && (
             <ul className="laeufe" aria-live="polite">

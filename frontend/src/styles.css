@@ -297,3 +297,14 @@ td.angekuendigt { background: var(--gold-l); }
 .fundstellen .klein-knopf { min-height: 44px; font-size: 13px; padding: 4px 10px; }
 .fundstellen .klein-knopf.fehlt { border-color: var(--gold); background: var(--gold-l); }
 .fundstellen-liste { border-left: 3px solid var(--gold); padding: 8px 0 8px 12px; margin-top: 6px; display: grid; gap: 10px; }
+/* Hottgenroth-Import und Zusammenfassung Effizienzhaus (27.11.2026) */
+.unterkarte { border-top: 2px solid var(--gold); margin-top: 16px; padding-top: 12px; }
+.unterkarte h4 { margin: 16px 0 8px; }
+tr.ausgewaehlt td { background: var(--gold-l); }
+ul.pruefliste li.warnung label { display: flex; flex-direction: row; gap: 10px; align-items: flex-start; min-height: 44px; cursor: pointer; font-weight: normal; font-size: 14px; color: var(--text); margin: 0; }
+ul.pruefliste li.warnung input { flex: 0 0 22px; width: 22px; height: 22px; min-height: 22px; margin: 2px 0 0; }
+ul.pruefliste li.warnung label span { flex: 1; }
+ul.pruefliste li.info { color: var(--grau); padding-left: 32px; }
+.vorlage-eintrag { display: flex; gap: 8px; align-items: flex-start; margin-bottom: 6px; }
+.vorlage-eintrag textarea { flex: 1; }
+.vorlage-bild img { max-height: 90px; max-width: 260px; border: 1px solid var(--rand); background: #fff; }

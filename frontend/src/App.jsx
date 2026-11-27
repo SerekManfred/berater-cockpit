@@ -2,6 +2,7 @@ import React, { useCallback, useEffect, useState } from "react";
 import { ABGEMELDET, SITZUNG_SCHLUESSEL, VERWEIGERT, api, hatRolle, rollenText, sitzungGewechselt } from "./api.js";
 import { Anmeldung, PasswortFormular, PasswortPflicht, ZweiFaktor, ZweiFaktorEinrichten } from "./Anmeldung.jsx";
 import { Angebotsvorlagen } from "./Angebotsvorlagen.jsx";
+import { ZusammenfassungVorlage } from "./ZusammenfassungVorlage.jsx";
 import { Benutzerverwaltung, Protokoll } from "./Benutzer.jsx";
 import { Foerdervergleich } from "./Foerdervergleich.jsx";
 import { Fehlergrenze } from "./Fehlergrenze.jsx";
@@ -75,6 +76,7 @@ function Cockpit({ ich, onAbmelden }) {
     ["schnell", "Schnellrechnung", hatRolle(ich, "berater")],
     ["konditionen", "Förderkonditionen", true],
     ["vorlagen", "Angebotsvorlagen", true],
+    ["zusammenfassung", "Vorlage Zusammenfassung EH", true],
     ["benutzer", "Benutzer", hatRolle(ich)],
     ["protokoll", "Protokoll", hatRolle(ich)],
     ["papierkorb", "Papierkorb", hatRolle(ich)],
@@ -104,6 +106,7 @@ function Cockpit({ ich, onAbmelden }) {
             untertitel="Freie Berechnung ohne Projekt und ohne Speichern. Für einen gespeicherten Bericht den Fördervergleich aus der Projektakte starten." />}
           {ansicht === "konditionen" && <Konditionen key={konditionenZiel.n} ich={ich} startVersion={konditionenZiel.id} />}
           {ansicht === "vorlagen" && <Angebotsvorlagen ich={ich} />}
+          {ansicht === "zusammenfassung" && <ZusammenfassungVorlage ich={ich} />}
           {ansicht === "benutzer" && <Benutzerverwaltung ich={ich} />}
           {ansicht === "protokoll" && <Protokoll />}
           {ansicht === "papierkorb" && <Papierkorb />}

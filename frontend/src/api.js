@@ -87,8 +87,13 @@ export const groesseText = b => b >= 1_000_000 ? (b / 1_000_000).toLocaleString(
   : Math.max(1, Math.round(b / 1000)).toLocaleString("de-DE") + " kB";
 
 // Word-Bericht eines gespeicherten Berichts laden und als Datei speichern (Fehler als verständliche Meldung)
-export async function wordHerunterladen(berichtId) {
-  const r = await holen(`/api/berichte/${berichtId}/word`, { credentials: "same-origin" }, ZEITLIMIT_LANG_MS);
+export function wordHerunterladen(berichtId) {
+  return herunterladen(`/berichte/${berichtId}/word`, "Bericht.docx");
+}
+
+/** Datei vom Backend laden und speichern; Fehlermeldung des Servers statt einer kaputten Datei. */
+export async function herunterladen(pfad, ersatzname) {
+  const r = await holen("/api" + pfad, { credentials: "same-origin" }, ZEITLIMIT_LANG_MS);
   if (!r.ok) {
     let daten = null;
     try { daten = await r.json(); } catch { /* keine JSON-Antwort */ }
@@ -96,7 +101,7 @@ export async function wordHerunterladen(berichtId) {
     throw new Error(fehlertext(daten) || `Fehler ${r.status}`);
   }
   const blob = await r.blob();
-  const name = /filename="([^"]+)"/.exec(r.headers.get("content-disposition") || "")?.[1] || "Bericht.docx";
+  const name = /filename="([^"]+)"/.exec(r.headers.get("content-disposition") || "")?.[1] || ersatzname;
   const url = URL.createObjectURL(blob);
   const a = document.createElement("a");
   a.href = url; a.download = name; document.body.appendChild(a); a.click(); a.remove();

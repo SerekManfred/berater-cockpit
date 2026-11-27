@@ -2,6 +2,7 @@ import React, { useEffect, useState } from "react";
 import { api, hatRolle, wordHerunterladen, zeit } from "./api.js";
 import { ANGEBOTE, eur, Ergebnis, Foerdervergleich, KATEGORIEN } from "./Foerdervergleich.jsx";
 import { Unterlagen, VorOrtCheckliste } from "./Unterlagen.jsx";
+import { Energieberechnung } from "./Hottgenroth.jsx";
 import { BerichtInit } from "./BerichtInit.jsx";
 import { Schnellweg } from "./Schnellweg.jsx";
 import { erzeugtMitText } from "./Versionen.jsx";
@@ -386,6 +387,8 @@ function ProjektAkte({ ich, id, onZurueck, onGehe }) {
       {darfBearbeiten && <VorOrtCheckliste key={p.gebaeudeart} projekt={p} onGeaendert={laden} />}
 
       <Unterlagen ich={ich} projektId={p.id} dateien={p.dateien} onGeaendert={laden} />
+
+      {p.gebaeudeart !== "Kirche" && <Energieberechnung ich={ich} projekt={p} onGeaendert={laden} />}
 
       {["EFH", "ZFH", "MFH"].includes(p.gebaeudeart) && (
         <section className="karte">
